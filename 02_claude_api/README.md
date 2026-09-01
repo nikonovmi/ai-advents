@@ -1,5 +1,8 @@
 # dummy
 
+https://github.com/user-attachments/assets/d8ac1457-d6f4-4020-a71e-c34f794e326f
+
+
 A single web page that shows what each knob on a Claude API request actually does
 to the answer.
 
