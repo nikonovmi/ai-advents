@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dummy — Claude temperature × persona grid</title>
+<style>
+  :root {
+    --border: #d4d4d8;
+    --bg: #fafafa;
+    --fg: #18181b;
+    --muted: #71717a;
+    --accent: #2563eb;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 2rem 1.5rem 4rem;
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    color: var(--fg);
+    background: var(--bg);
+  }
+  main { max-width: 1200px; margin: 0 auto; }
+  h1 { font-size: 1.5rem; margin: 0 0 .25rem; }
+  p.sub { margin: 0 0 1.5rem; color: var(--muted); font-size: .9rem; }
+
+  textarea {
+    width: 100%;
+    min-height: 90px;
+    padding: .7rem .8rem;
+    font: inherit;
+    color: inherit;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    resize: vertical;
+  }
+  textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+  .controls { display: flex; align-items: center; gap: 1rem; margin: .75rem 0 1.75rem; }
+  button {
+    padding: .55rem 1.4rem;
+    font: inherit;
+    font-weight: 600;
+    color: #fff;
+    background: var(--accent);
+    border: 0;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  button:hover:not(:disabled) { background: #1d4ed8; }
+  button:disabled { background: #a1a1aa; cursor: not-allowed; }
+  .status { color: var(--muted); font-size: .875rem; }
+  .status.error { color: #b91c1c; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    table-layout: fixed;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .6rem .7rem;
+    vertical-align: top;
+    text-align: left;
+  }
+  thead th { background: #f4f4f5; font-size: .85rem; }
+  tbody th {
+    background: #f4f4f5;
+    width: 5.5rem;
+    font-size: .85rem;
+    font-variant-numeric: tabular-nums;
+  }
+  td .cell {
+    max-height: 220px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-size: .875rem;
+  }
+  td.pending .cell { color: var(--muted); font-style: italic; }
+  td.failed .cell { color: #b91c1c; }
+  table[hidden] { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>dummy</h1>
+  <p class="sub">One message, 15 answers — five temperatures across three system prompts.</p>
+
+  <textarea id="message" placeholder="Type a message, e.g. “Why is the sky blue?”"></textarea>
+  <div class="controls">
+    <button id="send">Send</button>
+    <span class="status" id="status"></span>
+  </div>
+
+  <table id="grid" hidden>
+    <thead>
+      <tr><th>temp</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</main>
+
+<script>
+  // Must match TEMPERATURES / SYSTEM_PROMPTS keys in server.js.
+  const TEMPERATURES = ["0", "0.25", "0.5", "0.75", "1"];
+  const COLUMNS = [
+    { key: "dummy",  label: "Dummy (IQ 70)" },
+    { key: "toxic",  label: "Toxic" },
+    { key: "judge",  label: "Senior judge" },
+  ];
+
+  const messageEl = document.getElementById("message");
+  const sendEl = document.getElementById("send");
+  const statusEl = document.getElementById("status");
+  const gridEl = document.getElementById("grid");
+  const headRow = gridEl.tHead.rows[0];
+  const bodyEl = gridEl.tBodies[0];
+
+  for (const col of COLUMNS) {
+    const th = document.createElement("th");
+    th.textContent = col.label;
+    headRow.appendChild(th);
+  }
+
+  // Build the 5x3 skeleton once; each render only rewrites cell contents.
+  const cells = {};
+  for (const temp of TEMPERATURES) {
+    const tr = bodyEl.insertRow();
+    const th = document.createElement("th");
+    th.scope = "row";
+    th.textContent = temp === "1" ? "1.0" : temp;
+    tr.appendChild(th);
+    for (const col of COLUMNS) {
+      const td = tr.insertCell();
+      const div = document.createElement("div");
+      div.className = "cell";
+      td.appendChild(div);
+      cells[col.key + "@" + temp] = td;
+    }
+  }
+
+  function setAllCells(text, className) {
+    for (const temp of TEMPERATURES) {
+      for (const col of COLUMNS) {
+        const td = cells[col.key + "@" + temp];
+        td.className = className;
+        td.firstChild.textContent = text;
+      }
+    }
+  }
+
+  function setStatus(text, isError) {
+    statusEl.textContent = text;
+    statusEl.classList.toggle("error", Boolean(isError));
+  }
+
+  async function send() {
+    const message = messageEl.value.trim();
+    if (!message) {
+      setStatus("Type a message first.", true);
+      return;
+    }
+
+    sendEl.disabled = true;
+    setStatus("Asking Claude 15 times…");
+    gridEl.hidden = false;
+    setAllCells("…", "pending");
+
+    try {
+      const res = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || ("Request failed: " + res.status));
+
+      for (const temp of TEMPERATURES) {
+        for (const col of COLUMNS) {
+          const td = cells[col.key + "@" + temp];
+          const text = data.results?.[col.key]?.[temp] ?? "(missing)";
+          td.className = /^Error(\s|\d|:)/.test(text) ? "failed" : "";
+          td.firstChild.textContent = text;
+        }
+      }
+      setStatus("Done.");
+    } catch (err) {
+      setAllCells("—", "pending");
+      setStatus(err.message, true);
+    } finally {
+      sendEl.disabled = false;
+    }
+  }
+
+  sendEl.addEventListener("click", send);
+  messageEl.addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") send();
+  });
+</script>
+</body>
+</html>
