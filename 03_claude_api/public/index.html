@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Week 1 Day 3 — Reasoning Approaches</title>
+    <style>
+      :root {
+        --ink: #1a1a1a;
+        --muted: #5f6368;
+        --line: #d4d4d0;
+        --bg: #faf9f7;
+        --panel: #ffffff;
+        --accent: #7a3e12;
+        --accent-soft: #f2e8de;
+        --bad: #a3271f;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 32px 24px 80px;
+        background: var(--bg);
+        color: var(--ink);
+        font: 15px/1.55 ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      }
+      main { max-width: 1180px; margin: 0 auto; }
+      h1 { font-size: 24px; margin: 0 0 4px; letter-spacing: -0.01em; }
+      h2 { font-size: 16px; margin: 36px 0 10px; letter-spacing: -0.005em; }
+      .sub { color: var(--muted); margin: 0 0 24px; font-size: 13px; }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 16px 18px;
+      }
+      pre.problem {
+        margin: 0;
+        white-space: pre-wrap;
+        font: 13.5px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      .controls {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin: 20px 0 6px;
+      }
+      label { font-size: 13px; color: var(--muted); }
+      input[type="number"] {
+        width: 68px;
+        padding: 7px 8px;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        font: inherit;
+        background: #fff;
+      }
+      button {
+        font: inherit;
+        padding: 8px 16px;
+        border-radius: 4px;
+        border: 1px solid var(--accent);
+        background: var(--accent);
+        color: #fff;
+        cursor: pointer;
+      }
+      button.secondary { background: #fff; color: var(--accent); }
+      button:disabled { opacity: 0.5; cursor: default; }
+      .status { font-size: 13px; color: var(--muted); min-height: 20px; margin: 8px 0 0; }
+      .status .note { color: var(--accent); }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        background: var(--panel);
+        font-size: 13px;
+      }
+      th, td {
+        border: 1px solid var(--line);
+        padding: 9px 10px;
+        text-align: left;
+        vertical-align: top;
+      }
+      th { background: #f1efeb; font-weight: 600; }
+      th.method, td.method { width: 130px; font-weight: 600; white-space: nowrap; }
+      td.num, th.num { text-align: right; white-space: nowrap; width: 96px; }
+      td.cell { cursor: pointer; }
+      td.cell:hover { background: var(--accent-soft); }
+      td.cell.selected { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); }
+      .rec { display: block; }
+      .score {
+        display: inline-block;
+        margin-top: 6px;
+        font: 11px/1 ui-monospace, Menlo, monospace;
+        color: var(--muted);
+        border: 1px solid var(--line);
+        border-radius: 3px;
+        padding: 3px 5px;
+      }
+      .err { color: var(--bad); }
+      .heat { font-variant-numeric: tabular-nums; }
+      #detail { margin-top: 28px; display: none; }
+      #detail .critique {
+        border-left: 3px solid var(--accent);
+        padding: 6px 0 6px 12px;
+        margin: 0 0 14px;
+        color: var(--muted);
+      }
+      .turn { border: 1px solid var(--line); border-radius: 5px; margin-bottom: 12px; }
+      .turn-head {
+        background: #f1efeb;
+        padding: 7px 10px;
+        font-size: 12px;
+        font-weight: 600;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        justify-content: space-between;
+      }
+      .turn-head .role { font-weight: 400; color: var(--muted); }
+      .turn-body {
+        margin: 0;
+        padding: 10px 12px;
+        max-height: 320px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        font: 12.5px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      .legend { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
+      .legend code { background: #f1efeb; padding: 1px 4px; border-radius: 3px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Week 1 Day 3 — Reasoning Approaches</h1>
+      <p class="sub">
+        One open-ended problem with no right answer, solved four ways, then graded by a blind
+        rubric judge that never learns which method wrote which answer.
+      </p>
+
+      <div class="card"><pre class="problem" id="problem">Loading…</pre></div>
+
+      <div class="controls">
+        <label for="runs">Runs per method</label>
+        <input id="runs" type="number" min="1" max="10" value="1" />
+        <button id="run">Run comparison</button>
+        <button id="download" class="secondary" disabled>Download results.md</button>
+      </div>
+      <p class="status" id="status"></p>
+
+      <div id="results"></div>
+      <div id="detail" class="card"></div>
+    </main>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      let config = null;
+      let data = null;
+      let poller = null;
+
+      const fmt = {
+        int: (v) => (v == null ? "—" : Math.round(v).toLocaleString()),
+        one: (v) => (v == null ? "—" : v.toFixed(1)),
+        two: (v) => (v == null ? "—" : v.toFixed(2)),
+        ms: (v) => (v == null ? "—" : (v / 1000).toFixed(1) + "s"),
+      };
+
+      async function loadConfig() {
+        config = await (await fetch("/config")).json();
+        $("problem").textContent = config.problem;
+      }
+
+      function methodKeys() {
+        return config.methods.map((m) => m.key);
+      }
+
+      function el(tag, props = {}, children = []) {
+        const node = document.createElement(tag);
+        Object.assign(node, props);
+        for (const child of [].concat(children)) {
+          if (child != null) node.append(child);
+        }
+        return node;
+      }
+
+      function renderResults() {
+        const host = $("results");
+        host.innerHTML = "";
+        const keys = methodKeys();
+
+        // --- main table ---
+        host.append(el("h2", { textContent: "Runs" }));
+        const t1 = el("table");
+        const head1 = el("tr", {}, [el("th", { className: "method", textContent: "Method" })]);
+        for (let i = 1; i <= data.runs; i++) {
+          head1.append(el("th", { textContent: "Run " + i }));
+        }
+        head1.append(
+          el("th", { className: "num", textContent: `Avg score /${data.maxTotal}` }),
+          el("th", { className: "num", textContent: "Avg latency" }),
+          el("th", { className: "num", textContent: "Avg out tokens" })
+        );
+        t1.append(el("thead", {}, head1));
+
+        const body1 = el("tbody");
+        for (const key of keys) {
+          const m = data.methods[key];
+          const row = el("tr", {}, [el("td", { className: "method", textContent: m.label })]);
+          for (const run of m.runs) {
+            const cell = el("td", { className: "cell" });
+            if (run.error) {
+              cell.append(el("span", { className: "err", textContent: "error: " + run.error }));
+            } else {
+              cell.append(
+                el("span", {
+                  className: "rec",
+                  textContent: run.recommendation || "(no RECOMMENDATION line returned)",
+                })
+              );
+              const badge = run.judgeError
+                ? "judge failed"
+                : run.total == null
+                  ? "unscored"
+                  : `${run.total} / ${data.maxTotal}`;
+              cell.append(
+                el("span", {
+                  className: "score",
+                  textContent: run.truncated ? `${badge} · hit max_tokens` : badge,
+                })
+              );
+              cell.onclick = () => showDetail(key, run, cell);
+            }
+            row.append(cell);
+          }
+          row.append(
+            el("td", { className: "num heat", textContent: fmt.two(m.avgScore) }),
+            el("td", { className: "num heat", textContent: fmt.ms(m.avgLatencyMs) }),
+            el("td", { className: "num heat", textContent: fmt.int(m.avgOutputTokens) })
+          );
+          body1.append(row);
+        }
+        t1.append(body1);
+        host.append(t1);
+        host.append(
+          el("p", {
+            className: "legend",
+            textContent:
+              "Click any cell to open its full transcript and the judge's critique.",
+          })
+        );
+
+        // --- rubric table ---
+        host.append(el("h2", { textContent: "Average per rubric criterion (0–2)" }));
+        const t2 = el("table");
+        const head2 = el("tr", {}, [el("th", { className: "method", textContent: "Method" })]);
+        for (const c of data.rubric) {
+          head2.append(el("th", { title: c.description, textContent: c.label }));
+        }
+        head2.append(el("th", { className: "num", textContent: "Avg words" }));
+        t2.append(el("thead", {}, head2));
+
+        const body2 = el("tbody");
+        for (const key of keys) {
+          const m = data.methods[key];
+          const row = el("tr", {}, [el("td", { className: "method", textContent: m.label })]);
+          for (const c of data.rubric) {
+            row.append(
+              el("td", { className: "num heat", textContent: fmt.one(m.rubricAverages[c.key]) })
+            );
+          }
+          row.append(el("td", { className: "num heat", textContent: fmt.int(m.avgWords) }));
+          body2.append(row);
+        }
+        t2.append(body2);
+        host.append(t2);
+        host.append(
+          el("p", {
+            className: "legend",
+            textContent: data.rubric.map((c) => `${c.label}: ${c.description}`).join(" · "),
+          })
+        );
+      }
+
+      function showDetail(methodKey, run, cell) {
+        document
+          .querySelectorAll("td.cell.selected")
+          .forEach((n) => n.classList.remove("selected"));
+        cell.classList.add("selected");
+
+        const panel = $("detail");
+        panel.innerHTML = "";
+        panel.style.display = "block";
+        panel.append(
+          el("h2", {
+            style: "margin-top:0",
+            textContent: `${data.methods[methodKey].label} — run ${run.run}`,
+          })
+        );
+
+        const meta = [
+          `${(run.latencyMs / 1000).toFixed(1)}s`,
+          `${run.apiCalls} API call${run.apiCalls === 1 ? "" : "s"}`,
+          `${run.outputTokens} output tokens`,
+          `${run.words} words`,
+          run.truncated ? "truncated at max_tokens" : null,
+          run.opaqueId ? `judged as ${run.opaqueId}` : null,
+        ]
+          .filter(Boolean)
+          .join(" · ");
+        panel.append(el("p", { className: "legend", textContent: meta }));
+
+        if (run.judgeError) {
+          panel.append(
+            el("p", { className: "critique err", textContent: "Judge failed: " + run.judgeError })
+          );
+        } else if (run.scores) {
+          const breakdown = data.rubric
+            .map((c) => `${c.label} ${run.scores[c.key]}`)
+            .join(" · ");
+          panel.append(
+            el("p", {
+              className: "critique",
+              textContent: `${run.oneLineCritique || "(no critique returned)"}\n${breakdown} → ${run.total}/${data.maxTotal}`,
+              style: "white-space:pre-wrap",
+            })
+          );
+        }
+
+        for (const turn of run.transcript) {
+          const box = el("div", { className: "turn" });
+          box.append(
+            el("div", { className: "turn-head" }, [
+              el("span", { textContent: turn.label }),
+              el("span", { className: "role", textContent: turn.role }),
+            ])
+          );
+          box.append(el("pre", { className: "turn-body", textContent: turn.content }));
+          panel.append(box);
+        }
+        panel.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+
+      // --- results.md ---------------------------------------------------------
+
+      // Rough buckets over the RECOMMENDATION lines: does the answer solve the squeeze by
+      // shipping less, by changing the deal with the buyers, or by doing both?
+      function classifyRecommendation(text) {
+        const t = (text || "").toLowerCase();
+        const shipNarrow =
+          /cut|drop|defer|descope|de-scope|narrow|strip|one platform|single platform|ios only|android only|ios first|android first|core loop|manual|concierge|wizard of oz/.test(t);
+        const manageBuyers =
+          /refund|renegotiat|amend|revise the promise|disclos|communicat|email (the|all)|terms|delay|postpone|push (the|back)|extend the deadline|beta|early access|founding member|honou?r|set expectation/.test(t);
+        if (shipNarrow && manageBuyers) return "ship narrow + manage the buyers";
+        if (shipNarrow) return "ship narrow";
+        if (manageBuyers) return "manage the buyers";
+        return "other";
+      }
+
+      function buildMarkdown() {
+        const keys = methodKeys();
+        const L = [];
+        L.push("# Week 1 Day 3 — Reasoning Approaches");
+        L.push("");
+        L.push(`Solver: \`${data.solverModel}\` · judge: \`${data.judgeModel}\` · ${data.runs} run(s) per method.`);
+        L.push("");
+        L.push("## Problem");
+        L.push("");
+        L.push("```");
+        L.push(data.problem);
+        L.push("```");
+        L.push("");
+
+        L.push("## Runs");
+        L.push("");
+        const h1 = ["Method"];
+        for (let i = 1; i <= data.runs; i++) h1.push("Run " + i);
+        h1.push(`Avg score /${data.maxTotal}`, "Avg latency", "Avg out tokens");
+        L.push("| " + h1.join(" | ") + " |");
+        L.push("| " + h1.map(() => "---").join(" | ") + " |");
+        for (const key of keys) {
+          const m = data.methods[key];
+          const row = [m.label];
+          for (const run of m.runs) {
+            row.push(
+              run.error
+                ? `error: ${run.error}`
+                : `${(run.recommendation || "(no RECOMMENDATION line)").replace(/\|/g, "\\|")} **(${run.total ?? "—"}/${data.maxTotal})**${run.truncated ? " _[hit max_tokens]_" : ""}`
+            );
+          }
+          row.push(fmt.two(m.avgScore), fmt.ms(m.avgLatencyMs), fmt.int(m.avgOutputTokens));
+          L.push("| " + row.join(" | ") + " |");
+        }
+        L.push("");
+
+        L.push("## Average per rubric criterion (0–2)");
+        L.push("");
+        const h2 = ["Method", ...data.rubric.map((c) => c.label), "Avg words"];
+        L.push("| " + h2.join(" | ") + " |");
+        L.push("| " + h2.map(() => "---").join(" | ") + " |");
+        for (const key of keys) {
+          const m = data.methods[key];
+          L.push(
+            "| " +
+              [
+                m.label,
+                ...data.rubric.map((c) => fmt.one(m.rubricAverages[c.key])),
+                fmt.int(m.avgWords),
+              ].join(" | ") +
+              " |"
+          );
+        }
+        L.push("");
+        for (const c of data.rubric) L.push(`- **${c.label}** — ${c.description}`);
+        L.push("");
+
+        // --- auto-generated comparison ---
+        L.push("## Comparison");
+        L.push("");
+        const scored = keys.filter((k) => data.methods[k].avgScore != null);
+
+        if (scored.length) {
+          const best = scored.reduce((a, b) =>
+            data.methods[b].avgScore > data.methods[a].avgScore ? b : a
+          );
+          L.push(
+            `- **Highest average score:** ${data.methods[best].label} at ${fmt.two(data.methods[best].avgScore)} / ${data.maxTotal}.`
+          );
+          for (const c of data.rubric) {
+            const ranked = scored.filter((k) => data.methods[k].rubricAverages[c.key] != null);
+            if (!ranked.length) continue;
+            const top = ranked.reduce((a, b) =>
+              data.methods[b].rubricAverages[c.key] > data.methods[a].rubricAverages[c.key] ? b : a
+            );
+            const topValue = data.methods[top].rubricAverages[c.key];
+            const tied = ranked.filter(
+              (k) => data.methods[k].rubricAverages[c.key] === topValue
+            );
+            L.push(
+              `- **Best on ${c.label}:** ${tied.map((k) => data.methods[k].label).join(", ")} (${fmt.one(topValue)}).`
+            );
+          }
+        } else {
+          L.push("- No runs were scored, so there is no score comparison.");
+        }
+
+        const timed = keys.filter((k) => data.methods[k].avgLatencyMs != null);
+        if (timed.length) {
+          const fastest = timed.reduce((a, b) =>
+            data.methods[b].avgLatencyMs < data.methods[a].avgLatencyMs ? b : a
+          );
+          const slowest = timed.reduce((a, b) =>
+            data.methods[b].avgLatencyMs > data.methods[a].avgLatencyMs ? b : a
+          );
+          L.push(
+            `- **Fastest:** ${data.methods[fastest].label} (${fmt.ms(data.methods[fastest].avgLatencyMs)} avg); slowest ${data.methods[slowest].label} (${fmt.ms(data.methods[slowest].avgLatencyMs)}).`
+          );
+        }
+
+        const tokened = keys.filter((k) => data.methods[k].avgOutputTokens != null);
+        if (tokened.length) {
+          const most = tokened.reduce((a, b) =>
+            data.methods[b].avgOutputTokens > data.methods[a].avgOutputTokens ? b : a
+          );
+          L.push(
+            `- **Most output tokens:** ${data.methods[most].label} (${fmt.int(data.methods[most].avgOutputTokens)} avg per run).`
+          );
+        }
+
+        const recs = [];
+        for (const key of keys) {
+          for (const run of data.methods[key].runs) {
+            if (!run.error && run.recommendation) {
+              recs.push({ method: data.methods[key].label, text: run.recommendation });
+            }
+          }
+        }
+        const buckets = {};
+        for (const r of recs) {
+          const k = classifyRecommendation(r.text);
+          (buckets[k] ??= []).push(r.method);
+        }
+        const bucketKeys = Object.keys(buckets);
+        if (bucketKeys.length === 0) {
+          L.push("- **Agreement:** no recommendation lines were returned.");
+        } else if (bucketKeys.length === 1) {
+          L.push(
+            `- **Agreement:** all ${recs.length} recommendations landed in the same bucket (${bucketKeys[0]}) — the methods agreed on the shape of the answer, and differed only in how they justified it.`
+          );
+        } else {
+          L.push(
+            `- **Agreement:** the recommendations diverged across ${bucketKeys.length} buckets — ` +
+              bucketKeys
+                .map((k) => `${k} (${buckets[k].length}: ${[...new Set(buckets[k])].join(", ")})`)
+                .join("; ") +
+              "."
+          );
+        }
+        L.push("");
+        L.push(
+          "_Bucketing is a keyword heuristic over the RECOMMENDATION lines (ship narrow / manage the buyers / both / other), not a judgement by the model._"
+        );
+        L.push("");
+
+        L.push("## Recommendation lines");
+        L.push("");
+        for (const key of keys) {
+          L.push(`### ${data.methods[key].label}`);
+          L.push("");
+          for (const run of data.methods[key].runs) {
+            L.push(
+              run.error
+                ? `${run.run}. _error: ${run.error}_`
+                : `${run.run}. ${run.recommendation || "_(no RECOMMENDATION line)_"}${run.oneLineCritique ? ` — judge: ${run.oneLineCritique}` : ""}`
+            );
+          }
+          L.push("");
+        }
+
+        return L.join("\n");
+      }
+
+      $("download").onclick = () => {
+        const blob = new Blob([buildMarkdown()], { type: "text/markdown" });
+        const url = URL.createObjectURL(blob);
+        const a = el("a", { href: url, download: "results.md" });
+        document.body.append(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      };
+
+      // --- run ----------------------------------------------------------------
+
+      function startPolling(jobId) {
+        const tick = async () => {
+          try {
+            const p = await (await fetch("/progress/" + jobId)).json();
+            if (p.phase === "judging") {
+              $("status").innerHTML = `Judging… ${p.done}/${p.total} steps done. <span class="note">Every answer is graded blind, so this happens after all runs finish.</span>`;
+            } else if (p.phase === "solving") {
+              $("status").innerHTML = `Running… ${p.done}/${p.total} steps done. <span class="note">Judging happens last, once every answer exists.</span>`;
+            }
+          } catch {
+            /* transient — the next tick will catch up */
+          }
+        };
+        tick();
+        poller = setInterval(tick, 700);
+      }
+
+      $("run").onclick = async () => {
+        const runs = Math.max(1, Math.min(10, Number($("runs").value) || 1));
+        $("runs").value = runs;
+        $("run").disabled = true;
+        $("download").disabled = true;
+        $("detail").style.display = "none";
+        $("results").innerHTML = "";
+
+        const jobId = crypto.randomUUID();
+        $("status").textContent = "Starting…";
+        startPolling(jobId);
+
+        try {
+          const res = await fetch("/run", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ runs, jobId }),
+          });
+          if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+          data = await res.json();
+          renderResults();
+          $("download").disabled = false;
+          $("status").textContent = `Done — ${data.runs * 4} runs, all graded blind.`;
+        } catch (err) {
+          $("status").innerHTML = `<span class="err">Failed: ${err.message}</span>`;
+        } finally {
+          clearInterval(poller);
+          $("run").disabled = false;
+        }
+      };
+
+      loadConfig();
+    </script>
+  </body>
+</html>
