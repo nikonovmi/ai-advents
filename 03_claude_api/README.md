@@ -1,5 +1,9 @@
 # Week 1 Day 3 — Reasoning Approaches
 
+
+https://github.com/user-attachments/assets/7ea6d519-89a5-4302-82b5-6907baf5b62d
+
+
 Does *how* you ask change the answer? This app takes one open-ended problem with no right
 answer, solves it four different ways through the Anthropic API, and has a blind judge grade
 the results — without knowing which method wrote which answer.
