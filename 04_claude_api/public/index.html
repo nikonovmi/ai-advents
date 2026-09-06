@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>temp-lab</title>
+<style>
+  :root {
+    --border: #d4d4d0;
+    --ink: #1c1c1a;
+    --muted: #6b6b66;
+    --bg: #faf9f7;
+    --panel: #ffffff;
+    --accent: #7c4a2d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 32px 24px 64px;
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  main { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 24px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); margin: 0 0 24px; font-size: 14px; }
+  .presets { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .preset {
+    font: inherit;
+    font-size: 13px;
+    padding: 7px 12px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .preset:hover { border-color: var(--accent); color: var(--accent); }
+  .preset[aria-pressed="true"] { border-color: var(--accent); background: #f4ece7; color: var(--accent); }
+  textarea {
+    width: 100%;
+    min-height: 88px;
+    padding: 12px;
+    font: inherit;
+    color: inherit;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    resize: vertical;
+  }
+  .controls { display: flex; align-items: center; gap: 14px; margin-top: 12px; }
+  #run {
+    font: inherit;
+    font-weight: 600;
+    padding: 9px 20px;
+    color: #fff;
+    background: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  #run:disabled { opacity: 0.55; cursor: default; }
+  #status { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+  #status.error { color: #a12c2c; }
+  table {
+    width: 100%;
+    margin-top: 24px;
+    border-collapse: collapse;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    table-layout: fixed;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 10px;
+    vertical-align: top;
+    text-align: left;
+  }
+  th { background: #f2f1ee; font-size: 13px; font-weight: 600; }
+  th.temp-col, td.temp-col { width: 84px; }
+  th.div-col, td.div-col { width: 110px; }
+  .cell {
+    max-height: 190px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .cell.err { color: #a12c2c; }
+  .temp { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .temp small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; margin-top: 3px; }
+  .identical {
+    display: inline-block;
+    margin-bottom: 6px;
+    padding: 1px 6px;
+    font-size: 11px;
+    letter-spacing: 0.02em;
+    color: #2f6b3a;
+    background: #e8f2e9;
+    border: 1px solid #bcd9c1;
+    border-radius: 3px;
+  }
+  .div { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .div small { display: block; font-size: 11px; font-weight: 400; color: var(--muted); margin-top: 3px; }
+  footer { margin-top: 28px; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>temp-lab</h1>
+  <p class="sub">Same prompt, five temperatures, three runs each. The Divergence column is the measurement.</p>
+
+  <div class="presets" id="presets"></div>
+  <textarea id="prompt" spellcheck="false"></textarea>
+
+  <div class="controls">
+    <button id="run">Run</button>
+    <span id="status"></span>
+  </div>
+
+  <div id="output"></div>
+
+  <footer>
+    Model: claude-haiku-4-5-20251001 &middot; max_tokens 300 &middot; 15 parallel requests per run.
+    Temperature 1.2 is outside the API's accepted 0.0&ndash;1.0 range and is expected to fail &mdash; that row is part of the experiment.
+  </footer>
+</main>
+
+<script>
+const PRESETS = [
+  {
+    label: "Factual — tests accuracy",
+    text: "List the five largest countries by land area, in order, with area in square kilometres. Just the list, no commentary."
+  },
+  {
+    label: "Creative — tests creativity",
+    text: "Write the opening sentence of a story about a lighthouse keeper who receives a letter. One sentence only."
+  },
+  {
+    label: "Brainstorm — tests variety",
+    text: "Name three unusual uses for a house brick. One short line each, no explanation."
+  }
+];
+
+const TEMPERATURES = ["0", "0.35", "0.7", "1", "1.2"];
+const TEMP_NOTES = { "0": "greedy", "1.2": "out of range" };
+
+const promptEl = document.getElementById("prompt");
+const runBtn = document.getElementById("run");
+const statusEl = document.getElementById("status");
+const outputEl = document.getElementById("output");
+const presetsEl = document.getElementById("presets");
+
+PRESETS.forEach((preset, index) => {
+  const button = document.createElement("button");
+  button.className = "preset";
+  button.textContent = preset.label;
+  button.setAttribute("aria-pressed", String(index === 0));
+  button.addEventListener("click", () => {
+    promptEl.value = preset.text;
+    document.querySelectorAll(".preset").forEach((b) => b.setAttribute("aria-pressed", "false"));
+    button.setAttribute("aria-pressed", "true");
+  });
+  presetsEl.appendChild(button);
+});
+promptEl.value = PRESETS[0].text;
+promptEl.addEventListener("input", () => {
+  document.querySelectorAll(".preset").forEach((b) => {
+    b.setAttribute("aria-pressed", String(b.textContent === PRESETS.find((p) => p.text === promptEl.value)?.label));
+  });
+});
+
+let timer = null;
+
+function startProgress() {
+  const started = Date.now();
+  const total = TEMPERATURES.length * 3;
+  const tick = () => {
+    const seconds = ((Date.now() - started) / 1000).toFixed(1);
+    statusEl.textContent = `Running ${total} requests in parallel… ${seconds}s`;
+  };
+  tick();
+  timer = setInterval(tick, 100);
+}
+
+function stopProgress(message, isError) {
+  clearInterval(timer);
+  timer = null;
+  statusEl.textContent = message;
+  statusEl.className = isError ? "error" : "";
+}
+
+function cell(text, isFirstRun, firstRunText) {
+  const td = document.createElement("td");
+  const isError = text.startsWith("ERROR");
+  if (!isFirstRun && text === firstRunText && !isError) {
+    const tag = document.createElement("span");
+    tag.className = "identical";
+    tag.textContent = "identical to Run 1";
+    td.appendChild(tag);
+  }
+  const body = document.createElement("div");
+  body.className = isError ? "cell err" : "cell";
+  body.textContent = text;
+  td.appendChild(body);
+  return td;
+}
+
+function render(results) {
+  const table = document.createElement("table");
+
+  const head = document.createElement("tr");
+  ["Temperature", "Run 1", "Run 2", "Run 3", "Divergence"].forEach((label, i) => {
+    const th = document.createElement("th");
+    th.textContent = label;
+    if (i === 0) th.className = "temp-col";
+    if (i === 4) th.className = "div-col";
+    head.appendChild(th);
+  });
+  table.appendChild(head);
+
+  for (const temp of TEMPERATURES) {
+    const row = results[temp];
+    if (!row) continue;
+    const tr = document.createElement("tr");
+
+    const tempCell = document.createElement("td");
+    tempCell.className = "temp temp-col";
+    tempCell.innerHTML = `<span class="temp">${temp}</span>` + (TEMP_NOTES[temp] ? `<small>${TEMP_NOTES[temp]}</small>` : "");
+    tr.appendChild(tempCell);
+
+    const first = row.runs[0] ?? "";
+    row.runs.forEach((text, i) => tr.appendChild(cell(text, i === 0, first)));
+
+    const divCell = document.createElement("td");
+    divCell.className = "div-col";
+    divCell.innerHTML = row.divergence === null
+      ? `<span class="div">—</span><small>needs 2+ successful runs</small>`
+      : `<span class="div">${row.divergence}%</span><small>word-set spread</small>`;
+    tr.appendChild(divCell);
+
+    table.appendChild(tr);
+  }
+
+  outputEl.replaceChildren(table);
+}
+
+runBtn.addEventListener("click", async () => {
+  const message = promptEl.value.trim();
+  if (!message) {
+    stopProgress("Enter a prompt first.", true);
+    return;
+  }
+  runBtn.disabled = true;
+  outputEl.replaceChildren();
+  statusEl.className = "";
+  startProgress();
+
+  try {
+    const response = await fetch("/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
+    render(data.results);
+    stopProgress("Done.", false);
+  } catch (error) {
+    stopProgress(error.message, true);
+  } finally {
+    runBtn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

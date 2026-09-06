@@ -1,0 +1,15 @@
+{
+  "name": "temp-lab",
+  "version": "1.0.0",
+  "description": "A lab bench for Claude's temperature parameter: same prompt, five temperatures, three runs each.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.0",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0"
+  }
+}
