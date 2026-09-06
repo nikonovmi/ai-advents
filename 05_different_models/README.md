@@ -1,5 +1,8 @@
 # model-lab
 
+https://github.com/user-attachments/assets/63ac387c-a2c4-4d34-8cf2-8d66c925d08a
+
+
 Send one task to three Claude tiers — Haiku 4.5, Sonnet 5, Opus 5 — and put the results
 side by side: latency, exact token counts, cost, and a **blind** quality ranking from a
 fourth call that never sees which model wrote which answer.
