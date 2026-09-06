@@ -2,10 +2,14 @@
 
 https://github.com/user-attachments/assets/63ac387c-a2c4-4d34-8cf2-8d66c925d08a
 
-
 Send one task to three Claude tiers — Haiku 4.5, Sonnet 5, Opus 5 — and put the results
 side by side: latency, exact token counts, cost, and a **blind** quality ranking from a
 fourth call that never sees which model wrote which answer.
+
+## Results
+The gap only appears where a task has a trap. Where the right answer is straightforward, all three tiers converge. Where it requires noticing something — an unsolvable premise, a silent side effect — the tiers separate, and the cheap tier's failure looks like a good answer rather than an obvious error.
+
+Cost scales with how much a model thinks; quality doesn't. The rate card spread is 1:2:5, but observed cost ran up to ~16x — the extra is output tokens, mostly reasoning. On easy tasks that buys nothing: near-identical answers, ~16x the price.
 
 ## Setup
 
