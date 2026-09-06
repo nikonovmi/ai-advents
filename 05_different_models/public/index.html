@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>model-lab</title>
+<style>
+  :root {
+    --border: #d4d4d4;
+    --muted: #666;
+    --bg-alt: #f7f7f5;
+    --accent: #7a4a2b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 2rem 1.5rem 4rem;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    color: #1a1a1a;
+    background: #fff;
+    max-width: 1180px;
+    margin-inline: auto;
+  }
+  h1 { font-size: 1.5rem; margin: 0 0 .25rem; }
+  h2 { font-size: 1.05rem; margin: 2rem 0 .6rem; }
+  .sub { color: var(--muted); margin: 0 0 1.5rem; }
+
+  .presets { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .75rem; }
+  .presets button {
+    font: inherit;
+    font-size: .85rem;
+    padding: .45rem .8rem;
+    border: 1px solid var(--border);
+    background: var(--bg-alt);
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  .presets button:hover { border-color: #999; }
+  .presets button[aria-pressed="true"] { border-color: var(--accent); background: #fff; box-shadow: inset 0 0 0 1px var(--accent); }
+
+  textarea {
+    width: 100%;
+    min-height: 8.5rem;
+    padding: .75rem;
+    font: inherit;
+    font-size: .92rem;
+    line-height: 1.5;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    resize: vertical;
+  }
+  #run {
+    margin-top: .75rem;
+    font: inherit;
+    font-weight: 600;
+    padding: .55rem 1.4rem;
+    border: 1px solid #1a1a1a;
+    background: #1a1a1a;
+    color: #fff;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  #run:disabled { opacity: .5; cursor: default; }
+
+  #status { margin-top: 1rem; color: var(--muted); font-size: .9rem; }
+  #status .bar { display: block; height: 4px; background: var(--bg-alt); border-radius: 2px; margin-top: .5rem; overflow: hidden; }
+  #status .bar i { display: block; height: 100%; background: var(--accent); transition: width .3s; }
+
+  table { border-collapse: collapse; width: 100%; margin-top: .5rem; }
+  th, td {
+    border: 1px solid var(--border);
+    padding: .5rem .6rem;
+    text-align: left;
+    vertical-align: top;
+    font-size: .88rem;
+  }
+  th { background: var(--bg-alt); font-weight: 600; white-space: nowrap; }
+  td.num, th.num { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; text-align: right; white-space: nowrap; }
+  .model-cell { white-space: nowrap; }
+  .model-cell .tier { display: block; font-size: .74rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .model-cell .tier.warn { color: #a26200; }
+  .response {
+    max-height: 15rem;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    font-size: .82rem;
+    line-height: 1.45;
+    min-width: 22rem;
+  }
+  .response.err { color: #a22; }
+
+  .relative { margin-top: .9rem; font-size: .9rem; }
+  .relative code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .95em; }
+
+  ol.ranking { margin: .4rem 0 0; padding-left: 1.3rem; }
+  ol.ranking li { margin-bottom: .4rem; }
+  ol.ranking .model { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .85rem; }
+  ol.ranking .reason { color: var(--muted); }
+  .note { color: var(--muted); font-size: .85rem; }
+</style>
+</head>
+<body>
+
+<h1>model-lab</h1>
+<p class="sub">The same task, three Claude tiers, one call each. Latency, exact token counts, cost, and a blind quality ranking.</p>
+
+<div class="presets" id="presets"></div>
+<textarea id="message" spellcheck="false"></textarea>
+<div><button id="run">Run</button></div>
+<div id="status" hidden></div>
+<div id="output"></div>
+
+<script>
+const PRESETS = [
+  {
+    label: "Easy — tiers should converge",
+    text: "Rewrite this as one plain-English sentence a 12-year-old would understand: 'Pursuant to the aforementioned agreement, the party of the first part shall indemnify the party of the second part against all liabilities arising therefrom.'"
+  },
+  {
+    label: "Hard reasoning — tiers should diverge",
+    text: "A shop sells pens in packs of 7 and pencils in packs of 4. Yesterday it sold 3 more packs of pens than packs of pencils, and 41 individual items in total. How many packs of each did it sell? Show your reasoning, then state the final answer on its own line."
+  },
+  {
+    label: "Code — tiers should diverge",
+    text: "Write a JavaScript function that merges overlapping intervals. Handle unsorted input, touching-but-not-overlapping intervals, and an empty array. Include the edge cases you considered as comments."
+  }
+];
+
+const $presets = document.getElementById("presets");
+const $message = document.getElementById("message");
+const $run = document.getElementById("run");
+const $status = document.getElementById("status");
+const $output = document.getElementById("output");
+
+PRESETS.forEach((preset, i) => {
+  const btn = document.createElement("button");
+  btn.textContent = preset.label;
+  btn.setAttribute("aria-pressed", String(i === 0));
+  btn.addEventListener("click", () => {
+    $message.value = preset.text;
+    [...$presets.children].forEach((b, j) => b.setAttribute("aria-pressed", String(i === j)));
+  });
+  $presets.append(btn);
+});
+$message.value = PRESETS[0].text;
+
+const ms = (n) => n >= 1000 ? (n / 1000).toFixed(2) + " s" : Math.round(n) + " ms";
+const tokens = (n) => Math.round(n).toLocaleString();
+const money = (n) => n >= 0.01 ? "$" + n.toFixed(4) : "$" + n.toFixed(6);
+const money1k = (n) => "$" + n.toFixed(2);
+const esc = (s) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+
+function timingCell(value) {
+  return `<td class="num">${value === null ? "—" : ms(value)}</td>`;
+}
+
+function render(data) {
+  const { results, judgement, judgeError, maxTokens } = data;
+
+  const rows = results.map((r) => `
+    <tr>
+      <td class="model-cell"><span class="tier">${r.tier}</span>${esc(r.model)}${
+        r.truncated ? '<span class="tier warn">hit token cap</span>' : ""
+      }</td>
+      <td><div class="response${r.error ? " err" : ""}">${esc(r.response)}</div></td>
+      ${timingCell(r.ttft)}
+      ${timingCell(r.total)}
+      <td class="num">${r.inputTokens === null ? "—" : tokens(r.inputTokens)}</td>
+      <td class="num">${r.outputTokens === null ? "—" : tokens(r.outputTokens)}</td>
+      <td class="num">${r.cost === null ? "—" : money(r.cost)}</td>
+      <td class="num">${r.costPer1000 === null ? "—" : money1k(r.costPer1000)}</td>
+    </tr>`).join("");
+
+  const costs = results.filter((r) => r.cost !== null).map((r) => r.cost);
+  const cheapest = costs.length ? Math.min(...costs) : null;
+  const relative = cheapest
+    ? results.map((r) => r.cost === null
+        ? `${r.tier}: —`
+        : `${r.tier}: <code>${(r.cost / cheapest).toFixed(1)}x</code>`).join(" &nbsp;/&nbsp; ")
+    : "No successful runs to compare.";
+
+  const ranking = judgement && judgement.length
+    ? `<ol class="ranking">${judgement.map((j) =>
+        `<li><span class="model">${esc(j.model)}</span> — <span class="reason">${esc(j.reason)}</span></li>`).join("")}</ol>`
+    : `<p class="note">${esc(judgeError || "No ranking returned.")}</p>`;
+
+  $output.innerHTML = `
+    <h2>Results</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Model</th>
+          <th>Response</th>
+          <th class="num">Time to first token</th>
+          <th class="num">Total time</th>
+          <th class="num">Input tokens</th>
+          <th class="num">Output tokens</th>
+          <th class="num">Cost per call</th>
+          <th class="num">Cost per 1,000 calls</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <p class="note">One call per model. Timings are from that single call, so treat them as indicative — network conditions move them as much as the model does. Token counts and cost are exact, reported by the API. Output tokens on the thinking tiers include reasoning tokens — a model marked <em>hit token cap</em> spent the whole ${maxTokens.toLocaleString()}-token budget and was cut off.</p>
+    <p class="relative"><strong>Relative to cheapest:</strong> ${relative}</p>
+    <h2>Blind quality ranking</h2>
+    <p class="note">Judged by claude-opus-5 on shuffled, unlabelled answers — best first.</p>
+    ${ranking}`;
+}
+
+$run.addEventListener("click", async () => {
+  const message = $message.value.trim();
+  if (!message) return;
+
+  const runId = Math.random().toString(36).slice(2);
+  $run.disabled = true;
+  $output.innerHTML = "";
+  $status.hidden = false;
+
+  const started = Date.now();
+  let done = 0;
+  const total = 4;
+  const paint = () => {
+    const secs = ((Date.now() - started) / 1000).toFixed(1);
+    $status.innerHTML =
+      `Running 3 model calls plus the blind judge — ${done}/${total} complete · ${secs}s` +
+      `<span class="bar"><i style="width:${(done / total) * 100}%"></i></span>`;
+  };
+  paint();
+
+  const timer = setInterval(async () => {
+    paint();
+    try {
+      const p = await fetch(`/progress/${runId}`).then((r) => r.json());
+      done = p.done;
+    } catch {}
+  }, 500);
+
+  try {
+    const res = await fetch("/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message, runId })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    render(data);
+    $status.hidden = true;
+  } catch (err) {
+    $status.textContent = "Failed: " + err.message;
+  } finally {
+    clearInterval(timer);
+    $run.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "name": "model-lab",
+  "version": "1.0.0",
+  "description": "Compare Claude model tiers on the same task: latency, tokens, cost and blind-judged quality.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.72.0",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "zod": "^4.5.4"
+  }
+}
