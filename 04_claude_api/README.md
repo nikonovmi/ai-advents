@@ -1,5 +1,9 @@
 # temp-lab
 
+
+https://github.com/user-attachments/assets/407b34c0-36f2-439e-a64d-5c8c990bb1ca
+
+
 A one-page bench for Claude's `temperature` parameter. You give it a prompt; it sends the
 *identical* prompt 15 times — five temperatures × three runs each — and lays the answers out
 in a grid so you can see the spread with your own eyes.
