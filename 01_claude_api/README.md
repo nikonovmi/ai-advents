@@ -1,5 +1,11 @@
 # dummy
 
+
+
+https://github.com/user-attachments/assets/876db343-ee5a-4fcb-9bf2-b1e703a2a177
+
+
+
 Sends one message to Claude fifteen times at once and lays the answers out in a
 grid, so you can see what temperature and a system prompt each actually change.
 
