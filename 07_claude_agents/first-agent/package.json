@@ -4,7 +4,7 @@
   "description": "A minimal chat app built around a reusable Agent class and a provider-neutral LLM abstraction.",
   "type": "module",
   "engines": {
-    "node": ">=18"
+    "node": ">=20.11"
   },
   "main": "src/server.js",
   "scripts": {

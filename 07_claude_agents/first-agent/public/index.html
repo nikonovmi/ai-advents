@@ -42,15 +42,86 @@
     min-height: 100vh;
   }
 
-  .app {
+  .shell {
     width: 100%;
-    max-width: 720px;
+    max-width: 1000px;
     display: flex;
-    flex-direction: column;
     height: 100vh;
     background: var(--panel);
     border-left: 1px solid var(--line);
     border-right: 1px solid var(--line);
+  }
+
+  .app {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 260px;
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--line);
+    background: var(--bg);
+  }
+  .sidebar h2 {
+    margin: 0;
+    padding: 20px 16px 12px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+  #conversations {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 8px 16px;
+  }
+  .conversation {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .conversation:hover { background: var(--agent); }
+  .conversation.active { background: var(--agent); }
+  .conversation.active .title { font-weight: 600; }
+  .conversation .text { flex: 1; min-width: 0; }
+  .conversation .title {
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .conversation .when { font-size: 12px; color: var(--muted); }
+  .conversation .remove {
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    padding: 2px 6px;
+    line-height: 1;
+    font-size: 15px;
+    opacity: 0;
+  }
+  .conversation:hover .remove,
+  .conversation .remove:focus { opacity: 1; }
+  .conversation .remove:hover { color: var(--accent); }
+  .sidebar .empty { padding: 0 10px; font-size: 13px; color: var(--muted); }
+
+  @media (max-width: 720px) {
+    .shell { flex-direction: column; height: auto; min-height: 100vh; }
+    .sidebar {
+      width: 100%;
+      border-right: none;
+      border-bottom: 1px solid var(--line);
+      max-height: 40vh;
+    }
+    .app { min-height: 60vh; }
   }
 
   header {
@@ -164,6 +235,12 @@
 </style>
 </head>
 <body>
+<div class="shell">
+<aside class="sidebar">
+  <h2>Conversations</h2>
+  <div id="conversations"></div>
+</aside>
+
 <div class="app">
   <header>
     <h1>first-agent</h1>
@@ -178,11 +255,21 @@
     <button id="send" type="submit">Send</button>
   </form>
 </div>
+</div>
 
 <script>
-  const sessionId = crypto.randomUUID();
+  const SESSION_KEY = "first-agent.sessionId";
+
+  // The id lives in localStorage, not in a page variable: a fresh random id on
+  // every load would look like amnesia even with the server persisting fine.
+  let sessionId = localStorage.getItem(SESSION_KEY);
+  if (!sessionId) {
+    sessionId = crypto.randomUUID();
+    localStorage.setItem(SESSION_KEY, sessionId);
+  }
 
   const messages = document.getElementById("messages");
+  const conversations = document.getElementById("conversations");
   const form = document.getElementById("composer");
   const input = document.getElementById("input");
   const sendButton = document.getElementById("send");
@@ -273,6 +360,7 @@
     } finally {
       setPending(false);
       input.focus();
+      refreshConversations();
     }
   }
 
@@ -290,21 +378,117 @@
     }
   });
 
-  newButton.addEventListener("click", async () => {
-    try {
-      await fetch("/reset", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ sessionId }),
-      });
-    } catch (err) {
-      // Clearing the view locally is still the right thing to do.
-    }
+  newButton.addEventListener("click", () => {
+    // A new conversation is just a new id — the old one stays on the server,
+    // reachable from the sidebar. Nothing is reset.
+    switchTo(crypto.randomUUID());
     showEmptyState();
+    refreshConversations();
     input.focus();
   });
 
-  showEmptyState();
+  // ---- conversations -------------------------------------------------------
+
+  function switchTo(id) {
+    sessionId = id;
+    localStorage.setItem(SESSION_KEY, id);
+  }
+
+  function relativeTime(iso) {
+    const seconds = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+    if (seconds < 60) return "just now";
+    const units = [
+      ["m", 60],
+      ["h", 3600],
+      ["d", 86400],
+    ];
+    let label = "m", size = 60;
+    for (const [unitLabel, unitSize] of units) {
+      if (seconds >= unitSize) { label = unitLabel; size = unitSize; }
+    }
+    return Math.floor(seconds / size) + label + " ago";
+  }
+
+  async function paintTranscript(id) {
+    messages.innerHTML = "";
+    try {
+      const res = await fetch("/conversations/" + id);
+      if (!res.ok) return showEmptyState();
+      const { messages: turns } = await res.json();
+      if (!turns?.length) return showEmptyState();
+      for (const turn of turns) {
+        addMessage(turn.role === "user" ? "user" : "agent", turn.content);
+      }
+    } catch (err) {
+      showEmptyState();
+    }
+  }
+
+  async function refreshConversations() {
+    let list = [];
+    try {
+      const res = await fetch("/conversations");
+      if (res.ok) list = await res.json();
+    } catch (err) {
+      // A sidebar we cannot fill is not worth failing the page over.
+    }
+
+    conversations.innerHTML = "";
+    if (!list.length) {
+      conversations.innerHTML = '<p class="empty">Nothing saved yet.</p>';
+      return;
+    }
+
+    for (const item of list) {
+      const row = document.createElement("div");
+      row.className = "conversation" + (item.id === sessionId ? " active" : "");
+
+      const text = document.createElement("div");
+      text.className = "text";
+      const title = document.createElement("div");
+      title.className = "title";
+      title.textContent = item.title;
+      const when = document.createElement("div");
+      when.className = "when";
+      when.textContent = relativeTime(item.updatedAt);
+      text.append(title, when);
+
+      const remove = document.createElement("button");
+      remove.className = "remove";
+      remove.type = "button";
+      remove.title = "Delete this conversation";
+      remove.textContent = "×";
+
+      row.append(text, remove);
+
+      row.addEventListener("click", async () => {
+        if (pending || item.id === sessionId) return;
+        switchTo(item.id);
+        await paintTranscript(item.id);
+        refreshConversations();
+      });
+
+      remove.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        if (pending) return;
+        try {
+          await fetch("/conversations/" + item.id, { method: "DELETE" });
+        } catch (err) {
+          // Refreshing below will show whether it actually went away.
+        }
+        if (item.id === sessionId) {
+          switchTo(crypto.randomUUID());
+          showEmptyState();
+        }
+        refreshConversations();
+      });
+
+      conversations.appendChild(row);
+    }
+  }
+
+  paintTranscript(sessionId);
+  refreshConversations();
 </script>
 </body>
 </html>

@@ -19,18 +19,22 @@ const RETRY_DELAYS_MS = [500, 1000, 2000];
 
 /**
  * A conversational agent: it owns a persona and a rolling conversation
- * history, and it delegates every model call to an injected provider.
+ * history, and it delegates every model call to an injected provider and
+ * every read or write of that history to an injected store.
  *
- * It has no idea which vendor is behind that provider, and no idea that
- * sessions or HTTP requests exist.
+ * It has no idea which vendor is behind that provider, no idea how or where
+ * the store keeps a conversation, and no idea that HTTP requests exist.
  */
 export class Agent {
   #provider;
+  #store;
   #history = [];
 
   /**
    * @param {object} params
    * @param {import("./llm/provider.js").LlmProvider} params.provider
+   * @param {import("./store/conversationStore.js").ConversationStore} params.store
+   * @param {string} params.sessionId - Which conversation this agent is.
    * @param {string} [params.name]
    * @param {string} [params.systemPrompt]
    * @param {number} [params.temperature]
@@ -39,6 +43,8 @@ export class Agent {
    */
   constructor({
     provider,
+    store,
+    sessionId,
     name = "Assistant",
     systemPrompt = personas.helpful,
     temperature = 0.7,
@@ -48,12 +54,34 @@ export class Agent {
     if (!provider || typeof provider.complete !== "function") {
       throw new Error("Agent requires a provider with a complete() method");
     }
+    if (!store || typeof store.save !== "function") {
+      throw new Error("Agent requires a store with a save() method");
+    }
+    if (typeof sessionId !== "string" || !sessionId) {
+      throw new Error("Agent requires a sessionId");
+    }
     this.#provider = provider;
+    this.#store = store;
+    this.sessionId = sessionId;
     this.name = name;
     this.systemPrompt = systemPrompt;
     this.temperature = temperature;
     this.maxTokens = maxTokens;
     this.historyLimit = historyLimit;
+  }
+
+  /**
+   * Build an agent with its past already in it. Hydration is async and a
+   * constructor cannot be, so this is the way to get a resumed conversation.
+   *
+   * @param {object} params - The constructor options.
+   * @returns {Promise<Agent>}
+   */
+  static async load({ provider, store, sessionId, ...options }) {
+    const agent = new Agent({ provider, store, sessionId, ...options });
+    const conversation = await store.load(sessionId);
+    agent.#history = conversation?.messages ?? [];
+    return agent;
   }
 
   /**
@@ -81,6 +109,15 @@ export class Agent {
     this.#history.push({ role: "assistant", content: result.text });
     this.#trimHistory();
 
+    try {
+      // Trimming happens first, so what is stored is the agent's memory —
+      // not an audit log of everything ever said.
+      await this.#store.save(this.sessionId, this.#history);
+    } catch (err) {
+      // A store that is down is a degraded agent, not a lost reply.
+      console.error("[agent] could not persist the conversation:", err);
+    }
+
     return {
       text: result.text,
       meta: {
@@ -91,9 +128,10 @@ export class Agent {
     };
   }
 
-  /** Forget the conversation so far. */
-  reset() {
+  /** Forget the conversation so far, here and in the store. */
+  async reset() {
     this.#history = [];
+    await this.#store.clear(this.sessionId);
   }
 
   /** A copy of the conversation so far — callers cannot mutate our state. */
