@@ -3,6 +3,9 @@
 A minimal chat app: an Express server, a plain-HTML chat UI, and a reusable
 `Agent` class sitting behind a provider-neutral LLM abstraction.
 
+https://github.com/user-attachments/assets/89ce4c58-ecac-4367-83ab-5d723f0c803a
+
+
 ## Install
 
 Requires Node 18+ (native `fetch`).
