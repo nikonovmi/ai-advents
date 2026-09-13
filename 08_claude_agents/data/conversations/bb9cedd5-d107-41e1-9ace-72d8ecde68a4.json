@@ -1,0 +1,430 @@
+{
+  "id": "bb9cedd5-d107-41e1-9ace-72d8ecde68a4",
+  "title": "Important context for this whole conver…",
+  "createdAt": "2026-09-13T16:39:58.814Z",
+  "updatedAt": "2026-09-13T16:42:42.078Z",
+  "usage": {
+    "totalInputTokens": 3079,
+    "totalOutputTokens": 434,
+    "totalCostUsd": 0.005249,
+    "turnCount": 16
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "Important context for this whole conversation: my dog is called Barnaby, he is a whippet, and he is nine years old. Just acknowledge that.",
+      "tokens": {
+        "request": 40
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Got it! Barnaby is your 9-year-old whippet. I've got that noted for our conversation.",
+      "tokens": {
+        "request": 40,
+        "sent": 79,
+        "input": 79,
+        "output": 30,
+        "total": 109
+      },
+      "cost": {
+        "input": 0.000079,
+        "output": 0.00015000000000000001,
+        "total": 0.000229
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 1277,
+      "stopReason": "end_turn"
+    },
+    {
+      "role": "user",
+      "content": "What is the capital of Peru?",
+      "tokens": {
+        "request": 14
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "The capital of Peru is Lima.",
+      "tokens": {
+        "request": 14,
+        "sent": 119,
+        "input": 119,
+        "output": 10,
+        "total": 129
+      },
+      "cost": {
+        "input": 0.000119,
+        "output": 0.00005,
+        "total": 0.00016900000000000002
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 867,
+      "stopReason": "end_turn"
+    },
+    {
+      "role": "user",
+      "content": "How many time zones does Russia span?",
+      "tokens": {
+        "request": 15
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Russia spans 11 time zones, making it the country with the most time zones in the world.",
+      "tokens": {
+        "request": 15,
+        "sent": 140,
+        "input": 140,
+        "output": 24,
+        "total": 164
+      },
+      "cost": {
+        "input": 0.00014,
+        "output": 0.00012,
+        "total": 0.00026
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 965,
+      "stopReason": "end_turn"
+    },
+    {
+      "role": "user",
+      "content": "What year did the Berlin Wall come down?",
+      "tokens": {
+        "request": 16
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "The Berlin Wall came down in 1989. It fell on November 9th of that year.",
+      "tokens": {
+        "request": 16,
+        "sent": 176,
+        "input": 176,
+        "output": 24,
+        "total": 200
+      },
+      "cost": {
+        "input": 0.000176,
+        "output": 0.00012,
+        "total": 0.000296
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 1114,
+      "stopReason": "end_turn"
+    },
+    {
+      "role": "user",
+      "content": "Name the largest moon of Saturn.",
+      "tokens": {
+        "request": 14
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "The largest moon of Saturn is Titan.",
+      "tokens": {
+        "request": 14,
+        "sent": 210,
+        "input": 210,
+        "output": 12,
+        "total": 222
+      },
+      "cost": {
+        "input": 0.00021,
+        "output": 0.00006,
+        "total": 0.00027
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 1045,
+      "stopReason": "end_turn"
+    },
+    {
+      "role": "user",
+      "content": "What is the boiling point of water in Fahrenheit?",
+      "tokens": {
+        "request": 20
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "The boiling point of water is 212°F (at standard atmospheric pressure).",
+      "tokens": {
+        "request": 20,
+        "sent": 172,
+        "input": 172,
+        "output": 20,
+        "total": 192
+      },
+      "cost": {
+        "input": 0.000172,
+        "output": 0.0001,
+        "total": 0.000272
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 1014,
+      "stopReason": "end_turn"
+    },
+    {
+      "role": "user",
+      "content": "Who wrote Middlemarch?",
+      "tokens": {
+        "request": 14
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "George Eliot wrote Middlemarch. It was published in 1871-1872.",
+      "tokens": {
+        "request": 14,
+        "sent": 182,
+        "input": 182,
+        "output": 24,
+        "total": 206
+      },
+      "cost": {
+        "input": 0.000182,
+        "output": 0.00012,
+        "total": 0.000302
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 934,
+      "stopReason": "end_turn"
+    },
+    {
+      "role": "user",
+      "content": "What is the chemical symbol for tungsten?",
+      "tokens": {
+        "request": 16
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "The chemical symbol for tungsten is W.",
+      "tokens": {
+        "request": 16,
+        "sent": 183,
+        "input": 183,
+        "output": 12,
+        "total": 195
+      },
+      "cost": {
+        "input": 0.000183,
+        "output": 0.00006,
+        "total": 0.000243
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 964,
+      "stopReason": "end_turn"
+    },
+    {
+      "role": "user",
+      "content": "How long is a marathon in kilometres?",
+      "tokens": {
+        "request": 15
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "A marathon is 42.195 kilometres (or about 42.2 km).",
+      "tokens": {
+        "request": 15,
+        "sent": 170,
+        "input": 170,
+        "output": 22,
+        "total": 192
+      },
+      "cost": {
+        "input": 0.00017,
+        "output": 0.00010999999999999999,
+        "total": 0.00028
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 1058,
+      "stopReason": "end_turn"
+    },
+    {
+      "role": "user",
+      "content": "What is my dog called, and what breed is he?",
+      "tokens": {
+        "request": 19
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "I don't have any information about your dog. I can only see what you share with me in our conversation. What's your dog's name and breed?",
+      "tokens": {
+        "request": 19,
+        "sent": 185,
+        "input": 185,
+        "output": 35,
+        "total": 220
+      },
+      "cost": {
+        "input": 0.000185,
+        "output": 0.00017499999999999997,
+        "total": 0.00035999999999999997
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 1227,
+      "stopReason": "end_turn"
+    },
+    {
+      "role": "user",
+      "content": "What is the tallest mountain in Africa?",
+      "tokens": {
+        "request": 16
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Mount Kilimanjaro is the tallest mountain in Africa, at 5,895 meters (19,341 feet) above sea level.",
+      "tokens": {
+        "request": 16,
+        "sent": 196,
+        "input": 196,
+        "output": 35,
+        "total": 231
+      },
+      "cost": {
+        "input": 0.000196,
+        "output": 0.00017499999999999997,
+        "total": 0.00037099999999999996
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 1156,
+      "stopReason": "end_turn"
+    },
+    {
+      "role": "user",
+      "content": "Name a programming language created in the 1970s.",
+      "tokens": {
+        "request": 19
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Python was created in the 1970s.\n\nActually, I need to correct that — Python was created in 1989, not the 1970s.\n\nA programming language actually created in the 1970s is **C**, developed by Dennis Ritchie around 1972.",
+      "tokens": {
+        "request": 19,
+        "sent": 212,
+        "input": 212,
+        "output": 65,
+        "total": 277
+      },
+      "cost": {
+        "input": 0.000212,
+        "output": 0.000325,
+        "total": 0.0005369999999999999
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 1436,
+      "stopReason": "end_turn"
+    },
+    {
+      "role": "user",
+      "content": "What is the square root of 144?",
+      "tokens": {
+        "request": 16
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "The square root of 144 is 12.",
+      "tokens": {
+        "request": 16,
+        "sent": 265,
+        "input": 265,
+        "output": 14,
+        "total": 279
+      },
+      "cost": {
+        "input": 0.000265,
+        "output": 0.00007,
+        "total": 0.000335
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 1012,
+      "stopReason": "end_turn"
+    },
+    {
+      "role": "user",
+      "content": "Which planet has the most moons?",
+      "tokens": {
+        "request": 15
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Jupiter has the most moons of any planet in our solar system, with 95 known moons (as of the latest count in 2024).",
+      "tokens": {
+        "request": 15,
+        "sent": 257,
+        "input": 257,
+        "output": 35,
+        "total": 292
+      },
+      "cost": {
+        "input": 0.000257,
+        "output": 0.00017499999999999997,
+        "total": 0.000432
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 1425,
+      "stopReason": "end_turn"
+    },
+    {
+      "role": "user",
+      "content": "Remind me how old my dog is.",
+      "tokens": {
+        "request": 16
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "I don't have any information about you or your dog. I don't have access to personal details unless you share them with me in our conversation.\n\nIf you'd like to tell me your dog's age, I'm happy to help with questions about dog care or breed-specific information!",
+      "tokens": {
+        "request": 16,
+        "sent": 254,
+        "input": 254,
+        "output": 62,
+        "total": 316
+      },
+      "cost": {
+        "input": 0.000254,
+        "output": 0.00031,
+        "total": 0.000564
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 1447,
+      "stopReason": "end_turn"
+    },
+    {
+      "role": "user",
+      "content": "What is the capital of Norway?",
+      "tokens": {
+        "request": 14
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "The capital of Norway is Oslo.",
+      "tokens": {
+        "request": 14,
+        "sent": 279,
+        "input": 279,
+        "output": 10,
+        "total": 289
+      },
+      "cost": {
+        "input": 0.000279,
+        "output": 0.00005,
+        "total": 0.00032900000000000003
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 1121,
+      "stopReason": "end_turn"
+    }
+  ]
+}

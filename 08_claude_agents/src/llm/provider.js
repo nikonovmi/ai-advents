@@ -3,13 +3,18 @@
  *
  * Everything above this boundary (the Agent, the routes) speaks only in the
  * neutral shapes defined here: a system string, a `{ role, content }` message
- * array, and a `{ text, model }` result. Nothing vendor-specific — no wire
- * formats, no raw responses, no API keys — is allowed to cross it.
+ * array, and a `{ text, model, stopReason, usage }` result. Nothing
+ * vendor-specific — no wire formats, no raw responses, no API keys — is
+ * allowed to cross it.
+ *
+ * Note the naming: `stopReason` and `usage.inputTokens`, not `stop_reason` and
+ * `input_tokens`. Those are Anthropic's spellings and they stop one file over.
  */
 
 /**
  * @typedef {{ role: "user" | "assistant", content: string }} Message
- * @typedef {{ text: string, model: string }} Completion
+ * @typedef {{ inputTokens: number, outputTokens: number, cacheReadInputTokens?: number, cacheCreationInputTokens?: number }} Usage
+ * @typedef {{ text: string, model: string, stopReason: string | null, usage: Usage }} Completion
  */
 
 export class LlmProvider {
@@ -23,6 +28,20 @@ export class LlmProvider {
    */
   // eslint-disable-next-line no-unused-vars
   async complete({ system, messages, temperature, maxTokens }) {
+    throw new Error("Not implemented");
+  }
+
+  /**
+   * Measure a payload without running the model, so the caller can know what
+   * a request costs before paying for it.
+   *
+   * @param {object} params
+   * @param {string} [params.system]
+   * @param {Message[]} params.messages
+   * @returns {Promise<{ inputTokens: number }>}
+   */
+  // eslint-disable-next-line no-unused-vars
+  async countTokens({ system, messages }) {
     throw new Error("Not implemented");
   }
 }

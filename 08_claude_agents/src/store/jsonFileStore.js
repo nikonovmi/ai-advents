@@ -1,7 +1,14 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { ConversationStore, isValidSessionId, titleFrom } from "./conversationStore.js";
+import {
+  ConversationStore,
+  emptyUsage,
+  isValidSessionId,
+  normaliseMessages,
+  normaliseUsage,
+  titleFrom,
+} from "./conversationStore.js";
 
 // Resolved from this module, not the cwd — `npm start` from anywhere must
 // read and write the same directory.
@@ -36,13 +43,13 @@ export class JsonFileStore extends ConversationStore {
     return await this.#readRecord(file);
   }
 
-  async save(sessionId, messages) {
+  async save(sessionId, messages, usage) {
     const file = this.#fileFor(sessionId);
     await this.#ensureDir();
 
     const now = new Date().toISOString();
     const existing = await this.#readRecord(file);
-    const turns = (messages ?? []).map(({ role, content }) => ({ role, content }));
+    const turns = normaliseMessages(messages);
 
     const record = {
       id: sessionId,
@@ -51,6 +58,7 @@ export class JsonFileStore extends ConversationStore {
       title: existing?.title ?? titleFrom(turns),
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
+      usage: usage ? normaliseUsage(usage) : (existing?.usage ?? emptyUsage()),
       messages: turns,
     };
 
@@ -94,6 +102,7 @@ export class JsonFileStore extends ConversationStore {
         title: record.title,
         updatedAt: record.updatedAt,
         messageCount: record.messages.length,
+        totalCostUsd: record.usage.totalCostUsd,
       });
     }
 
@@ -131,6 +140,10 @@ export class JsonFileStore extends ConversationStore {
     try {
       const data = JSON.parse(raw);
       if (!data || !Array.isArray(data.messages)) throw new Error("unexpected shape");
+      // Files written before usage tracking existed have no `usage` key. They
+      // read back as a conversation that has cost nothing so far, not as a
+      // parse failure.
+      data.usage = normaliseUsage(data.usage);
       return data;
     } catch (err) {
       // A corrupt file is a bad conversation, not a bad server.

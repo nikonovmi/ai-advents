@@ -1,6 +1,7 @@
 import { LlmProvider, LlmError } from "./provider.js";
 
 const API_URL = "https://api.anthropic.com/v1/messages";
+const COUNT_URL = "https://api.anthropic.com/v1/messages/count_tokens";
 const API_VERSION = "2023-06-01";
 const TIMEOUT_MS = 30000;
 
@@ -46,6 +47,39 @@ export class AnthropicProvider extends LlmProvider {
     };
     if (system) body.system = system;
 
+    const data = await this.#post(API_URL, body);
+
+    return {
+      text: extractText(data.content),
+      model: data.model ?? this.#model,
+      // `stop_reason` becomes `stopReason` here and nowhere else. Above this
+      // line nobody knows Anthropic uses snake_case.
+      stopReason: data.stop_reason ?? null,
+      usage: neutralUsage(data.usage),
+    };
+  }
+
+  /**
+   * The same body the Messages API takes, minus `max_tokens` (there is no
+   * output to cap — the model never runs). Free and unbilled, which is what
+   * makes it usable as a pre-flight measurement on every single turn.
+   */
+  async countTokens({ system, messages }) {
+    const body = {
+      model: this.#model,
+      messages: messages.map(({ role, content }) => ({ role, content })),
+    };
+    if (system) body.system = system;
+
+    const data = await this.#post(COUNT_URL, body);
+    return { inputTokens: data.input_tokens ?? 0 };
+  }
+
+  /**
+   * One POST, one set of headers, one timeout, one error translation — shared
+   * by both endpoints so they cannot drift apart.
+   */
+  async #post(url, body) {
     const headers = {
       "x-api-key": this.#apiKey,
       "anthropic-version": API_VERSION,
@@ -57,7 +91,7 @@ export class AnthropicProvider extends LlmProvider {
 
     let response;
     try {
-      response = await fetch(API_URL, {
+      response = await fetch(url, {
         method: "POST",
         headers,
         body: JSON.stringify(body),
@@ -79,18 +113,35 @@ export class AnthropicProvider extends LlmProvider {
       throw new LlmError(errorMessageFrom(raw, response.status), response.status);
     }
 
-    let data;
     try {
-      data = JSON.parse(raw);
+      return JSON.parse(raw);
     } catch {
       throw new LlmError("Anthropic returned a response that was not JSON", response.status);
     }
-
-    return {
-      text: extractText(data.content),
-      model: data.model ?? this.#model,
-    };
   }
+}
+
+/**
+ * Anthropic's `usage` object in neutral clothes. The two cache fields only
+ * appear when prompt caching is in play, so they are passed through when
+ * present and simply absent otherwise — never faked as zero, which would
+ * read as "nothing was cached" rather than "caching was not involved".
+ *
+ * @param {{ input_tokens?: number, output_tokens?: number, cache_read_input_tokens?: number, cache_creation_input_tokens?: number }} [usage]
+ * @returns {import("./provider.js").Usage}
+ */
+function neutralUsage(usage) {
+  const neutral = {
+    inputTokens: usage?.input_tokens ?? 0,
+    outputTokens: usage?.output_tokens ?? 0,
+  };
+  if (typeof usage?.cache_read_input_tokens === "number") {
+    neutral.cacheReadInputTokens = usage.cache_read_input_tokens;
+  }
+  if (typeof usage?.cache_creation_input_tokens === "number") {
+    neutral.cacheCreationInputTokens = usage.cache_creation_input_tokens;
+  }
+  return neutral;
 }
 
 /**
@@ -133,6 +184,12 @@ function errorMessageFrom(raw, status) {
 /**
  * A provider that never leaves the process: no key, no network. Useful for
  * exercising the app and the Agent offline.
+ *
+ * Its numbers are synthetic but shaped like the real thing — roughly four
+ * characters to a token — so the counters, the cost panel and the truncation
+ * warning all behave without a key. They are not billed and not accurate;
+ * `fake-provider` is deliberately absent from PRICING, which is also how the
+ * unknown-model path gets exercised.
  */
 export class FakeProvider extends LlmProvider {
   #delayMs;
@@ -144,13 +201,43 @@ export class FakeProvider extends LlmProvider {
     this.#reply = reply;
   }
 
-  async complete({ messages }) {
+  get model() {
+    return "fake-provider";
+  }
+
+  async complete({ system, messages, maxTokens = 1024 }) {
     await new Promise((resolve) => setTimeout(resolve, this.#delayMs));
     const lastUser = [...messages].reverse().find((m) => m.role === "user");
-    const text =
+    let text =
       this.#reply ??
       `(fake reply) You said: "${lastUser?.content ?? ""}". ` +
         `No API key is configured, so nothing was sent to a real model.`;
-    return { text, model: "fake-provider" };
+
+    // Honour the ceiling the same way a real model does: stop mid-sentence and
+    // say so, so the truncation path is reachable offline.
+    const outputTokens = approximateTokens(text);
+    const hitCeiling = outputTokens > maxTokens;
+    if (hitCeiling) text = text.slice(0, maxTokens * 4);
+
+    return {
+      text,
+      model: "fake-provider",
+      stopReason: hitCeiling ? "max_tokens" : "end_turn",
+      usage: {
+        inputTokens: (await this.countTokens({ system, messages })).inputTokens,
+        outputTokens: Math.min(outputTokens, maxTokens),
+      },
+    };
   }
+
+  async countTokens({ system, messages }) {
+    const body = (messages ?? []).map((m) => m.content).join("\n");
+    // A few tokens of per-message envelope, like the real endpoint charges.
+    const envelope = (messages ?? []).length * 3;
+    return { inputTokens: approximateTokens(system ?? "") + approximateTokens(body) + envelope };
+  }
+}
+
+function approximateTokens(text) {
+  return Math.ceil(String(text ?? "").length / 4);
 }

@@ -1,4 +1,11 @@
-import { ConversationStore, isValidSessionId, titleFrom } from "./conversationStore.js";
+import {
+  ConversationStore,
+  emptyUsage,
+  isValidSessionId,
+  normaliseMessages,
+  normaliseUsage,
+  titleFrom,
+} from "./conversationStore.js";
 
 /**
  * The same contract, backed by a Map. Tests get persistence semantics with no
@@ -15,18 +22,19 @@ export class MemoryStore extends ConversationStore {
     return record ? clone(record) : null;
   }
 
-  async save(sessionId, messages) {
+  async save(sessionId, messages, usage) {
     assertValid(sessionId);
 
     const now = new Date().toISOString();
     const existing = this.#records.get(sessionId);
-    const turns = (messages ?? []).map(({ role, content }) => ({ role, content }));
+    const turns = normaliseMessages(messages);
 
     const record = {
       id: sessionId,
       title: existing?.title ?? titleFrom(turns),
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
+      usage: usage ? normaliseUsage(usage) : (existing?.usage ?? emptyUsage()),
       messages: turns,
     };
 
@@ -46,6 +54,7 @@ export class MemoryStore extends ConversationStore {
         title: record.title,
         updatedAt: record.updatedAt,
         messageCount: record.messages.length,
+        totalCostUsd: record.usage?.totalCostUsd ?? 0,
       }))
       .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
   }
@@ -59,5 +68,9 @@ function assertValid(sessionId) {
 
 /** Callers get a copy, so they cannot mutate what the store is holding. */
 function clone(record) {
-  return { ...record, messages: record.messages.map((turn) => ({ ...turn })) };
+  return {
+    ...record,
+    usage: { ...normaliseUsage(record.usage) },
+    messages: normaliseMessages(record.messages),
+  };
 }

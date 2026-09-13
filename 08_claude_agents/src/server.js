@@ -6,6 +6,7 @@ import express from "express";
 
 import { Agent, personas } from "./agent.js";
 import { AnthropicProvider, FakeProvider } from "./llm/anthropic.js";
+import { estimateCost } from "./llm/pricing.js";
 import { isValidSessionId } from "./store/conversationStore.js";
 import { JsonFileStore } from "./store/jsonFileStore.js";
 import { MemoryStore } from "./store/memoryStore.js";
@@ -13,6 +14,11 @@ import { MemoryStore } from "./store/memoryStore.js";
 const PORT = 3000;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, "..", "public");
+const PRICING_FILE = path.join(__dirname, "llm", "pricing.js");
+
+const DEFAULT_CONTEXT_MESSAGES = 5;
+const MAX_CONTEXT_MESSAGES = 100;
+const MAX_OUTPUT_TOKENS = 8192;
 
 // One provider and one store, built once at startup and shared by every agent.
 const provider = createProvider();
@@ -74,11 +80,20 @@ async function agentFor(sessionId) {
 }
 
 const app = express();
-app.use(express.json({ limit: "1mb" }));
+// 100 KB (the default) is small enough to reject a long pasted message before
+// the agent ever sees it — and a long pasted message is exactly the input this
+// version exists to put a token count on.
+app.use(express.json({ limit: "5mb" }));
 app.use(express.static(PUBLIC_DIR));
 
+// The browser gets the same PRICING table and the same formatters the server
+// uses, rather than a second copy that can quietly disagree with it.
+app.get("/pricing.js", (_req, res) => {
+  res.type("application/javascript").sendFile(PRICING_FILE);
+});
+
 app.post("/chat", async (req, res) => {
-  const { message, sessionId } = req.body ?? {};
+  const { message, sessionId, contextMessages, maxTokens } = req.body ?? {};
 
   if (typeof message !== "string" || !message.trim()) {
     return res.status(400).json({ error: "A non-empty 'message' is required." });
@@ -87,8 +102,26 @@ app.post("/chat", async (req, res) => {
     return res.status(400).json({ error: "A 'sessionId' in UUID v4 form is required." });
   }
 
+  const window = boundedInt(contextMessages, 1, MAX_CONTEXT_MESSAGES, DEFAULT_CONTEXT_MESSAGES);
+  if (window === null) {
+    return res
+      .status(400)
+      .json({ error: `'contextMessages' must be an integer between 1 and ${MAX_CONTEXT_MESSAGES}.` });
+  }
+
+  const ceiling = boundedInt(maxTokens, 1, MAX_OUTPUT_TOKENS, 1024);
+  if (ceiling === null) {
+    return res
+      .status(400)
+      .json({ error: `'maxTokens' must be an integer between 1 and ${MAX_OUTPUT_TOKENS}.` });
+  }
+
   try {
     const agent = await agentFor(sessionId);
+    // Both are live controls in the UI, so they are settings for this turn
+    // rather than something fixed when the agent was built.
+    agent.contextMessages = window;
+    agent.maxTokens = ceiling;
     const { text, meta } = await agent.run(message);
     res.json({ reply: text, meta });
   } catch (err) {
@@ -138,6 +171,59 @@ app.get("/conversations/:id", async (req, res) => {
   }
 });
 
+/**
+ * Per-turn token counts plus the running cumulative totals — everything the
+ * cost chart needs in one request. The per-turn numbers are replayed from the
+ * stored messages; the totals are the ones the agent has been keeping, so a
+ * restart does not reset the chart.
+ */
+app.get("/conversations/:id/usage", async (req, res) => {
+  const { id } = req.params;
+  if (!isValidSessionId(id)) {
+    return res.status(400).json({ error: "Not a valid conversation id." });
+  }
+
+  try {
+    const conversation = await store.load(id);
+    if (!conversation) return res.status(404).json({ error: "No such conversation." });
+
+    let cumulativeCost = 0;
+    let cumulativeTokens = 0;
+    const turns = [];
+
+    for (const message of conversation.messages) {
+      if (message.role !== "assistant" || !message.tokens) continue;
+      const tokens = message.tokens;
+      const cost =
+        message.cost ??
+        toNeutralCost(estimateCost({
+          model: message.model,
+          inputTokens: tokens.input,
+          outputTokens: tokens.output,
+        }));
+
+      cumulativeCost += cost.total ?? 0;
+      cumulativeTokens += tokens.total ?? 0;
+
+      turns.push({
+        turn: turns.length + 1,
+        model: message.model ?? null,
+        ms: message.ms ?? null,
+        truncated: Boolean(message.truncated),
+        tokens,
+        cost,
+        cumulativeCost,
+        cumulativeTokens,
+      });
+    }
+
+    res.json({ id, usage: conversation.usage, storedMessages: conversation.messages.length, turns });
+  } catch (err) {
+    console.error("[/conversations/:id/usage]", err);
+    res.status(500).json({ error: "Could not load usage for that conversation." });
+  }
+});
+
 app.delete("/conversations/:id", async (req, res) => {
   const { id } = req.params;
   if (!isValidSessionId(id)) {
@@ -153,6 +239,25 @@ app.delete("/conversations/:id", async (req, res) => {
     res.status(500).json({ error: "Could not delete that conversation." });
   }
 });
+
+/**
+ * Accept an integer inside a range, treat absent as the default, and treat
+ * anything else as a client error. Returning null rather than silently
+ * clamping means a UI sending nonsense hears about it.
+ *
+ * @returns {number | null} The value to use, or null when it was invalid.
+ */
+function boundedInt(value, min, max, fallback) {
+  if (value === undefined || value === null || value === "") return fallback;
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < min || n > max) return null;
+  return n;
+}
+
+/** `estimateCost`'s shape, renamed to the one stored messages use. */
+function toNeutralCost({ inputCost, outputCost, totalCost }) {
+  return { input: inputCost, output: outputCost, total: totalCost };
+}
 
 /**
  * A one-line, client-safe description of a failure: no stack traces, and
