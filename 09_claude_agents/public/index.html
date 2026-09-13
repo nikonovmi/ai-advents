@@ -32,29 +32,48 @@
 
   * { box-sizing: border-box; }
 
+  /* The document is exactly one viewport tall and never scrolls. Everything
+     that can grow — the transcript, the conversation list, the summary — is a
+     scroll container of its own, so the composer and the controls stay put. */
+  html { height: 100%; }
+
   body {
     margin: 0;
+    height: 100%;
+    overflow: hidden;
     background: var(--bg);
     color: var(--ink);
     font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
     display: flex;
     justify-content: center;
-    min-height: 100vh;
   }
 
   .shell {
     width: 100%;
-    max-width: 1000px;
+    max-width: 1320px;
     display: flex;
-    height: 100vh;
+    height: 100%;
+    min-height: 0;
     background: var(--panel);
     border-left: 1px solid var(--line);
     border-right: 1px solid var(--line);
   }
 
-  .app {
-    flex: 1;
+  /* The chat and the summary travel together: side by side when there is
+     room, stacked when there is not. Wrapping them in one box is what lets
+     the summary sit *below* the chat on a narrow screen without the flex
+     rows of `.shell` deciding how tall each of them gets. */
+  .main {
+    flex: 1 1 auto;
     min-width: 0;
+    min-height: 0;
+    display: flex;
+  }
+
+  .app {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
     display: flex;
     flex-direction: column;
   }
@@ -62,6 +81,7 @@
   .sidebar {
     width: 260px;
     flex: none;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     border-right: 1px solid var(--line);
@@ -113,18 +133,40 @@
   .conversation .remove:hover { color: var(--accent); }
   .sidebar .empty { padding: 0 10px; font-size: 13px; color: var(--muted); }
 
+  /* Below this width the third column would squeeze the messages, so the
+     summary goes under the chat instead of beside it. It is reference
+     material: it may scroll out of sight, but it may not crowd the thing it
+     is reference *for*. */
+  @media (max-width: 1080px) {
+    .main { flex-direction: column; }
+    .summary-panel {
+      width: auto;
+      max-height: 50vh;
+      border-left: none;
+      border-top: 1px solid var(--line);
+    }
+    #window-text { padding: 12px 24px; }
+    .compare { max-height: 30vh; padding: 12px 24px 16px; }
+  }
+
   @media (max-width: 720px) {
-    .shell { flex-direction: column; height: auto; min-height: 100vh; }
+    .shell { flex-direction: column; }
     .sidebar {
       width: 100%;
+      flex: 0 0 auto;
+      max-height: 22vh;
       border-right: none;
       border-bottom: 1px solid var(--line);
-      max-height: 40vh;
     }
-    .app { min-height: 60vh; }
+    .summary-panel { max-height: 44vh; }
+    .compare { max-height: 26vh; }
+    /* On a phone every fixed row above the transcript is height the
+       transcript does not get, so the ones that can be smaller are. */
+    .chart svg { height: 80px; }
   }
 
   header {
+    flex: none;
     display: flex;
     align-items: baseline;
     gap: 12px;
@@ -148,7 +190,10 @@
   button:disabled { opacity: 0.45; cursor: default; }
 
   #messages {
-    flex: 1;
+    flex: 1 1 auto;
+    /* Without this a flex child refuses to shrink past its content, and the
+       transcript pushes the composer off the bottom instead of scrolling. */
+    min-height: 0;
     overflow-y: auto;
     padding: 24px;
     display: flex;
@@ -203,7 +248,8 @@
   .dots span:nth-child(3) { animation-delay: 0.4s; }
   @keyframes blink { 0%, 80%, 100% { opacity: 0.25; } 40% { opacity: 1; } }
 
-  form {
+  form#composer {
+    flex: none;
     display: flex;
     gap: 10px;
     align-items: flex-end;
@@ -236,6 +282,7 @@
   /* ---- usage strip ------------------------------------------------------ */
 
   .usage {
+    flex: none;
     display: flex;
     gap: 0;
     padding: 10px 24px;
@@ -264,6 +311,7 @@
   /* ---- cost chart ------------------------------------------------------- */
 
   .chart {
+    flex: none;
     border-bottom: 1px solid var(--line);
     padding: 10px 24px 12px;
   }
@@ -288,6 +336,7 @@
   /* ---- context-window banner -------------------------------------------- */
 
   .window-banner {
+    flex: none;
     display: flex;
     gap: 14px;
     align-items: flex-start;
@@ -298,10 +347,16 @@
     font-size: 13px;
     line-height: 1.5;
   }
-  .window-banner .text { flex: 1; min-width: 260px; color: var(--muted); }
-  .window-banner .text strong { color: var(--ink); }
-  .window-banner .text .dropped { color: var(--accent); font-weight: 600; }
-  .window-banner .controls { display: flex; gap: 14px; align-items: center; }
+  .window-banner .controls { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+  .window-banner label.toggle {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .window-banner label.toggle input { width: auto; }
   .window-banner label {
     display: flex;
     flex-direction: column;
@@ -323,25 +378,6 @@
     padding: 5px 8px;
   }
 
-  /* ---- the boundary in the transcript ----------------------------------- */
-
-  .boundary {
-    align-self: stretch;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    color: var(--accent);
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-  }
-  .boundary::before,
-  .boundary::after {
-    content: "";
-    flex: 1;
-    border-top: 1px dashed var(--accent);
-  }
-
   .row.outside .bubble { opacity: 0.45; }
 
   .warning {
@@ -354,6 +390,230 @@
     line-height: 1.5;
     max-width: 100%;
   }
+
+  /* ---- the active-summary panel ----------------------------------------- */
+
+  /* Reference material, not conversation: smaller, quieter and tighter than
+     the transcript, so it reads as something the model is working *from*
+     rather than something that was said. */
+  /* Everything about *what is being sent*, in one column: the sentence that
+     names the three zones, the summary itself, and the panel that puts all
+     three ways of asking side by side. The chat column is left to be a chat. */
+  .summary-panel {
+    width: 340px;
+    flex: none;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    /* Nothing escapes the column: each section inside it scrolls or is
+       capped, so the column's own height is the last word. */
+    overflow: hidden;
+    border-left: 1px solid var(--line);
+    background: var(--bg);
+  }
+
+  /* The three-zone sentence. */
+  #window-text {
+    flex: none;
+    margin: 0;
+    padding: 18px 14px 14px;
+    border-bottom: 1px solid var(--line);
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+  #window-text strong { color: var(--ink); }
+  #window-text .dropped { color: var(--accent); font-weight: 600; }
+
+  /* The flash on compression stays on the summary itself rather than washing
+     over the whole column, which would say "everything here changed". */
+  .summary-panel > .head,
+  .summary-panel > .summary-body { transition: background-color 0.6s ease; }
+  .summary-panel.flash > .head,
+  .summary-panel.flash > .summary-body {
+    background: color-mix(in srgb, var(--accent) 14%, var(--bg));
+  }
+
+  .summary-panel > .head {
+    flex: none;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    width: 100%;
+    padding: 16px 14px 10px;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    text-align: left;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.4;
+  }
+  .summary-panel > .head:hover { border-color: transparent; color: var(--ink); }
+  .summary-panel > .head .caret { flex: none; }
+  .summary-panel > .head .stats { flex: 1; min-width: 0; }
+  .summary-panel > .head .stats b {
+    color: var(--ink);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+  }
+  .summary-panel > .head .badge {
+    flex: none;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--panel);
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .summary-body {
+    /* Its own scroll container: a long summary must never push the chat off
+       the screen. Beside the chat it fills its column; stacked underneath it
+       is capped at 40vh by the breakpoint above. */
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0 14px 18px;
+    font-size: 11.5px;
+    line-height: 1.45;
+    color: var(--muted);
+  }
+  .summary-body .sh {
+    margin: 10px 0 3px;
+    color: var(--ink);
+    font-weight: 600;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .summary-body .sh:first-child { margin-top: 0; }
+  .summary-body .si { padding-left: 10px; text-indent: -10px; }
+  .summary-body .sp { margin: 4px 0; }
+  .summary-body .placeholder { font-style: italic; }
+  .summary-panel[data-open="false"] .summary-body { display: none; }
+
+  /* ---- the boundary in the transcript ----------------------------------- */
+
+  details.boundary {
+    align-self: stretch;
+    border: 1px dashed var(--accent);
+    border-radius: 10px;
+    padding: 8px 12px;
+    color: var(--accent);
+    font-size: 11px;
+    line-height: 1.5;
+  }
+  details.boundary > summary {
+    cursor: pointer;
+    list-style: none;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+  }
+  details.boundary > summary::-webkit-details-marker { display: none; }
+  details.boundary > summary::before { content: "▸ "; }
+  details.boundary[open] > summary::before { content: "▾ "; }
+  details.boundary .summary-body {
+    max-height: 34vh;
+    padding: 8px 0 2px;
+    color: var(--muted);
+  }
+
+  /* ---- compression notes on a turn -------------------------------------- */
+
+  .folded {
+    margin-top: 6px;
+    padding: 6px 10px;
+    border-left: 2px solid var(--accent);
+    color: var(--muted);
+    font-size: 11.5px;
+    line-height: 1.5;
+  }
+  .folded b { color: var(--accent); font-weight: 600; }
+
+  /* ---- the compare panel ------------------------------------------------- */
+
+  .compare {
+    flex: 0 0 auto;
+    min-height: 0;
+    /* Bounded so it can never crowd out the summary above it; it scrolls
+       inside itself once the three answers are long. A viewport unit rather
+       than a percentage, because the column's height is only definite in the
+       side-by-side layout. */
+    max-height: 46vh;
+    overflow-y: auto;
+    border-top: 1px solid var(--line);
+    padding: 12px 14px 16px;
+    background: var(--bg);
+  }
+  .compare > summary {
+    cursor: pointer;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--muted);
+    list-style: none;
+  }
+  .compare > summary::before { content: "▾ "; }
+  .compare:not([open]) > summary::before { content: "▸ "; }
+  .compare .ask { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .compare .ask input {
+    flex: 1;
+    min-width: 0;
+    font: inherit;
+    font-size: 13px;
+    color: var(--ink);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 7px 10px;
+  }
+  .compare .note { font-size: 11.5px; color: var(--muted); margin: 8px 0 0; line-height: 1.5; }
+  /* Stacked in the column, side by side only when the column is running full
+     width underneath the chat — three 110px cards would compare nothing. */
+  .compare .grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  @media (min-width: 721px) and (max-width: 1080px) {
+    .compare .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+  .compare .card {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: var(--panel);
+  }
+  .compare .card h4 {
+    margin: 0;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+  }
+  .compare .card .what { font-size: 11px; color: var(--muted); margin: 2px 0 8px; line-height: 1.4; }
+  .compare .card .reply {
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    max-height: 160px;
+    overflow-y: auto;
+  }
+  .compare .card .numbers {
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px solid var(--line);
+    font-size: 11px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .compare .card.failed .reply { color: var(--accent); }
 </style>
 </head>
 <body>
@@ -363,6 +623,7 @@
   <div id="conversations"></div>
 </aside>
 
+<div class="main">
 <div class="app">
   <header>
     <h1>first-agent</h1>
@@ -382,10 +643,9 @@
   <div id="messages" aria-live="polite"></div>
 
   <div class="window-banner">
-    <p class="text" id="window-text"></p>
     <div class="controls">
-      <label>User msgs
-        <input id="context-messages" type="number" min="1" max="100" step="1" value="5">
+      <label title="Verbatim exchanges are kept until there are this many, then the oldest half is folded into the summary.">Window (exchanges)
+        <input id="context-messages" type="number" min="2" max="100" step="1" value="10">
       </label>
       <label>Max tokens
         <select id="max-tokens">
@@ -393,6 +653,10 @@
           <option value="300">300</option>
           <option value="1024" selected>1024</option>
         </select>
+      </label>
+      <label class="toggle">
+        <input id="compression-enabled" type="checkbox" checked>
+        Compress
       </label>
     </div>
   </div>
@@ -402,6 +666,33 @@
     <button id="send" type="submit">Send</button>
   </form>
 </div>
+
+<aside class="summary-panel" id="summary-panel" data-open="true">
+  <p class="text" id="window-text"></p>
+
+  <button class="head" id="summary-toggle" type="button" aria-expanded="true" aria-controls="summary-body">
+    <span class="caret">▾</span>
+    <span class="stats" id="summary-stats"><b>Summary</b></span>
+    <span class="badge" id="summary-badge" hidden>just updated</span>
+  </button>
+  <div class="summary-body" id="summary-body"></div>
+
+  <details class="compare" id="compare-panel">
+    <summary>Compare · full vs cropped vs summary</summary>
+    <form class="ask" id="compare-form">
+      <input id="compare-question" type="text"
+             placeholder="Ask one question, three ways…">
+      <button id="compare-run" type="submit">Run</button>
+    </form>
+    <p class="note" id="compare-note">
+      Answers the same question against the full history, against the last N exchanges
+      alone, and against the summary plus those same N — three real completions, billed
+      to you and not to the conversation. The stored conversation is not touched.
+    </p>
+    <div class="grid" id="compare-results"></div>
+  </details>
+</aside>
+</div>
 </div>
 
 <script type="module">
@@ -410,6 +701,10 @@
   import { formatCost, formatTokens, pricingFor } from "/pricing.js";
 
   const SESSION_KEY = "first-agent.sessionId";
+  const SUMMARY_OPEN_KEY = "first-agent.summaryOpen";
+  // How long the panel stays lit after a compression. Long enough to notice on
+  // the turn it happened, short enough not to still be shouting two turns later.
+  const FLASH_MS = 4000;
   // What the "% of the window" figure is measured against. The real number
   // comes from the model that actually answered; 200K is the stand-in until
   // one has.
@@ -435,13 +730,35 @@
   const windowText = document.getElementById("window-text");
   const contextInput = document.getElementById("context-messages");
   const maxTokensSelect = document.getElementById("max-tokens");
+  const compressionToggle = document.getElementById("compression-enabled");
+  const summaryPanel = document.getElementById("summary-panel");
+  const summaryToggle = document.getElementById("summary-toggle");
+  const summaryStats = document.getElementById("summary-stats");
+  const summaryBadge = document.getElementById("summary-badge");
+  const summaryBody = document.getElementById("summary-body");
+  const compareForm = document.getElementById("compare-form");
+  const compareQuestion = document.getElementById("compare-question");
+  const compareRun = document.getElementById("compare-run");
+  const compareResults = document.getElementById("compare-results");
 
   let pending = false;
   // What the last turn told us about the window. The banner has to say
   // something before the first turn, so it starts from the control's value.
-  let windowState = { contextMessages: Number(contextInput.value), droppedCount: 0, storedMessages: 0 };
+  let windowState = {
+    contextMessages: Number(contextInput.value),
+    droppedCount: 0,
+    storedMessages: 0,
+    summarizedThrough: 0,
+    verbatimExchanges: 0,
+    foldSize: Math.max(1, Math.floor(Number(contextInput.value) / 2)),
+  };
   let lastSentTokens = null;
   let lastModel = null;
+  // Everything the panel needs to describe the summary the model is actually
+  // being sent — the text itself, what it costs to send, how much of the
+  // conversation it stands in for, and how stale it is.
+  let summaryState = { text: null, tokens: null, covers: 0, turnsAgo: null, updatedAt: null, injected: true };
+  let flashTimer = null;
 
   function showEmptyState() {
     messages.innerHTML = '<p class="empty">No messages yet — say hello.</p>';
@@ -459,17 +776,57 @@
   }
 
   /**
+   * A turn's compression facts, wherever they came from: a live `meta` carries
+   * them under `tokens`, a stored message carries them at the top level.
+   */
+  function compressionOf(meta) {
+    return meta?.compression ?? meta?.tokens?.compression ?? null;
+  }
+
+  /**
    * The line under a reply: real billed tokens, what they cost, how long it
    * took, and which model said it.
+   *
+   * The summary is called out inside the input figure rather than added to it.
+   * It is not extra tokens on top of the request — it *is* part of the request,
+   * and the interesting question is how much of the input it accounts for.
    */
-  function agentMetaLine({ tokens, cost, model, ms }) {
+  function agentMetaLine(meta) {
+    const { tokens, cost, model, ms } = meta;
+    const summaryTokens = compressionOf(meta)?.summaryTokens;
     const parts = [];
-    if (tokens?.input != null) parts.push(formatTokens(tokens.input) + " in");
+    if (tokens?.input != null) {
+      parts.push(
+        formatTokens(tokens.input) + " in" +
+          (summaryTokens ? ` (${formatTokens(summaryTokens)} summary)` : "")
+      );
+    }
     if (tokens?.output != null) parts.push(formatTokens(tokens.output) + " out");
     if (cost?.total != null) parts.push(formatCost(cost.total));
     if (ms != null) parts.push((ms / 1000).toFixed(1) + "s");
     if (model) parts.push(shortModel(model));
     return parts.join(" · ");
+  }
+
+  /**
+   * The turn where compression ran, with the summarizer's own bill attached.
+   * Hiding that cost would make compression look free, and the whole reason to
+   * measure it is that it is not.
+   */
+  function foldedNote(compression) {
+    const box = document.createElement("div");
+    box.className = "folded";
+    const lead = document.createElement("b");
+    lead.textContent = `summary updated — ${compression.foldedMessages} message` +
+      `${compression.foldedMessages === 1 ? "" : "s"} folded in`;
+    box.appendChild(lead);
+
+    const bill = [];
+    if (compression.summarizerTokens) bill.push(formatTokens(compression.summarizerTokens) + " summarizer tokens");
+    if (compression.summarizerCost != null) bill.push(formatCost(compression.summarizerCost));
+    if (compression.summarizerMs != null) bill.push((compression.summarizerMs / 1000).toFixed(1) + "s");
+    if (bill.length) box.append(" · " + bill.join(" · "));
+    return box;
   }
 
   function addMessage(who, text, { meta = null, error = false } = {}) {
@@ -483,6 +840,9 @@
     row.appendChild(bubble);
 
     if (meta?.truncated) row.appendChild(truncationWarning(meta));
+    if (who !== "user" && compressionOf(meta)?.compressedThisTurn) {
+      row.appendChild(foldedNote(compressionOf(meta)));
+    }
 
     const line = document.createElement("div");
     line.className = "meta";
@@ -536,15 +896,145 @@
     input.style.height = Math.min(input.scrollHeight, 180) + "px";
   }
 
+  // ---- the running summary -------------------------------------------------
+
+  /**
+   * Render the summary's Markdown-ish structure: `## Section` headers become
+   * small bold labels and `- item` lines become bullets. At 11.5px the
+   * structure is the only thing that makes it scannable, so it is worth the
+   * fifteen lines it takes to draw.
+   */
+  function renderSummaryInto(target, text) {
+    target.innerHTML = "";
+    if (!text) return;
+
+    for (const raw of String(text).split("\n")) {
+      const line = raw.trim();
+      if (!line) continue;
+      const node = document.createElement("div");
+      if (line.startsWith("#")) {
+        node.className = "sh";
+        node.textContent = line.replace(/^#+\s*/, "");
+      } else if (line.startsWith("- ") || line.startsWith("* ")) {
+        node.className = "si";
+        node.textContent = "• " + line.slice(2);
+      } else {
+        node.className = "sp";
+        node.textContent = line;
+      }
+      target.appendChild(node);
+    }
+  }
+
+  function summaryPlaceholder() {
+    const node = document.createElement("div");
+    node.className = "placeholder";
+    node.textContent = summaryState.injected
+      ? "Nothing has been summarized yet — no messages have left the context window."
+      : "Compression is off, so nothing is being folded in. Messages that leave the window are simply dropped.";
+    return node;
+  }
+
+  /** `Summary · 412 tokens · covers 24 messages · updated 2 turns ago`. */
+  function summaryHeadline() {
+    if (!summaryState.text) return "No summary yet";
+    const parts = [];
+    if (summaryState.tokens != null) parts.push(formatTokens(summaryState.tokens) + " tokens");
+    parts.push(`covers ${summaryState.covers} message${summaryState.covers === 1 ? "" : "s"}`);
+    if (summaryState.turnsAgo === 0) parts.push("updated this turn");
+    else if (summaryState.turnsAgo != null) {
+      parts.push(`updated ${summaryState.turnsAgo} turn${summaryState.turnsAgo === 1 ? "" : "s"} ago`);
+    } else if (summaryState.updatedAt) parts.push("updated " + relativeTime(summaryState.updatedAt));
+    // Written down but not on the wire: worth saying, since the panel
+    // otherwise reads as a description of what the model can see.
+    if (!summaryState.injected) parts.push("not being sent — compression is off");
+    return parts.join(" · ");
+  }
+
+  function renderSummaryPanel() {
+    summaryStats.innerHTML = "";
+    const label = document.createElement("b");
+    label.textContent = "Summary";
+    summaryStats.append(label, " ", summaryHeadline());
+
+    if (summaryState.text) renderSummaryInto(summaryBody, summaryState.text);
+    else {
+      summaryBody.innerHTML = "";
+      summaryBody.appendChild(summaryPlaceholder());
+    }
+  }
+
+  /** Light the panel up on the turn the model's memory of the past changed. */
+  function flashSummaryPanel() {
+    summaryPanel.classList.add("flash");
+    summaryBadge.hidden = false;
+    clearTimeout(flashTimer);
+    flashTimer = setTimeout(() => {
+      summaryPanel.classList.remove("flash");
+      summaryBadge.hidden = true;
+    }, FLASH_MS);
+  }
+
+  function setSummaryOpen(open) {
+    summaryPanel.dataset.open = String(open);
+    summaryToggle.setAttribute("aria-expanded", String(open));
+    summaryToggle.querySelector(".caret").textContent = open ? "▾" : "▸";
+    try {
+      localStorage.setItem(SUMMARY_OPEN_KEY, open ? "1" : "0");
+    } catch (err) {
+      // A browser that will not remember the preference still shows the panel.
+    }
+  }
+
+  summaryToggle.addEventListener("click", () => {
+    setSummaryOpen(summaryPanel.dataset.open !== "true");
+  });
+
+  /**
+   * Rebuild the summary state from a stored conversation. `turnsAgo` is counted
+   * from the messages rather than remembered in the page, so a reload does not
+   * quietly reset it to "just updated".
+   */
+  function summaryFromTranscript(turns, record) {
+    const assistants = turns.filter((t) => t.role === "assistant");
+    let turnsAgo = null;
+    for (let i = assistants.length - 1; i >= 0; i--) {
+      if (assistants[i].compression?.compressedThisTurn) {
+        turnsAgo = assistants.length - 1 - i;
+        break;
+      }
+    }
+    // The size of the block as last measured on the wire. Turns taken with
+    // compression off report 0, so the most recent non-zero one is the honest
+    // answer to "what does this cost to send".
+    const measured = assistants
+      .map((t) => t.compression?.summaryTokens)
+      .filter((n) => typeof n === "number" && n > 0);
+
+    summaryState = {
+      text: record?.summary ?? null,
+      tokens: measured.length ? measured[measured.length - 1] : null,
+      covers: record?.summarizedThrough ?? 0,
+      turnsAgo,
+      updatedAt: record?.summaryUpdatedAt ?? null,
+      injected: assistants.at(-1)?.compression?.enabled ?? true,
+    };
+  }
+
   // ---- the context window --------------------------------------------------
 
   /**
-   * Draw the line between what the model can still see and what it cannot.
-   * The messages above it are on disk and in the transcript, and are simply
-   * not being sent any more.
+   * Draw the line between what the model can still see and what it cannot —
+   * and, at that line, what it has instead.
+   *
+   * The block is collapsible and holds the actual summary text. Seeing the
+   * words the model is working from, at the exact point where the verbatim
+   * messages stop, is the single most useful thing this UI can show: it turns
+   * "the old turns are gone" into "the old turns are *this*".
    */
   function markContextBoundary(droppedCount) {
-    messages.querySelector(".boundary")?.remove();
+    const wasOpen = messages.querySelector("details.boundary")?.open ?? false;
+    messages.querySelector("details.boundary")?.remove();
     for (const row of messages.querySelectorAll(".row.outside")) {
       row.classList.remove("outside");
     }
@@ -555,20 +1045,29 @@
 
     for (let i = 0; i < droppedCount; i++) rows[i].classList.add("outside");
 
-    // The divider goes where the boundary actually falls — everything above
-    // it is stored but no longer sent, which is what the label's arrow points
-    // back at. The dimmed bubbles above it say the same thing a second way.
-    const divider = document.createElement("div");
-    divider.className = "boundary";
-    divider.textContent = "⟵ outside the model's context";
-    messages.insertBefore(divider, rows[droppedCount]);
+    const block = document.createElement("details");
+    block.className = "boundary";
+    block.open = wasOpen;
+
+    const label = document.createElement("summary");
+    label.textContent = summaryState.text
+      ? `⟵ ${droppedCount} messages folded into the summary`
+      : `⟵ ${droppedCount} messages outside the context · not summarized`;
+
+    const body = document.createElement("div");
+    body.className = "summary-body";
+    if (summaryState.text) renderSummaryInto(body, summaryState.text);
+    else body.appendChild(summaryPlaceholder());
+
+    block.append(label, body);
+    messages.insertBefore(block, rows[droppedCount]);
   }
 
   /**
-   * The same rule the agent applies, applied to the rendered transcript: walk
-   * back to the Nth most recent user message and call everything before it
-   * dropped. Keeping it here means changing the window redraws the boundary
-   * immediately, without waiting for another turn.
+   * The old sliding crop, applied to the rendered transcript: walk back to the
+   * Nth most recent user message and call everything before it dropped. Only
+   * used with compression switched off, which is the mode that still works
+   * that way.
    */
   function droppedFromTranscript(contextMessages) {
     const rows = [...messages.querySelectorAll(".row")];
@@ -580,24 +1079,69 @@
     return 0;
   }
 
+  /**
+   * How many messages are not on the wire.
+   *
+   * With compression on there is only one answer — the summary's edge — because
+   * the two edges touch: every stored message is either folded in or sent. With
+   * it off, the crop above is the whole story.
+   */
+  function currentDropped() {
+    return compressionToggle.checked
+      ? Math.min(summaryState.covers, messages.querySelectorAll(".row").length)
+      : droppedFromTranscript(windowState.contextMessages);
+  }
+
+  /** Exchanges being sent verbatim, counted off the rendered transcript. */
+  function verbatimFromTranscript(dropped) {
+    const rows = [...messages.querySelectorAll(".row")];
+    return rows.slice(dropped).filter((row) => row.classList.contains("user")).length;
+  }
+
+  /**
+   * Name all three zones of the payload, and say where the line between them
+   * falls. "The last 5 messages" stopped being the whole story the moment a
+   * summary started riding along with them.
+   */
   function renderWindowBanner() {
-    const { contextMessages, droppedCount } = windowState;
+    const { contextMessages } = windowState;
+    const compressing = compressionToggle.checked;
+    const fold = Math.max(1, Math.floor(contextMessages / 2));
+    const dropped = currentDropped();
+    const verbatim = verbatimFromTranscript(dropped);
     windowText.innerHTML = "";
 
-    const plural = contextMessages === 1 ? "" : "s";
     const strong = document.createElement("strong");
-    strong.textContent = `Context window: last ${contextMessages} user message${plural}.`;
-    windowText.append(strong, " ");
-    windowText.append(
-      `The agent stores the whole conversation but only sends the ${contextMessages} most ` +
-        `recent user message${plural}, and the replies to them, to the model. `
-    );
+    strong.textContent = "Sending: ";
+    windowText.append(strong);
 
-    if (droppedCount > 0) {
+    if (compressing && summaryState.text) {
       const count = document.createElement("span");
       count.className = "dropped";
-      count.textContent = `${droppedCount} older message${droppedCount === 1 ? "" : "s"}`;
-      windowText.append(count, " are outside the window and invisible to it.");
+      count.textContent = `a summary of ${summaryState.covers} earlier message${summaryState.covers === 1 ? "" : "s"}`;
+      windowText.append(count, ` + ${verbatim} exchange${verbatim === 1 ? "" : "s"} verbatim. `);
+    } else if (compressing) {
+      windowText.append(
+        `${verbatim} exchange${verbatim === 1 ? "" : "s"} verbatim. Nothing has been folded in yet. `
+      );
+    } else {
+      windowText.append(
+        `the last ${contextMessages} exchange${contextMessages === 1 ? "" : "s"} verbatim, and nothing else. `
+      );
+    }
+
+    windowText.append("Full history is stored but not sent. ");
+
+    if (compressing) {
+      windowText.append(
+        `Once ${contextMessages} exchanges have piled up the oldest ${fold} are folded in, ` +
+          "so every stored message is either in the summary or on the wire — never in neither."
+      );
+    } else if (dropped > 0) {
+      const count = document.createElement("span");
+      count.className = "dropped";
+      count.textContent = `${dropped} message${dropped === 1 ? " is" : "s are"}`;
+      windowText.append(count, " outside the window, and invisible to the model.");
     } else {
       windowText.append("Nothing has fallen outside it yet.");
     }
@@ -625,8 +1169,17 @@
   }
 
   function renderTotals(usage) {
-    const { totalInputTokens = 0, totalOutputTokens = 0, totalCostUsd = 0, turnCount = 0 } = usage ?? {};
+    const {
+      totalInputTokens = 0,
+      totalOutputTokens = 0,
+      totalCostUsd = 0,
+      turnCount = 0,
+      summarizerInputTokens = 0,
+      summarizerOutputTokens = 0,
+      summarizerCostUsd = 0,
+    } = usage ?? {};
     const total = totalInputTokens + totalOutputTokens;
+    const summarizerTotal = summarizerInputTokens + summarizerOutputTokens;
     const average = turnCount ? totalCostUsd / turnCount : 0;
     const contextWindow = pricingFor(lastModel)?.contextWindow ?? DEFAULT_CONTEXT_WINDOW;
     const share = lastSentTokens == null ? null : (lastSentTokens / contextWindow) * 100;
@@ -643,6 +1196,14 @@
         "Last request",
         lastSentTokens == null ? "—" : formatTokens(lastSentTokens),
         share == null ? "" : `· ${share.toFixed(share < 1 ? 2 : 1)}% of ${formatTokens(contextWindow)}`
+      ),
+      // Kept out of the totals above on purpose: compression's own bill is
+      // what a saving has to be measured against, so folding it into the
+      // conversation's numbers would be marking your own homework.
+      stat(
+        "Summarizer",
+        summarizerTotal ? formatTokens(summarizerTotal) : "—",
+        summarizerCostUsd ? "· " + formatCost(summarizerCostUsd) : ""
       )
     );
   }
@@ -721,8 +1282,8 @@
         `line is close to straight — sending the full history instead would bend it upward, because ` +
         `every turn would re-send everything said before it.`
       : `Cumulative tokens after ${turns.length} turn${turns.length === 1 ? "" : "s"} — this model has ` +
-        `no published price, so there is nothing to plot in dollars. The shape is the point: with a ` +
-        `fixed window of ${window} user message${window === 1 ? "" : "s"} the line stays roughly ` +
+        `no published price, so there is nothing to plot in dollars. The shape is the point: capped at ` +
+        `${window} exchange${window === 1 ? "" : "s"} the line stays roughly ` +
         `straight, where re-sending the full history every turn would curve it upward.`;
   }
 
@@ -741,7 +1302,7 @@
     lastSentTokens = latest?.tokens?.sent ?? null;
     lastModel = latest?.model ?? lastModel;
     windowState.storedMessages = data?.storedMessages ?? 0;
-    windowState.droppedCount = droppedFromTranscript(windowState.contextMessages);
+    windowState.droppedCount = currentDropped();
 
     renderTotals(data?.usage);
     renderChart(turns);
@@ -770,6 +1331,7 @@
           sessionId,
           contextMessages: Number(contextInput.value),
           maxTokens: Number(maxTokensSelect.value),
+          compressionEnabled: compressionToggle.checked,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -786,6 +1348,25 @@
         windowState = data.meta.window;
         lastSentTokens = data.meta.tokens?.sent ?? null;
         lastModel = data.meta.model ?? lastModel;
+
+        const compression = data.meta.tokens?.compression;
+        summaryState = {
+          text: data.meta.summary?.text ?? null,
+          // A turn taken with compression off measures the block at zero
+          // because it did not send one. That is not a new size for it.
+          tokens: compression?.enabled ? compression.summaryTokens : summaryState.tokens,
+          covers: compression?.summarizedMessages ?? summaryState.covers,
+          turnsAgo: compression?.compressedThisTurn
+            ? 0
+            : summaryState.turnsAgo == null
+              ? null
+              : summaryState.turnsAgo + 1,
+          updatedAt: data.meta.summary?.updatedAt ?? summaryState.updatedAt,
+          injected: compression?.enabled ?? true,
+        };
+        renderSummaryPanel();
+        if (compression?.compressedThisTurn) flashSummaryPanel();
+
         renderWindowBanner();
         markContextBoundary(windowState.droppedCount);
       }
@@ -817,12 +1398,112 @@
   // Resizing the window re-draws the boundary immediately, before the next
   // turn — that is what makes the trade-off something you can play with.
   contextInput.addEventListener("change", () => {
-    const value = Math.min(100, Math.max(1, Math.round(Number(contextInput.value) || 5)));
+    const value = Math.min(100, Math.max(2, Math.round(Number(contextInput.value) || 10)));
     contextInput.value = String(value);
     windowState.contextMessages = value;
-    windowState.droppedCount = droppedFromTranscript(value);
+    windowState.foldSize = Math.max(1, Math.floor(value / 2));
+    windowState.droppedCount = currentDropped();
     renderWindowBanner();
     markContextBoundary(windowState.droppedCount);
+  });
+
+  // Switching compression off does not delete the summary — it stops sending
+  // it. The banner has to say so straight away, because the point of the
+  // toggle is to see the difference on the very next turn.
+  compressionToggle.addEventListener("change", () => {
+    windowState.droppedCount = currentDropped();
+    renderWindowBanner();
+    markContextBoundary(windowState.droppedCount);
+  });
+
+  // ---- the comparison ------------------------------------------------------
+
+  function compareCard(variant) {
+    const card = document.createElement("div");
+    card.className = "card" + (variant.error ? " failed" : "");
+
+    const title = document.createElement("h4");
+    title.textContent = variant.label;
+    const what = document.createElement("p");
+    what.className = "what";
+    what.textContent = variant.note;
+
+    const reply = document.createElement("div");
+    reply.className = "reply";
+    reply.textContent = variant.error ?? variant.reply;
+
+    const numbers = document.createElement("div");
+    numbers.className = "numbers";
+    const parts = [`${variant.messagesSent} msgs`];
+    if (variant.inputTokens != null) parts.push(formatTokens(variant.inputTokens) + " in");
+    if (variant.outputTokens != null) parts.push(formatTokens(variant.outputTokens) + " out");
+    if (variant.cost?.total != null) parts.push(formatCost(variant.cost.total));
+    if (variant.ms != null) parts.push((variant.ms / 1000).toFixed(1) + "s");
+    numbers.textContent = parts.join(" · ");
+
+    card.append(title, what, reply, numbers);
+    return card;
+  }
+
+  async function runCompare(question) {
+    compareResults.innerHTML = "";
+    compareRun.disabled = true;
+    const waiting = document.createElement("p");
+    waiting.className = "note";
+    waiting.textContent = "Asking three times…";
+    compareResults.appendChild(waiting);
+
+    try {
+      const res = await fetch("/conversations/" + sessionId + "/replay", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ question, contextMessages: Number(contextInput.value) }),
+      });
+      const data = await res.json().catch(() => ({}));
+      compareResults.innerHTML = "";
+
+      if (!res.ok) {
+        const failed = document.createElement("p");
+        failed.className = "note";
+        failed.textContent = data.error || "Could not run the comparison.";
+        compareResults.appendChild(failed);
+        return;
+      }
+
+      for (const variant of data.variants) compareResults.appendChild(compareCard(variant));
+
+      // The comparison is only honest if the overhead is named, so the line
+      // under it does the arithmetic rather than leaving it to the reader.
+      const full = data.variants.find((v) => v.key === "full")?.inputTokens;
+      const cropped = data.variants.find((v) => v.key === "cropped")?.inputTokens;
+      const compressed = data.variants.find((v) => v.key === "compressed")?.inputTokens;
+      if (full != null && cropped != null && compressed != null) {
+        const verdict = document.createElement("p");
+        verdict.className = "note";
+        verdict.style.gridColumn = "1 / -1";
+        verdict.textContent =
+          `Input tokens: ${formatTokens(full)} full · ${formatTokens(cropped)} cropped · ` +
+          `${formatTokens(compressed)} compressed. Against full history the summary saves ` +
+          `${formatTokens(full - compressed)}; against cropping alone it costs ` +
+          `${formatTokens(compressed - cropped)} extra every turn, plus the summarizer's own bill. ` +
+          `What that buys is in the answers above, not in these numbers.`;
+        compareResults.appendChild(verdict);
+      }
+    } catch (err) {
+      compareResults.innerHTML = "";
+      const failed = document.createElement("p");
+      failed.className = "note";
+      failed.textContent = "Could not reach the server.";
+      compareResults.appendChild(failed);
+    } finally {
+      compareRun.disabled = false;
+    }
+  }
+
+  compareForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const question = compareQuestion.value.trim();
+    if (question) runCompare(question);
   });
 
   newButton.addEventListener("click", () => {
@@ -830,6 +1511,9 @@
     // reachable from the sidebar. Nothing is reset.
     switchTo(crypto.randomUUID());
     showEmptyState();
+    summaryState = { text: null, tokens: null, covers: 0, turnsAgo: null, updatedAt: null, injected: true };
+    compareResults.innerHTML = "";
+    renderSummaryPanel();
     refreshConversations();
     refreshUsage();
     input.focus();
@@ -859,10 +1543,18 @@
 
   async function paintTranscript(id) {
     messages.innerHTML = "";
+    summaryState = { text: null, tokens: null, covers: 0, turnsAgo: null, updatedAt: null, injected: true };
+    compareResults.innerHTML = "";
     try {
       const res = await fetch("/conversations/" + id);
-      if (!res.ok) return showEmptyState();
-      const { messages: turns } = await res.json();
+      if (!res.ok) {
+        renderSummaryPanel();
+        return showEmptyState();
+      }
+      const record = await res.json();
+      const turns = record.messages;
+      summaryFromTranscript(turns ?? [], record);
+      renderSummaryPanel();
       if (!turns?.length) return showEmptyState();
       for (const turn of turns) {
         // Stored messages carry the counts of the turn that produced them, so
@@ -872,6 +1564,7 @@
         });
       }
     } catch (err) {
+      renderSummaryPanel();
       showEmptyState();
     }
   }
@@ -942,6 +1635,14 @@
     }
   }
 
+  let openByDefault = true;
+  try {
+    openByDefault = localStorage.getItem(SUMMARY_OPEN_KEY) !== "0";
+  } catch (err) {
+    // No stored preference is the same as not having expressed one.
+  }
+  setSummaryOpen(openByDefault);
+  renderSummaryPanel();
   renderWindowBanner();
   await paintTranscript(sessionId);
   refreshConversations();

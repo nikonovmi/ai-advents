@@ -38,9 +38,9 @@ export class AnthropicProvider extends LlmProvider {
     return this.#model;
   }
 
-  async complete({ system, messages, temperature = 0.7, maxTokens = 1024 }) {
+  async complete({ system, messages, temperature = 0.7, maxTokens = 1024, model }) {
     const body = {
-      model: this.#model,
+      model: model || this.#model,
       max_tokens: maxTokens,
       temperature,
       messages: messages.map(({ role, content }) => ({ role, content })),
@@ -51,7 +51,7 @@ export class AnthropicProvider extends LlmProvider {
 
     return {
       text: extractText(data.content),
-      model: data.model ?? this.#model,
+      model: data.model ?? model ?? this.#model,
       // `stop_reason` becomes `stopReason` here and nowhere else. Above this
       // line nobody knows Anthropic uses snake_case.
       stopReason: data.stop_reason ?? null,
@@ -64,9 +64,9 @@ export class AnthropicProvider extends LlmProvider {
    * output to cap — the model never runs). Free and unbilled, which is what
    * makes it usable as a pre-flight measurement on every single turn.
    */
-  async countTokens({ system, messages }) {
+  async countTokens({ system, messages, model }) {
     const body = {
-      model: this.#model,
+      model: model || this.#model,
       messages: messages.map(({ role, content }) => ({ role, content })),
     };
     if (system) body.system = system;
@@ -210,8 +210,10 @@ export class FakeProvider extends LlmProvider {
     const lastUser = [...messages].reverse().find((m) => m.role === "user");
     let text =
       this.#reply ??
-      `(fake reply) You said: "${lastUser?.content ?? ""}". ` +
-        `No API key is configured, so nothing was sent to a real model.`;
+      (looksLikeSummarisation(system)
+        ? fakeSummary(lastUser?.content ?? "")
+        : `(fake reply) You said: "${lastUser?.content ?? ""}". ` +
+          `No API key is configured, so nothing was sent to a real model.`);
 
     // Honour the ceiling the same way a real model does: stop mid-sentence and
     // say so, so the truncation path is reachable offline.
@@ -240,4 +242,40 @@ export class FakeProvider extends LlmProvider {
 
 function approximateTokens(text) {
   return Math.ceil(String(text ?? "").length / 4);
+}
+
+/**
+ * The Summarizer's system prompt is recognisable by the sections it demands.
+ * Matching on it lets the offline provider return something summary-shaped
+ * rather than a canned sentence, so the summary panel can be exercised without
+ * a key. The text is still synthetic — it quotes the material back rather than
+ * understanding it.
+ */
+function looksLikeSummarisation(system) {
+  return typeof system === "string" && system.includes("## Facts about the user");
+}
+
+function fakeSummary(prompt) {
+  const dropped = String(prompt)
+    .split("\n")
+    .filter((line) => line.startsWith("[user] "))
+    .map((line) => line.slice(7).replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+
+  return [
+    "## Facts about the user",
+    ...(dropped.length ? dropped.map((line) => "- said: " + line.slice(0, 160)) : ["- none"]),
+    "",
+    "## Decisions made",
+    "- none (fake-provider does not read, it only reflects)",
+    "",
+    "## Preferences and constraints",
+    "- none",
+    "",
+    "## Open questions",
+    "- none",
+    "",
+    "## Discarded / superseded",
+    "- none",
+  ].join("\n");
 }

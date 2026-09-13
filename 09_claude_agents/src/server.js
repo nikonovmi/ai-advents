@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import "dotenv/config";
 import express from "express";
 
-import { Agent, personas } from "./agent.js";
+import { Agent, personas, summaryBlock, windowStart } from "./agent.js";
 import { AnthropicProvider, FakeProvider } from "./llm/anthropic.js";
 import { estimateCost } from "./llm/pricing.js";
 import { isValidSessionId } from "./store/conversationStore.js";
@@ -16,9 +16,16 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, "..", "public");
 const PRICING_FILE = path.join(__dirname, "llm", "pricing.js");
 
-const DEFAULT_CONTEXT_MESSAGES = 5;
+const DEFAULT_CONTEXT_MESSAGES = 10;
 const MAX_CONTEXT_MESSAGES = 100;
 const MAX_OUTPUT_TOKENS = 8192;
+// How many exchanges a compression folds in. Absent means half the window,
+// which is what the UI sends: one dial, not two that have to agree.
+const MAX_SUMMARIZE_EVERY = 100;
+// The replay endpoint answers the same question three times over. That is the
+// point of it, but it also means one careless click costs three completions, so
+// the reply is kept short.
+const REPLAY_MAX_TOKENS = 512;
 
 // One provider and one store, built once at startup and shared by every agent.
 const provider = createProvider();
@@ -93,7 +100,8 @@ app.get("/pricing.js", (_req, res) => {
 });
 
 app.post("/chat", async (req, res) => {
-  const { message, sessionId, contextMessages, maxTokens } = req.body ?? {};
+  const { message, sessionId, contextMessages, maxTokens, summarizeEvery, compressionEnabled } =
+    req.body ?? {};
 
   if (typeof message !== "string" || !message.trim()) {
     return res.status(400).json({ error: "A non-empty 'message' is required." });
@@ -116,12 +124,26 @@ app.post("/chat", async (req, res) => {
       .json({ error: `'maxTokens' must be an integer between 1 and ${MAX_OUTPUT_TOKENS}.` });
   }
 
+  const every = boundedInt(summarizeEvery, 1, MAX_SUMMARIZE_EVERY, null);
+  if (every === null && summarizeEvery !== undefined && summarizeEvery !== null && summarizeEvery !== "") {
+    return res
+      .status(400)
+      .json({ error: `'summarizeEvery' must be an integer between 1 and ${MAX_SUMMARIZE_EVERY}.` });
+  }
+
+  if (compressionEnabled !== undefined && typeof compressionEnabled !== "boolean") {
+    return res.status(400).json({ error: "'compressionEnabled' must be a boolean." });
+  }
+
   try {
     const agent = await agentFor(sessionId);
-    // Both are live controls in the UI, so they are settings for this turn
-    // rather than something fixed when the agent was built.
+    // Live controls in the UI, so they are settings for this turn rather than
+    // something fixed when the agent was built. `summarizeEvery` is the odd one
+    // out: null leaves the agent to derive it from the window.
     agent.contextMessages = window;
     agent.maxTokens = ceiling;
+    agent.summarizeEvery = every;
+    agent.compressionEnabled = compressionEnabled ?? true;
     const { text, meta } = await agent.run(message);
     res.json({ reply: text, meta });
   } catch (err) {
@@ -164,7 +186,14 @@ app.get("/conversations/:id", async (req, res) => {
   try {
     const conversation = await store.load(id);
     if (!conversation) return res.status(404).json({ error: "No such conversation." });
-    res.json({ messages: conversation.messages });
+    // The summary rides along with the transcript: the panel that shows it has
+    // to be right immediately on a reload, not one turn later.
+    res.json({
+      messages: conversation.messages,
+      summary: conversation.summary,
+      summarizedThrough: conversation.summarizedThrough,
+      summaryUpdatedAt: conversation.summaryUpdatedAt,
+    });
   } catch (err) {
     console.error("[/conversations/:id]", err);
     res.status(500).json({ error: "Could not load that conversation." });
@@ -223,6 +252,148 @@ app.get("/conversations/:id/usage", async (req, res) => {
     res.status(500).json({ error: "Could not load usage for that conversation." });
   }
 });
+
+/**
+ * Answer one question three ways against a stored conversation, so the
+ * "does compression help?" question gets a number instead of an impression.
+ *
+ *   full        — the entire history, nothing cropped, no summary
+ *   cropped     — the last N exchanges only (the previous version's behaviour)
+ *   compressed  — the stored summary plus the last N exchanges (this version)
+ *
+ * Strictly read-only. It loads the record, builds three payloads from it and
+ * throws them away: no message is appended, no summary is written, and the
+ * conversation's own usage totals are untouched. The three completions it does
+ * pay for are reported in the response and nowhere else, because they belong to
+ * the experiment rather than to the conversation.
+ */
+app.post("/conversations/:id/replay", async (req, res) => {
+  const { id } = req.params;
+  const { question, contextMessages } = req.body ?? {};
+
+  if (!isValidSessionId(id)) {
+    return res.status(400).json({ error: "Not a valid conversation id." });
+  }
+  if (typeof question !== "string" || !question.trim()) {
+    return res.status(400).json({ error: "A non-empty 'question' is required." });
+  }
+
+  const window = boundedInt(contextMessages, 1, MAX_CONTEXT_MESSAGES, DEFAULT_CONTEXT_MESSAGES);
+  if (window === null) {
+    return res
+      .status(400)
+      .json({ error: `'contextMessages' must be an integer between 1 and ${MAX_CONTEXT_MESSAGES}.` });
+  }
+
+  try {
+    const conversation = await store.load(id);
+    if (!conversation) return res.status(404).json({ error: "No such conversation." });
+    if (!conversation.messages.length) {
+      return res.status(400).json({ error: "That conversation has nothing to replay." });
+    }
+
+    // The question is appended exactly as a real turn would append it, and the
+    // window is computed on the result — so `cropped` and `compressed` are the
+    // payloads the agent itself would have built, not approximations of them.
+    const history = [
+      ...conversation.messages.map(({ role, content }) => ({ role, content })),
+      { role: "user", content: question.trim() },
+    ];
+    const start = windowStart(history, window);
+    const cropped = history.slice(start);
+    const withSummary = personas.helpful + summaryBlock(conversation.summary);
+
+    const variants = [
+      {
+        key: "full",
+        label: "Full history",
+        note: `every one of the ${history.length} messages, nothing cropped`,
+        system: personas.helpful,
+        messages: history,
+        summaryUsed: false,
+      },
+      {
+        key: "cropped",
+        label: "Cropped",
+        note: `the last ${window} exchange${window === 1 ? "" : "s"}, everything older simply gone`,
+        system: personas.helpful,
+        messages: cropped,
+        summaryUsed: false,
+      },
+      {
+        key: "compressed",
+        label: "Summary + cropped",
+        note: conversation.summary
+          ? `the same ${cropped.length} messages, with the summary in the system prompt`
+          : "no summary has been written yet, so this is identical to cropped",
+        system: withSummary,
+        messages: cropped,
+        summaryUsed: Boolean(conversation.summary),
+      },
+    ];
+
+    const answers = await Promise.all(variants.map((variant) => replayOne(variant)));
+
+    res.json({
+      id,
+      question: question.trim(),
+      contextMessages: window,
+      storedMessages: conversation.messages.length,
+      summarizedThrough: conversation.summarizedThrough,
+      hasSummary: Boolean(conversation.summary),
+      variants: answers,
+    });
+  } catch (err) {
+    console.error("[/conversations/:id/replay]", err);
+    res.status(500).json({ error: readableError(err) });
+  }
+});
+
+/**
+ * One arm of the comparison. A failure in one arm is reported as that arm's
+ * result rather than thrown: an over-long full history is a perfectly
+ * interesting outcome, and it should not take the other two answers down with
+ * it.
+ */
+async function replayOne({ key, label, note, system, messages, summaryUsed }) {
+  const startedAt = Date.now();
+  try {
+    const result = await provider.complete({
+      system,
+      messages,
+      temperature: 0,
+      maxTokens: REPLAY_MAX_TOKENS,
+    });
+    const inputTokens = result.usage?.inputTokens ?? null;
+    const outputTokens = result.usage?.outputTokens ?? null;
+    const cost = estimateCost({ model: result.model, inputTokens, outputTokens });
+
+    return {
+      key,
+      label,
+      note,
+      reply: result.text,
+      model: result.model,
+      messagesSent: messages.length,
+      summaryUsed,
+      inputTokens,
+      outputTokens,
+      cost: toNeutralCost(cost),
+      ms: Date.now() - startedAt,
+    };
+  } catch (err) {
+    console.error(`[/replay:${key}]`, err);
+    return {
+      key,
+      label,
+      note,
+      error: readableError(err),
+      messagesSent: messages.length,
+      summaryUsed,
+      ms: Date.now() - startedAt,
+    };
+  }
+}
 
 app.delete("/conversations/:id", async (req, res) => {
   const { id } = req.params;

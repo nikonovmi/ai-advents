@@ -3,8 +3,10 @@ import path from "node:path";
 
 import {
   ConversationStore,
+  emptyCompression,
   emptyUsage,
   isValidSessionId,
+  normaliseCompression,
   normaliseMessages,
   normaliseUsage,
   titleFrom,
@@ -43,13 +45,18 @@ export class JsonFileStore extends ConversationStore {
     return await this.#readRecord(file);
   }
 
-  async save(sessionId, messages, usage) {
+  async save(sessionId, messages, usage, compression) {
     const file = this.#fileFor(sessionId);
     await this.#ensureDir();
 
     const now = new Date().toISOString();
     const existing = await this.#readRecord(file);
     const turns = normaliseMessages(messages);
+    // An absent `compression` argument means "unchanged", not "cleared" — a
+    // caller that does not know about summaries must not erase one.
+    const summary = compression
+      ? normaliseCompression(compression)
+      : (existing ? normaliseCompression(existing) : emptyCompression());
 
     const record = {
       id: sessionId,
@@ -59,6 +66,7 @@ export class JsonFileStore extends ConversationStore {
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
       usage: usage ? normaliseUsage(usage) : (existing?.usage ?? emptyUsage()),
+      ...summary,
       messages: turns,
     };
 
@@ -140,10 +148,12 @@ export class JsonFileStore extends ConversationStore {
     try {
       const data = JSON.parse(raw);
       if (!data || !Array.isArray(data.messages)) throw new Error("unexpected shape");
-      // Files written before usage tracking existed have no `usage` key. They
-      // read back as a conversation that has cost nothing so far, not as a
-      // parse failure.
+      // Files written before usage tracking existed have no `usage` key, and
+      // files written before compression existed have no summary. They read
+      // back as a conversation that has cost nothing and been compressed never,
+      // not as a parse failure.
       data.usage = normaliseUsage(data.usage);
+      Object.assign(data, normaliseCompression(data));
       return data;
     } catch (err) {
       // A corrupt file is a bad conversation, not a bad server.

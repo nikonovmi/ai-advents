@@ -1,7 +1,9 @@
 import {
   ConversationStore,
+  emptyCompression,
   emptyUsage,
   isValidSessionId,
+  normaliseCompression,
   normaliseMessages,
   normaliseUsage,
   titleFrom,
@@ -22,12 +24,15 @@ export class MemoryStore extends ConversationStore {
     return record ? clone(record) : null;
   }
 
-  async save(sessionId, messages, usage) {
+  async save(sessionId, messages, usage, compression) {
     assertValid(sessionId);
 
     const now = new Date().toISOString();
     const existing = this.#records.get(sessionId);
     const turns = normaliseMessages(messages);
+    const summary = compression
+      ? normaliseCompression(compression)
+      : (existing ? normaliseCompression(existing) : emptyCompression());
 
     const record = {
       id: sessionId,
@@ -35,6 +40,7 @@ export class MemoryStore extends ConversationStore {
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
       usage: usage ? normaliseUsage(usage) : (existing?.usage ?? emptyUsage()),
+      ...summary,
       messages: turns,
     };
 
@@ -71,6 +77,7 @@ function clone(record) {
   return {
     ...record,
     usage: { ...normaliseUsage(record.usage) },
+    ...normaliseCompression(record),
     messages: normaliseMessages(record.messages),
   };
 }

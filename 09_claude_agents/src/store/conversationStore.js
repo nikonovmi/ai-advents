@@ -11,9 +11,11 @@
 /**
  * @typedef {import("../llm/provider.js").Message} Message
  * @typedef {{ request?: number | null, sent?: number | null, input?: number | null, output?: number | null, total?: number | null }} TurnTokens
- * @typedef {Message & { tokens?: TurnTokens }} StoredMessage
- * @typedef {{ totalInputTokens: number, totalOutputTokens: number, totalCostUsd: number, turnCount: number }} ConversationUsage
- * @typedef {{ id: string, title: string, createdAt: string, updatedAt: string, usage: ConversationUsage, messages: StoredMessage[] }} Conversation
+ * @typedef {{ enabled: boolean, summaryTokens: number | null, summarizedMessages: number, compressedThisTurn: boolean, foldedMessages: number, summarizerTokens: number, summarizerCost: number | null, summarizerMs: number | null }} TurnCompression
+ * @typedef {Message & { tokens?: TurnTokens, compression?: TurnCompression }} StoredMessage
+ * @typedef {{ totalInputTokens: number, totalOutputTokens: number, totalCostUsd: number, turnCount: number, summarizerInputTokens: number, summarizerOutputTokens: number, summarizerCostUsd: number }} ConversationUsage
+ * @typedef {{ summary: string | null, summarizedThrough: number, summaryUpdatedAt: string | null }} StoredCompression
+ * @typedef {{ id: string, title: string, createdAt: string, updatedAt: string, usage: ConversationUsage, summary: string | null, summarizedThrough: number, summaryUpdatedAt: string | null, messages: StoredMessage[] }} Conversation
  * @typedef {{ id: string, title: string, updatedAt: string, messageCount: number, totalCostUsd: number }} ConversationSummary
  */
 
@@ -31,10 +33,12 @@ export class ConversationStore {
    * @param {string} sessionId
    * @param {StoredMessage[]} messages
    * @param {ConversationUsage} [usage] - Cumulative totals for the conversation.
+   * @param {StoredCompression} [compression] - The running summary and how far
+   *   through the history it reaches.
    * @returns {Promise<Conversation>} The record as persisted.
    */
   // eslint-disable-next-line no-unused-vars
-  async save(sessionId, messages, usage) {
+  async save(sessionId, messages, usage, compression) {
     throw new Error("Not implemented");
   }
 
@@ -84,9 +88,54 @@ export function titleFrom(messages) {
   return text.length > TITLE_MAX ? text.slice(0, TITLE_MAX - 1).trimEnd() + "…" : text;
 }
 
-/** A conversation that has cost nothing yet. @returns {ConversationUsage} */
+/**
+ * A conversation that has cost nothing yet.
+ *
+ * The summarizer's tokens are counted in their own three fields rather than
+ * folded into the conversation totals. Compression is sold as a saving, and a
+ * saving whose cost has been quietly added to the thing it is being compared
+ * against is not a measurement.
+ *
+ * @returns {ConversationUsage}
+ */
 export function emptyUsage() {
-  return { totalInputTokens: 0, totalOutputTokens: 0, totalCostUsd: 0, turnCount: 0 };
+  return {
+    totalInputTokens: 0,
+    totalOutputTokens: 0,
+    totalCostUsd: 0,
+    turnCount: 0,
+    summarizerInputTokens: 0,
+    summarizerOutputTokens: 0,
+    summarizerCostUsd: 0,
+  };
+}
+
+/** A conversation that has never been compressed. @returns {StoredCompression} */
+export function emptyCompression() {
+  return { summary: null, summarizedThrough: 0, summaryUpdatedAt: null };
+}
+
+/**
+ * Coerce whatever is on disk into a compression record. Files written by Day 8
+ * have none of these keys, and they must keep loading — an older conversation
+ * is one that has never been compressed, not a corrupt one.
+ *
+ * @param {unknown} compression
+ * @returns {StoredCompression}
+ */
+export function normaliseCompression(compression) {
+  const base = emptyCompression();
+  if (!compression || typeof compression !== "object") return base;
+
+  const { summary, summarizedThrough, summaryUpdatedAt } = compression;
+  if (typeof summary === "string" && summary.trim()) base.summary = summary;
+  if (Number.isInteger(summarizedThrough) && summarizedThrough >= 0) {
+    base.summarizedThrough = summarizedThrough;
+  }
+  if (typeof summaryUpdatedAt === "string" && summaryUpdatedAt) {
+    base.summaryUpdatedAt = summaryUpdatedAt;
+  }
+  return base;
 }
 
 /**
@@ -124,6 +173,9 @@ export function normaliseMessages(messages) {
     if (typeof message.ms === "number") stored.ms = message.ms;
     if (message.stopReason) stored.stopReason = message.stopReason;
     if (message.truncated) stored.truncated = true;
+    // What compression did on the turn that produced this message, so a
+    // repainted transcript shows the same overhead the live one did.
+    if (message.compression) stored.compression = { ...message.compression };
     return stored;
   });
 }

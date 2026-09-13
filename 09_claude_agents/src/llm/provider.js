@@ -24,10 +24,15 @@ export class LlmProvider {
    * @param {Message[]} params.messages - Conversation so far, oldest first.
    * @param {number} [params.temperature]
    * @param {number} [params.maxTokens]
+   * @param {string} [params.model] - Override the provider's default model for
+   *   this one call. A model id is a neutral string — it is already in every
+   *   `Completion` and in the price table — so naming one here crosses no
+   *   boundary. It is what lets a caller send a side task, like summarising,
+   *   to a cheaper model than the conversation itself.
    * @returns {Promise<Completion>}
    */
   // eslint-disable-next-line no-unused-vars
-  async complete({ system, messages, temperature, maxTokens }) {
+  async complete({ system, messages, temperature, maxTokens, model }) {
     throw new Error("Not implemented");
   }
 
@@ -38,10 +43,11 @@ export class LlmProvider {
    * @param {object} params
    * @param {string} [params.system]
    * @param {Message[]} params.messages
+   * @param {string} [params.model]
    * @returns {Promise<{ inputTokens: number }>}
    */
   // eslint-disable-next-line no-unused-vars
-  async countTokens({ system, messages }) {
+  async countTokens({ system, messages, model }) {
     throw new Error("Not implemented");
   }
 }
