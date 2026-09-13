@@ -9,9 +9,7 @@ compresses everything that falls outside that window into a running summary
 rather than dropping it — then measures whether that was worth paying for.
 
 
-
-Uploading Screen Recording 2026-09-13 at 20.20.56.mov…
-
+https://github.com/user-attachments/assets/592fd24b-cec4-4d2e-92a4-5dbc664f42d7
 
 
 ## Install
