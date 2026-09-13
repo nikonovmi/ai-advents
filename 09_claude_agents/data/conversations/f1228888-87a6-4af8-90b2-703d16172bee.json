@@ -1,0 +1,41 @@
+{
+  "id": "f1228888-87a6-4af8-90b2-703d16172bee",
+  "title": "Explain how depth-first search works, i…",
+  "createdAt": "2026-09-13T16:40:45.108Z",
+  "updatedAt": "2026-09-13T16:40:45.108Z",
+  "usage": {
+    "totalInputTokens": 58,
+    "totalOutputTokens": 30,
+    "totalCostUsd": 0.00020800000000000001,
+    "turnCount": 1
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "Explain how depth-first search works, in detail.",
+      "tokens": {
+        "request": 19
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "# Depth-First Search (DFS)\n\nDFS explores a graph by going as deep as possible along each branch before backtracking.",
+      "tokens": {
+        "request": 19,
+        "sent": 58,
+        "input": 58,
+        "output": 30,
+        "total": 88
+      },
+      "cost": {
+        "input": 0.000058,
+        "output": 0.00015000000000000001,
+        "total": 0.00020800000000000001
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 1194,
+      "stopReason": "max_tokens",
+      "truncated": true
+    }
+  ]
+}

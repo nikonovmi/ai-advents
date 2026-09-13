@@ -1,0 +1,32 @@
+{
+  "id": "a6c38008-af60-478f-8633-56863a4cd3d9",
+  "title": "what is a dfs?",
+  "createdAt": "2026-09-12T21:01:07.833Z",
+  "updatedAt": "2026-09-12T21:07:31.933Z",
+  "messages": [
+    {
+      "role": "user",
+      "content": "what is a dfs?"
+    },
+    {
+      "role": "assistant",
+      "content": "A DFS is a **Depth-First Search** — a way to explore a graph or tree by going as deep as possible along each branch before backtracking.\n\n**How it works:**\n1. Start at a node\n2. Follow one path as far as you can go\n3. When you hit a dead end, backtrack and try another path\n4. Repeat until you've visited all nodes\n\n**Simple example:**\nIf exploring a tree, you'd go all the way down one branch to its leaves, then come back up and explore the next branch.\n\n**Common uses:**\n- Finding paths in mazes or graphs\n- Detecting cycles\n- Topological sorting\n- Checking if a graph is connected\n\nIt's often implemented with a stack or recursion. The opposite approach is **BFS (Breadth-First Search)**, which explores level-by-level instead of deep branches."
+    },
+    {
+      "role": "user",
+      "content": "implement it in haskell"
+    },
+    {
+      "role": "assistant",
+      "content": "Here's a simple DFS implementation in Haskell:\n\n```haskell\nimport Data.Set (Set)\nimport qualified Data.Set as Set\n\n-- DFS using a list as a stack\ndfs :: Ord a => a -> (a -> [a]) -> [a]\ndfs start getNeighbors = go Set.empty [start]\n  where\n    go visited [] = []\n    go visited (node:stack)\n      | Set.member node visited = go visited stack\n      | otherwise = node : go (Set.insert node visited) (getNeighbors node ++ stack)\n\n-- Example: graph as adjacency list\ngraph :: Int -> [Int]\ngraph 1 = [2, 3]\ngraph 2 = [4]\ngraph 3 = [5]\ngraph 4 = []\ngraph 5 = []\ngraph _ = []\n\n-- Usage: dfs 1 graph\n-- Result: [1,2,4,3,5]\n```\n\n**How it works:**\n- `go` tracks visited nodes and maintains a stack\n- Pop a node from the stack\n- If not visited, output it and push its neighbors onto the stack\n- Repeat until stack is empty\n\n**Alternative with recursion** (cleaner):\n\n```haskell\ndfs' :: Ord a => (a -> [a]) -> Set a -> a -> [a]\ndfs' getNeighbors visited node\n  | Set.member node visited = []\n  | otherwise = node : concatMap (dfs' getNeighbors visited') (getNeighbors node)\n  where\n    visited' = Set.insert node visited\n\n-- Usage: dfs' graph Set.empty 1\n```\n\nBoth work! The first is iterative, the second is recursive. Pick whichever feels clearer to you."
+    },
+    {
+      "role": "user",
+      "content": "now implement it in lisp"
+    },
+    {
+      "role": "assistant",
+      "content": "Here's a DFS implementation in Lisp (Common Lisp):\n\n```lisp\n(defun dfs (start get-neighbors)\n  (let ((visited (make-hash-table)))\n    (labels ((visit (node)\n               (unless (gethash node visited)\n                 (setf (gethash node visited) t)\n                 (cons node\n                       (mapcan #'visit (funcall get-neighbors node))))))\n      (visit start))))\n\n;; Example: graph as a function\n(defun graph (node)\n  (case node\n    (1 '(2 3))\n    (2 '(4))\n    (3 '(5))\n    (otherwise '())))\n\n;; Usage: (dfs 1 #'graph)\n;; Result: (1 2 4 3 5)\n```\n\n**Iterative version** (using a stack):\n\n```lisp\n(defun dfs-iterative (start get-neighbors)\n  (let ((visited (make-hash-table))\n        (stack (list start))\n        (result '()))\n    (loop while stack do\n      (let ((node (pop stack)))\n        (unless (gethash node visited)\n          (setf (gethash node visited) t)\n          (push node result)\n          (setf stack (append (funcall get-neighbors node) stack)))))\n    (nreverse result)))\n\n;; Usage: (dfs-iterative 1 #'graph)\n```\n\n**Key differences from Haskell:**\n- Hash tables for tracking visited nodes\n- `labels` for local recursive functions\n- `mapcan` to map and concatenate results\n- `loop` for iteration in the second version\n\nBoth work! The recursive version is more Lispy, the iterative version is more explicit about the stack."
+    }
+  ]
+}
