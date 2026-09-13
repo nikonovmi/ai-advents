@@ -6,16 +6,24 @@
  * array — the very same one `LlmProvider` takes — and a conversation record.
  * Nothing storage-specific — no paths, no file handles, no SQL — is allowed to
  * cross it.
+ *
+ * Since branching, a record holds a **pool** of messages rather than a list:
+ * every message names its parent, and a branch is a pointer to the last one on
+ * it. A file written before that is a pool with exactly one chain in it, which
+ * is why it still loads. See `branches.js`.
  */
+
+import { normaliseGraph } from "./branches.js";
 
 /**
  * @typedef {import("../llm/provider.js").Message} Message
  * @typedef {{ request?: number | null, sent?: number | null, input?: number | null, output?: number | null, total?: number | null }} TurnTokens
- * @typedef {{ enabled: boolean, summaryTokens: number | null, summarizedMessages: number, compressedThisTurn: boolean, foldedMessages: number, summarizerTokens: number, summarizerCost: number | null, summarizerMs: number | null }} TurnCompression
- * @typedef {Message & { tokens?: TurnTokens, compression?: TurnCompression }} StoredMessage
- * @typedef {{ totalInputTokens: number, totalOutputTokens: number, totalCostUsd: number, turnCount: number, summarizerInputTokens: number, summarizerOutputTokens: number, summarizerCostUsd: number }} ConversationUsage
- * @typedef {{ summary: string | null, summarizedThrough: number, summaryUpdatedAt: string | null }} StoredCompression
- * @typedef {{ id: string, title: string, createdAt: string, updatedAt: string, usage: ConversationUsage, summary: string | null, summarizedThrough: number, summaryUpdatedAt: string | null, messages: StoredMessage[] }} Conversation
+ * @typedef {{ id: string, label: string, overheadTokens: number, overheadCost: number | null, overheadMs: number | null, overheadCalls: number, blockTokens: number | null, note: string }} TurnStrategy
+ * @typedef {Message & { id: string, parentId: string | null, tokens?: TurnTokens, strategy?: TurnStrategy }} StoredMessage
+ * @typedef {{ totalInputTokens: number, totalOutputTokens: number, totalCostUsd: number, turnCount: number, overheadInputTokens: number, overheadOutputTokens: number, overheadCostUsd: number, overheadCalls: number }} ConversationUsage
+ * @typedef {import("./branches.js").Branch} Branch
+ * @typedef {{ branches: Record<string, Branch>, activeBranchId: string }} ConversationGraph
+ * @typedef {{ id: string, title: string, createdAt: string, updatedAt: string, usage: ConversationUsage, branches: Record<string, Branch>, activeBranchId: string, messages: StoredMessage[] }} Conversation
  * @typedef {{ id: string, title: string, updatedAt: string, messageCount: number, totalCostUsd: number }} ConversationSummary
  */
 
@@ -31,14 +39,13 @@ export class ConversationStore {
 
   /**
    * @param {string} sessionId
-   * @param {StoredMessage[]} messages
+   * @param {StoredMessage[]} messages - The whole pool, every branch.
    * @param {ConversationUsage} [usage] - Cumulative totals for the conversation.
-   * @param {StoredCompression} [compression] - The running summary and how far
-   *   through the history it reaches.
+   * @param {ConversationGraph} [graph] - The branch map and which one is live.
    * @returns {Promise<Conversation>} The record as persisted.
    */
   // eslint-disable-next-line no-unused-vars
-  async save(sessionId, messages, usage, compression) {
+  async save(sessionId, messages, usage, graph) {
     throw new Error("Not implemented");
   }
 
@@ -91,10 +98,10 @@ export function titleFrom(messages) {
 /**
  * A conversation that has cost nothing yet.
  *
- * The summarizer's tokens are counted in their own three fields rather than
- * folded into the conversation totals. Compression is sold as a saving, and a
- * saving whose cost has been quietly added to the thing it is being compared
- * against is not a measurement.
+ * A strategy's own calls are counted in their own four fields rather than
+ * folded into the conversation totals. Context management is sold as a saving,
+ * and a saving whose cost has been quietly added to the thing it is being
+ * compared against is not a measurement.
  *
  * @returns {ConversationUsage}
  */
@@ -104,39 +111,19 @@ export function emptyUsage() {
     totalOutputTokens: 0,
     totalCostUsd: 0,
     turnCount: 0,
-    summarizerInputTokens: 0,
-    summarizerOutputTokens: 0,
-    summarizerCostUsd: 0,
+    overheadInputTokens: 0,
+    overheadOutputTokens: 0,
+    overheadCostUsd: 0,
+    overheadCalls: 0,
   };
 }
 
-/** A conversation that has never been compressed. @returns {StoredCompression} */
-export function emptyCompression() {
-  return { summary: null, summarizedThrough: 0, summaryUpdatedAt: null };
-}
-
-/**
- * Coerce whatever is on disk into a compression record. Files written by Day 8
- * have none of these keys, and they must keep loading — an older conversation
- * is one that has never been compressed, not a corrupt one.
- *
- * @param {unknown} compression
- * @returns {StoredCompression}
- */
-export function normaliseCompression(compression) {
-  const base = emptyCompression();
-  if (!compression || typeof compression !== "object") return base;
-
-  const { summary, summarizedThrough, summaryUpdatedAt } = compression;
-  if (typeof summary === "string" && summary.trim()) base.summary = summary;
-  if (Number.isInteger(summarizedThrough) && summarizedThrough >= 0) {
-    base.summarizedThrough = summarizedThrough;
-  }
-  if (typeof summaryUpdatedAt === "string" && summaryUpdatedAt) {
-    base.summaryUpdatedAt = summaryUpdatedAt;
-  }
-  return base;
-}
+/** Day 9 called the overhead "summarizer", because there was only one kind. */
+const LEGACY_USAGE_KEYS = {
+  overheadInputTokens: "summarizerInputTokens",
+  overheadOutputTokens: "summarizerOutputTokens",
+  overheadCostUsd: "summarizerCostUsd",
+};
 
 /**
  * Coerce whatever is on disk into a usage record. Conversations written before
@@ -150,7 +137,7 @@ export function normaliseUsage(usage) {
   const base = emptyUsage();
   if (!usage || typeof usage !== "object") return base;
   for (const key of Object.keys(base)) {
-    const value = usage[key];
+    const value = usage[key] ?? usage[LEGACY_USAGE_KEYS[key]];
     if (typeof value === "number" && Number.isFinite(value)) base[key] = value;
   }
   return base;
@@ -159,7 +146,7 @@ export function normaliseUsage(usage) {
 /**
  * Keep exactly the fields a stored message is allowed to have. `tokens` rides
  * along when a turn was measured and is simply absent when it wasn't — which
- * is the case for every message written before this version.
+ * is the case for every message written before that existed.
  *
  * @param {StoredMessage[]} [messages]
  * @returns {StoredMessage[]}
@@ -167,15 +154,44 @@ export function normaliseUsage(usage) {
 export function normaliseMessages(messages) {
   return (messages ?? []).map((message) => {
     const stored = { role: message.role, content: message.content };
+    if (message.id) stored.id = message.id;
+    if (message.parentId) stored.parentId = message.parentId;
     if (message.tokens) stored.tokens = { ...message.tokens };
     if (message.cost) stored.cost = { ...message.cost };
     if (message.model) stored.model = message.model;
     if (typeof message.ms === "number") stored.ms = message.ms;
     if (message.stopReason) stored.stopReason = message.stopReason;
     if (message.truncated) stored.truncated = true;
-    // What compression did on the turn that produced this message, so a
+    // What the strategy did on the turn that produced this message, so a
     // repainted transcript shows the same overhead the live one did.
+    if (message.strategy) stored.strategy = { ...message.strategy };
+    // Day 9 wrote the same idea under a different name and only ever for one
+    // strategy. Kept so an old transcript still shows its own numbers.
     if (message.compression) stored.compression = { ...message.compression };
     return stored;
   });
+}
+
+/**
+ * The whole record, coerced: usage, messages, and the branch graph.
+ *
+ * This is the single place a file from any earlier version becomes something
+ * the current code can work with. It is called on read and never on write, so
+ * an old file is migrated in memory and only takes its new shape the next time
+ * something is actually saved to it.
+ *
+ * @param {object} data
+ * @returns {Conversation}
+ */
+export function normaliseRecord(data) {
+  const messages = normaliseMessages(data?.messages);
+  const graph = normaliseGraph(data, messages);
+  return {
+    id: data?.id,
+    title: data?.title,
+    createdAt: data?.createdAt,
+    updatedAt: data?.updatedAt,
+    usage: normaliseUsage(data?.usage),
+    ...graph,
+  };
 }

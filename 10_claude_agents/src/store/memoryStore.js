@@ -1,10 +1,10 @@
+import { pickGraph } from "./branches.js";
 import {
   ConversationStore,
-  emptyCompression,
   emptyUsage,
   isValidSessionId,
-  normaliseCompression,
   normaliseMessages,
+  normaliseRecord,
   normaliseUsage,
   titleFrom,
 } from "./conversationStore.js";
@@ -24,15 +24,12 @@ export class MemoryStore extends ConversationStore {
     return record ? clone(record) : null;
   }
 
-  async save(sessionId, messages, usage, compression) {
+  async save(sessionId, messages, usage, graph) {
     assertValid(sessionId);
 
     const now = new Date().toISOString();
     const existing = this.#records.get(sessionId);
     const turns = normaliseMessages(messages);
-    const summary = compression
-      ? normaliseCompression(compression)
-      : (existing ? normaliseCompression(existing) : emptyCompression());
 
     const record = {
       id: sessionId,
@@ -40,7 +37,7 @@ export class MemoryStore extends ConversationStore {
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
       usage: usage ? normaliseUsage(usage) : (existing?.usage ?? emptyUsage()),
-      ...summary,
+      ...(graph ?? pickGraph(existing)),
       messages: turns,
     };
 
@@ -60,6 +57,7 @@ export class MemoryStore extends ConversationStore {
         title: record.title,
         updatedAt: record.updatedAt,
         messageCount: record.messages.length,
+        branchCount: Object.keys(record.branches ?? {}).length,
         totalCostUsd: record.usage?.totalCostUsd ?? 0,
       }))
       .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
@@ -74,10 +72,5 @@ function assertValid(sessionId) {
 
 /** Callers get a copy, so they cannot mutate what the store is holding. */
 function clone(record) {
-  return {
-    ...record,
-    usage: { ...normaliseUsage(record.usage) },
-    ...normaliseCompression(record),
-    messages: normaliseMessages(record.messages),
-  };
+  return { ...record, ...normaliseRecord(record) };
 }

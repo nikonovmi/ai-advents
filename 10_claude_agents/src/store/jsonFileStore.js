@@ -1,13 +1,13 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
+import { pickGraph } from "./branches.js";
 import {
   ConversationStore,
-  emptyCompression,
   emptyUsage,
   isValidSessionId,
-  normaliseCompression,
   normaliseMessages,
+  normaliseRecord,
   normaliseUsage,
   titleFrom,
 } from "./conversationStore.js";
@@ -45,18 +45,13 @@ export class JsonFileStore extends ConversationStore {
     return await this.#readRecord(file);
   }
 
-  async save(sessionId, messages, usage, compression) {
+  async save(sessionId, messages, usage, graph) {
     const file = this.#fileFor(sessionId);
     await this.#ensureDir();
 
     const now = new Date().toISOString();
     const existing = await this.#readRecord(file);
     const turns = normaliseMessages(messages);
-    // An absent `compression` argument means "unchanged", not "cleared" — a
-    // caller that does not know about summaries must not erase one.
-    const summary = compression
-      ? normaliseCompression(compression)
-      : (existing ? normaliseCompression(existing) : emptyCompression());
 
     const record = {
       id: sessionId,
@@ -66,7 +61,9 @@ export class JsonFileStore extends ConversationStore {
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
       usage: usage ? normaliseUsage(usage) : (existing?.usage ?? emptyUsage()),
-      ...summary,
+      // An absent `graph` means "unchanged", not "cleared" — a caller that does
+      // not know about branches must not flatten one.
+      ...(graph ?? pickGraph(existing)),
       messages: turns,
     };
 
@@ -110,6 +107,7 @@ export class JsonFileStore extends ConversationStore {
         title: record.title,
         updatedAt: record.updatedAt,
         messageCount: record.messages.length,
+        branchCount: Object.keys(record.branches).length,
         totalCostUsd: record.usage.totalCostUsd,
       });
     }
@@ -148,13 +146,10 @@ export class JsonFileStore extends ConversationStore {
     try {
       const data = JSON.parse(raw);
       if (!data || !Array.isArray(data.messages)) throw new Error("unexpected shape");
-      // Files written before usage tracking existed have no `usage` key, and
-      // files written before compression existed have no summary. They read
-      // back as a conversation that has cost nothing and been compressed never,
-      // not as a parse failure.
-      data.usage = normaliseUsage(data.usage);
-      Object.assign(data, normaliseCompression(data));
-      return data;
+      // Files written by earlier versions have no usage, no summary, no
+      // message ids and no branches. They read back as a conversation that has
+      // cost nothing and been forked never, not as a parse failure.
+      return normaliseRecord(data);
     } catch (err) {
       // A corrupt file is a bad conversation, not a bad server.
       console.warn(`[store] ignoring unreadable conversation ${file}: ${err?.message ?? err}`);

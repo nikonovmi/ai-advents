@@ -1,92 +1,15 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 
-import { Agent, foldTo, personas, summaryBlock, windowStart } from "./agent.js";
+import { Agent, personas } from "./agent.js";
+import { FakeProvider } from "./llm/anthropic.js";
+import { JsonFileStore } from "./store/jsonFileStore.js";
 import { MemoryStore } from "./store/memoryStore.js";
 
 const SESSION = "11111111-1111-4111-8111-111111111111";
-
-/** `[u, a, u, a, …]` of the requested length. */
-function alternating(length) {
-  return Array.from({ length }, (_, i) => ({
-    role: i % 2 === 0 ? "user" : "assistant",
-    content: `m${i}`,
-  }));
-}
-
-// ---- the two boundary rules ------------------------------------------------
-
-test("the window opens on a user message at both parities", () => {
-  // An even-length history ends on an assistant reply, an odd-length one on a
-  // user message still waiting for it. Cropping by message count lands on an
-  // assistant turn in about half of these combinations, and the API rejects
-  // every one of those payloads.
-  for (const length of [10, 11]) {
-    const history = alternating(length);
-    for (let turns = 1; turns <= 7; turns++) {
-      const start = windowStart(history, turns);
-      assert.equal(
-        history[start].role,
-        "user",
-        `history of ${length} with a window of ${turns} opened on an assistant turn`
-      );
-    }
-  }
-});
-
-test("a turn pair is never split across the boundary", () => {
-  // One question, answered in two parts — the shape that pushes a naive
-  // boundary onto the second half of a reply.
-  const history = [
-    { role: "user", content: "q1" },
-    { role: "assistant", content: "a1 part one" },
-    { role: "assistant", content: "a1 part two" },
-    { role: "user", content: "q2" },
-    { role: "assistant", content: "a2" },
-    { role: "user", content: "q3" },
-    { role: "assistant", content: "a3" },
-  ];
-
-  assert.equal(windowStart(history, 2), 3);
-  assert.equal(windowStart(history, 3), 0);
-  // Whatever the window, the first message sent is the question, never an
-  // answer to a question that is no longer there.
-  for (let turns = 1; turns <= 5; turns++) {
-    assert.equal(history[windowStart(history, turns)].role, "user");
-  }
-});
-
-test("a history that opens with an assistant turn still produces a valid window", () => {
-  const history = [
-    { role: "assistant", content: "unprompted hello" },
-    { role: "user", content: "q1" },
-    { role: "assistant", content: "a1" },
-  ];
-  assert.equal(windowStart(history, 5), 1);
-});
-
-test("folding moves the edge to an exchange boundary and never past the last one", () => {
-  const history = alternating(12); // six complete exchanges
-
-  // Fold the oldest three of six: the edge lands on u4, at index 6.
-  assert.equal(foldTo(history, 0, 3), 6);
-  assert.equal(history[6].role, "user");
-  // …and again, from there: the oldest three of the remaining three would be
-  // all of them, so it stops one short and leaves an exchange to answer with.
-  assert.equal(foldTo(history, 6, 3), 10);
-
-  // The turn being answered is never folded away, whatever is asked for.
-  assert.equal(foldTo(history, 0, 99), 10);
-  assert.equal(foldTo(history, 0, 0), 0);
-});
-
-test("summaryBlock omits the header entirely when there is no summary", () => {
-  assert.equal(summaryBlock(null), "");
-  assert.equal(summaryBlock("   "), "");
-  assert.match(summaryBlock("## Facts\n- x"), /<conversation_summary>[\s\S]*## Facts/);
-});
-
-// ---- compression -----------------------------------------------------------
 
 /** A provider that answers instantly and remembers what it was asked. */
 class StubProvider {
@@ -107,224 +30,257 @@ class StubProvider {
   }
 }
 
-/** A summarizer that records its arguments instead of calling a model. */
-class StubSummarizer {
-  calls = [];
-  #fail;
-
-  constructor({ failOn = [] } = {}) {
-    this.#fail = new Set(failOn);
-  }
-
-  async summarize({ previousSummary, messages }) {
-    const index = this.calls.length;
-    this.calls.push({ previousSummary, messages });
-    if (this.#fail.has(index)) throw new Error("summarizer is down");
-    return {
-      text: `summary ${index + 1}`,
-      usage: { inputTokens: 100, outputTokens: 40 },
-      model: "stub",
-      ms: 1,
-    };
-  }
-}
-
-/** A window of 4 exchanges, so the fold size works out at 2. */
-function agentWith(summarizer, options = {}) {
-  const provider = new StubProvider();
+function agentWith(options = {}) {
+  const provider = options.provider ?? new StubProvider();
+  const store = options.store ?? new MemoryStore();
   const agent = new Agent({
     provider,
-    store: new MemoryStore(),
-    sessionId: SESSION,
-    contextMessages: 4,
-    summarizer,
-    ...options,
-  });
-  return { agent, provider };
-}
-
-test("the fold size is half the window unless told otherwise", () => {
-  const { agent } = agentWith(new StubSummarizer());
-  assert.equal(agent.foldSize, 2);
-  agent.contextMessages = 9;
-  assert.equal(agent.foldSize, 4);
-  agent.summarizeEvery = 3;
-  assert.equal(agent.foldSize, 3);
-});
-
-test("compression fires at the high-water mark, not when messages fall out", async () => {
-  const summarizer = new StubSummarizer();
-  const { agent, provider } = agentWith(summarizer);
-
-  await agent.run("one");
-  await agent.run("two");
-  await agent.run("three");
-  assert.equal(summarizer.calls.length, 0, "three exchanges is under the mark of four");
-  assert.equal(agent.droppedCount, 0, "and nothing has been dropped to wait around");
-
-  // The fourth user message reaches the mark, so the oldest two exchanges fold
-  // in before this turn is answered.
-  const { meta } = await agent.run("four");
-  assert.equal(summarizer.calls.length, 1);
-  assert.deepEqual(
-    summarizer.calls[0].messages.map((m) => m.content),
-    ["one", "ok", "two", "ok"]
-  );
-  assert.equal(meta.tokens.compression.foldedExchanges, 2);
-  assert.deepEqual(
-    provider.calls.at(-1).messages.map((m) => m.content),
-    ["three", "ok", "four"]
-  );
-});
-
-test("the summary edge and the verbatim edge always touch", async () => {
-  const summarizer = new StubSummarizer();
-  const { agent, provider } = agentWith(summarizer);
-
-  for (const word of ["one", "two", "three", "four", "five", "six", "seven", "eight"]) {
-    const { meta } = await agent.run(word);
-    // The whole point of folding at the mark: every stored message is either
-    // in the summary or on the wire, and never in neither.
-    assert.equal(
-      meta.window.droppedCount,
-      meta.window.summarizedThrough,
-      `turn "${word}" left ${meta.window.droppedCount - meta.window.summarizedThrough} messages invisible`
-    );
-    // `storedMessages` counts the reply too, which was not in the payload.
-    const sent = provider.calls.at(-1).messages.length;
-    assert.equal(sent, meta.window.storedMessages - meta.window.summarizedThrough - 1);
-  }
-});
-
-test("compression is incremental — each call sees only the newly folded exchanges", async () => {
-  const summarizer = new StubSummarizer();
-  const { agent } = agentWith(summarizer);
-
-  for (const word of ["one", "two", "three", "four", "five", "six"]) await agent.run(word);
-
-  assert.equal(summarizer.calls.length, 2);
-  assert.equal(summarizer.calls[0].previousSummary, null);
-  assert.deepEqual(
-    summarizer.calls[0].messages.map((m) => m.content),
-    ["one", "ok", "two", "ok"]
-  );
-  // The second call folds into the first rather than starting over: the whole
-  // point of tracking how far the summary reaches.
-  assert.equal(summarizer.calls[1].previousSummary, "summary 1");
-  assert.deepEqual(
-    summarizer.calls[1].messages.map((m) => m.content),
-    ["three", "ok", "four", "ok"]
-  );
-  assert.equal(agent.summary, "summary 2");
-  assert.equal(agent.summarizedThrough, 8);
-});
-
-test("the summary is injected into the system prompt, never into the messages", async () => {
-  const summarizer = new StubSummarizer();
-  const { agent, provider } = agentWith(summarizer);
-
-  let meta;
-  for (const word of ["one", "two", "three", "four", "five", "six"]) {
-    ({ meta } = await agent.run(word));
-  }
-
-  const call = provider.calls.at(-1);
-  assert.match(call.system, /<conversation_summary>[\s\S]*summary 2/);
-  for (const message of call.messages) {
-    assert.doesNotMatch(message.content, /conversation_summary/);
-  }
-  // Zone 2 is everything since the fold: one whole exchange, plus the question.
-  assert.deepEqual(
-    call.messages.map((m) => m.content),
-    ["five", "ok", "six"]
-  );
-  assert.equal(meta.tokens.compression.summarizedMessages, 8);
-  assert.equal(meta.tokens.compression.compressedThisTurn, true);
-  assert.equal(meta.tokens.compression.summarizerTokens, 140);
-});
-
-test("compression failure is non-fatal and the fold is retried", async () => {
-  const summarizer = new StubSummarizer({ failOn: [1] });
-  const { agent } = agentWith(summarizer);
-
-  for (const word of ["one", "two", "three", "four"]) await agent.run(word);
-  assert.equal(agent.summary, "summary 1");
-  assert.equal(agent.summarizedThrough, 4);
-
-  // The next fold throws. The turn must still be answered.
-  await agent.run("five");
-  const { text, meta } = await agent.run("six");
-  assert.equal(text, "ok");
-  assert.equal(agent.summary, "summary 1", "the previous summary is kept");
-  assert.equal(agent.summarizedThrough, 4, "the edge does not advance");
-  assert.equal(meta.tokens.compression.compressedThisTurn, false);
-
-  // Nothing was lost: the exchanges that failed to fold are still being sent
-  // verbatim, so the model can still see them while the retry waits.
-  assert.equal(agent.droppedCount, agent.summarizedThrough);
-
-  await agent.run("seven");
-  assert.deepEqual(
-    summarizer.calls.at(-1).messages.map((m) => m.content),
-    ["three", "ok", "four", "ok"]
-  );
-});
-
-test("compressionEnabled false behaves exactly like plain cropping", async () => {
-  const provider = new StubProvider();
-  const summarizer = new StubSummarizer();
-  const agent = new Agent({
-    provider,
-    store: new MemoryStore(),
-    sessionId: SESSION,
-    contextMessages: 4,
-    compressionEnabled: false,
-    summarizer,
-  });
-
-  for (const word of ["one", "two", "three", "four", "five", "six"]) await agent.run(word);
-
-  assert.equal(summarizer.calls.length, 0, "nothing is summarised");
-  assert.equal(agent.summary, null);
-  for (const call of provider.calls) {
-    assert.equal(call.system, personas.helpful, "no summary block is sent");
-  }
-});
-
-test("the summary survives a reload from the store", async () => {
-  const store = new MemoryStore();
-  const provider = new StubProvider();
-  const summarizer = new StubSummarizer();
-  const options = { contextMessages: 4, summarizer };
-
-  const first = new Agent({ provider, store, sessionId: SESSION, ...options });
-  for (const word of ["one", "two", "three", "four"]) await first.run(word);
-  assert.equal(first.summary, "summary 1");
-
-  const resumed = await Agent.load({ provider, store, sessionId: SESSION, ...options });
-  assert.equal(resumed.summary, "summary 1");
-  assert.equal(resumed.summarizedThrough, 4);
-});
-
-test("a record written before compression existed still loads", async () => {
-  const store = new MemoryStore();
-  // Exactly the shape the previous version wrote: no summary keys at all, and
-  // a usage object missing the three summarizer fields.
-  await store.save(SESSION, [{ role: "user", content: "hi" }], {
-    totalInputTokens: 12,
-    totalOutputTokens: 3,
-    totalCostUsd: 0.001,
-    turnCount: 1,
-  });
-
-  const agent = await Agent.load({
-    provider: new StubProvider(),
     store,
     sessionId: SESSION,
+    contextMessages: 4,
+    ...options,
   });
-  assert.equal(agent.summary, null);
-  assert.equal(agent.summarizedThrough, 0);
-  assert.equal(agent.usage.totalInputTokens, 12);
-  assert.equal(agent.usage.summarizerInputTokens, 0);
-  assert.equal(agent.usage.summarizerCostUsd, 0);
+  return { agent, provider, store };
+}
+
+// ---- strategies ------------------------------------------------------------
+
+test("all four strategies answer a turn, and each reports its own overhead", async () => {
+  const seen = [];
+
+  for (const id of ["sliding", "summary", "facts", "full"]) {
+    // The offline provider answers all three prompt shapes this app sends, so
+    // every strategy can be driven end to end without a key.
+    const { agent } = agentWith({ provider: new FakeProvider({ delayMs: 0 }), strategy: id });
+    let meta;
+    for (const word of ["one", "two", "three", "four"]) ({ meta } = await agent.run(word));
+
+    assert.equal(meta.strategy.id, id);
+    assert.ok(meta.strategy.label, `${id} has no label`);
+    assert.ok(meta.strategy.note, `${id} said nothing about what it did`);
+    assert.equal(typeof meta.tokens.input, "number", "the conversation's own counts are unchanged");
+    // `meta.strategy` is this turn's bill; `usage` is the running one, and it
+    // is kept apart from the conversation's own totals on purpose.
+    seen.push({ id, calls: agent.usage.overheadCalls, tokens: agent.usage.overheadInputTokens });
+    assert.equal(agent.usage.turnCount, 4);
+  }
+
+  const byId = Object.fromEntries(seen.map((s) => [s.id, s]));
+  assert.equal(byId.sliding.calls, 0, "the cost floor pays for nothing");
+  assert.equal(byId.full.calls, 0, "neither does the ceiling");
+  assert.ok(byId.summary.tokens > 0, "summarization folded and did not report it");
+  assert.ok(byId.facts.tokens > 0, "extraction ran and did not report it");
+  // Facts extracts on every user message; summarization folds once per
+  // half-window. Over four turns at a window of four that is four calls to one.
+  assert.equal(byId.facts.calls, 4);
+  assert.equal(byId.summary.calls, 1);
+});
+
+test("an unknown strategy is refused the way an unknown provider would be", () => {
+  assert.throws(() => agentWith({ strategy: "telepathy" }), /unknown context strategy/i);
+  assert.throws(() => agentWith({ strategy: {} }), /buildPayload/);
+});
+
+test("switching strategy mid-conversation parks the old state rather than resetting it", async () => {
+  const { agent } = agentWith({ provider: new FakeProvider({ delayMs: 0 }), strategy: "summary" });
+  for (const word of ["one", "two", "three", "four"]) await agent.run(word);
+
+  const folded = agent.panel();
+  assert.equal(folded.kind, "summary");
+  assert.ok(folded.text, "nothing was folded in");
+
+  agent.strategy = "facts";
+  const { meta } = await agent.run("five");
+  assert.equal(meta.strategy.panel.kind, "facts");
+  assert.equal(agent.panel().kind, "facts");
+
+  // Switching back finds the summary exactly where it was left, not a blank.
+  // The window is widened first so nothing folds on this turn — what is being
+  // checked is that the old state survived, not that it kept growing.
+  agent.strategy = "summary";
+  agent.contextMessages = 20;
+  const back = await agent.run("six");
+  assert.equal(back.meta.strategy.panel.text, folded.text);
+  assert.equal(back.meta.strategy.panel.covers, folded.covers);
+});
+
+test("a strategy that throws costs the turn its context, not the turn", async () => {
+  const broken = {
+    id: "summary",
+    label: "Broken",
+    contextMessages: 4,
+    emptyState: () => ({}),
+    panel: () => ({ kind: "none" }),
+    async buildPayload() {
+      throw new Error("strategy exploded");
+    },
+    async afterTurn({ state }) {
+      return { state, usage: null, ms: 0 };
+    },
+  };
+
+  const { agent, provider } = agentWith({ strategy: broken });
+  const { text, meta } = await agent.run("hello");
+  assert.equal(text, "ok");
+  assert.equal(meta.strategy.degraded, true);
+  assert.equal(provider.calls.at(-1).system, personas.helpful);
+});
+
+// ---- branching -------------------------------------------------------------
+
+test("a fork replays the trunk and then diverges", async () => {
+  const { agent } = agentWith({ strategy: "sliding", contextMessages: 10 });
+  for (const word of ["one", "two"]) await agent.run(word);
+  const forkPoint = agent.transcript.at(-1).id;
+
+  const branch = await agent.fork({ fromMessageId: forkPoint, name: "what if" });
+  await agent.activateBranch(branch.id);
+  await agent.run("three on the fork");
+
+  assert.deepEqual(
+    agent.history(branch.id).map((m) => m.content),
+    ["one", "ok", "two", "ok", "three on the fork", "ok"]
+  );
+  // The trunk never saw it.
+  assert.deepEqual(agent.history("main").map((m) => m.content), ["one", "ok", "two", "ok"]);
+  assert.equal(agent.branches.length, 2);
+});
+
+test("branches do not leak facts or summaries into each other", async () => {
+  const provider = new FakeProvider({ delayMs: 0 });
+  const { agent } = agentWith({ provider, strategy: "facts", contextMessages: 10 });
+
+  for (const word of ["the port is 8477", "the database is Postgres 14"]) await agent.run(word);
+  const forkPoint = agent.transcript.at(-1).id;
+  const branch = await agent.fork({ fromMessageId: forkPoint, name: "alternative" });
+
+  // Three turns down the fork…
+  await agent.activateBranch(branch.id);
+  for (const word of ["actually use MySQL", "and drop the cache", "and rename the service"]) {
+    await agent.run(word);
+  }
+  const forkFacts = agent.panel(branch.id).facts.map((f) => f.value);
+
+  // …and three more back on the trunk.
+  await agent.activateBranch("main");
+  for (const word of ["keep Postgres", "add a read replica", "and keep the cache"]) {
+    await agent.run(word);
+  }
+  const trunkFacts = agent.panel("main").facts.map((f) => f.value);
+
+  assert.ok(forkFacts.includes("actually use MySQL"));
+  assert.ok(trunkFacts.includes("keep Postgres"));
+  assert.ok(!trunkFacts.includes("actually use MySQL"), "the fork's facts reached the trunk");
+  assert.ok(!forkFacts.includes("keep Postgres"), "the trunk's facts reached the fork");
+  // Both inherited what was established before the fork.
+  for (const facts of [forkFacts, trunkFacts]) assert.ok(facts.includes("the port is 8477"));
+
+  // Switching back and forth changes nothing: the state belongs to the branch.
+  await agent.activateBranch(branch.id);
+  assert.deepEqual(agent.panel(branch.id).facts.map((f) => f.value), forkFacts);
+});
+
+test("main and the active branch cannot be deleted", async () => {
+  const { agent } = agentWith({ strategy: "sliding" });
+  await agent.run("one");
+  const branch = await agent.fork({ fromMessageId: agent.transcript[0].id, name: "side" });
+
+  await assert.rejects(() => agent.removeBranch("main"), /main branch cannot be deleted/);
+  await agent.activateBranch(branch.id);
+  await assert.rejects(() => agent.removeBranch(branch.id), /Switch away/);
+
+  await agent.activateBranch("main");
+  await agent.removeBranch(branch.id);
+  assert.equal(agent.branches.length, 1);
+});
+
+test("a branch survives a reload, with its own strategy and its own state", async () => {
+  const store = new MemoryStore();
+  const provider = new FakeProvider({ delayMs: 0 });
+  const first = new Agent({ provider, store, sessionId: SESSION, contextMessages: 10, strategy: "facts" });
+  await first.run("the port is 8477");
+  const branch = await first.fork({ fromMessageId: first.transcript[0].id, name: "side" });
+
+  const resumed = await Agent.load({ provider, store, sessionId: SESSION });
+  assert.equal(resumed.branchStrategy("main"), "facts");
+  assert.deepEqual(
+    resumed.panel("main").facts.map((f) => f.value),
+    first.panel("main").facts.map((f) => f.value)
+  );
+  assert.ok(resumed.branches.some((b) => b.id === branch.id));
+});
+
+// ---- what earlier versions wrote -------------------------------------------
+
+test("a Day 8 conversation — a flat array and nothing else — still loads", async () => {
+  const store = new MemoryStore();
+  await store.save(SESSION, [
+    { role: "user", content: "hi" },
+    { role: "assistant", content: "hello" },
+  ]);
+
+  const agent = await Agent.load({ provider: new StubProvider(), store, sessionId: SESSION });
+  assert.deepEqual(agent.transcript.map((m) => m.content), ["hi", "hello"]);
+  assert.equal(agent.branches.length, 1);
+  assert.equal(agent.usage.totalInputTokens, 0);
+  assert.equal(agent.usage.overheadCalls, 0);
+});
+
+test("a Day 9 file on disk keeps its summary, moved into the branch that owns it", async () => {
+  // Exactly what the previous version wrote: a flat array with no ids, the
+  // summary at the top level, and usage with the summarizer's three fields.
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "first-agent-"));
+  await fs.writeFile(
+    path.join(dir, SESSION + ".json"),
+    JSON.stringify({
+      id: SESSION,
+      title: "one",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:01:00.000Z",
+      usage: {
+        totalInputTokens: 812,
+        totalOutputTokens: 145,
+        totalCostUsd: 0.0015,
+        turnCount: 2,
+        summarizerInputTokens: 100,
+        summarizerOutputTokens: 40,
+        summarizerCostUsd: 0.0003,
+      },
+      summary: "## Facts about the user\n- the port is 8477",
+      summarizedThrough: 2,
+      summaryUpdatedAt: "2026-01-01T00:00:30.000Z",
+      messages: [
+        { role: "user", content: "one" },
+        { role: "assistant", content: "ok", tokens: { input: 400, output: 70 } },
+        { role: "user", content: "two" },
+        { role: "assistant", content: "ok", tokens: { input: 412, output: 75 } },
+      ],
+    }),
+    "utf8"
+  );
+
+  const store = new JsonFileStore({ dir });
+  const agent = await Agent.load({ provider: new StubProvider(), store, sessionId: SESSION });
+
+  // The flat array became one chain, which is what it always was.
+  assert.deepEqual(agent.transcript.map((m) => m.content), ["one", "ok", "two", "ok"]);
+  assert.equal(agent.branches.length, 1);
+  assert.equal(agent.branchStrategy("main"), "summary");
+
+  // The summary is where the strategy that owns it looks for it.
+  const panel = agent.panel("main");
+  assert.equal(panel.kind, "summary");
+  assert.match(panel.text, /port is 8477/);
+  assert.equal(panel.covers, 2);
+
+  // Day 9's `summarizer*` usage keys are the same numbers under this version's
+  // names, not zeros.
+  assert.equal(agent.usage.overheadInputTokens, 100);
+  assert.equal(agent.usage.overheadCostUsd, 0.0003);
+  assert.equal(agent.usage.totalInputTokens, 812);
+
+  // And it carries on from there rather than starting over.
+  await agent.run("three");
+  assert.equal(agent.transcript.length, 6);
+  await fs.rm(dir, { recursive: true, force: true });
 });

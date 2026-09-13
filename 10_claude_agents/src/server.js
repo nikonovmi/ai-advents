@@ -4,9 +4,11 @@ import { fileURLToPath } from "node:url";
 import "dotenv/config";
 import express from "express";
 
-import { Agent, personas, summaryBlock, windowStart } from "./agent.js";
+import { Agent, personas } from "./agent.js";
+import { DEFAULT_STRATEGY, createStrategy, isStrategyId, strategyCatalog, STRATEGY_IDS } from "./context/index.js";
 import { AnthropicProvider, FakeProvider } from "./llm/anthropic.js";
 import { estimateCost } from "./llm/pricing.js";
+import { getBranchHistory } from "./store/branches.js";
 import { isValidSessionId } from "./store/conversationStore.js";
 import { JsonFileStore } from "./store/jsonFileStore.js";
 import { MemoryStore } from "./store/memoryStore.js";
@@ -19,12 +21,10 @@ const PRICING_FILE = path.join(__dirname, "llm", "pricing.js");
 const DEFAULT_CONTEXT_MESSAGES = 10;
 const MAX_CONTEXT_MESSAGES = 100;
 const MAX_OUTPUT_TOKENS = 8192;
-// How many exchanges a compression folds in. Absent means half the window,
-// which is what the UI sends: one dial, not two that have to agree.
-const MAX_SUMMARIZE_EVERY = 100;
-// The replay endpoint answers the same question three times over. That is the
-// point of it, but it also means one careless click costs three completions, so
-// the reply is kept short.
+const BRANCH_NAME_MAX = 40;
+// The replay endpoint answers the same question once per strategy. That is the
+// point of it, but it also means one careless click costs four completions plus
+// whatever overhead each strategy incurs, so the reply is kept short.
 const REPLAY_MAX_TOKENS = 512;
 
 // One provider and one store, built once at startup and shared by every agent.
@@ -99,9 +99,13 @@ app.get("/pricing.js", (_req, res) => {
   res.type("application/javascript").sendFile(PRICING_FILE);
 });
 
+/** The selector is built from the registry, not from a second list in the UI. */
+app.get("/strategies", (_req, res) => {
+  res.json({ strategies: strategyCatalog(), default: DEFAULT_STRATEGY });
+});
+
 app.post("/chat", async (req, res) => {
-  const { message, sessionId, contextMessages, maxTokens, summarizeEvery, compressionEnabled } =
-    req.body ?? {};
+  const { message, sessionId, contextMessages, maxTokens, strategy, branchId } = req.body ?? {};
 
   if (typeof message !== "string" || !message.trim()) {
     return res.status(400).json({ error: "A non-empty 'message' is required." });
@@ -124,27 +128,26 @@ app.post("/chat", async (req, res) => {
       .json({ error: `'maxTokens' must be an integer between 1 and ${MAX_OUTPUT_TOKENS}.` });
   }
 
-  const every = boundedInt(summarizeEvery, 1, MAX_SUMMARIZE_EVERY, null);
-  if (every === null && summarizeEvery !== undefined && summarizeEvery !== null && summarizeEvery !== "") {
-    return res
-      .status(400)
-      .json({ error: `'summarizeEvery' must be an integer between 1 and ${MAX_SUMMARIZE_EVERY}.` });
-  }
-
-  if (compressionEnabled !== undefined && typeof compressionEnabled !== "boolean") {
-    return res.status(400).json({ error: "'compressionEnabled' must be a boolean." });
+  if (strategy !== undefined && !isStrategyId(strategy)) {
+    return res.status(400).json({ error: `'strategy' must be one of: ${STRATEGY_IDS.join(", ")}.` });
   }
 
   try {
     const agent = await agentFor(sessionId);
+    const branch = branchId ?? agent.activeBranchId;
+    if (!agent.branches.some((b) => b.id === branch)) {
+      return res.status(404).json({ error: "No such branch." });
+    }
+
     // Live controls in the UI, so they are settings for this turn rather than
-    // something fixed when the agent was built. `summarizeEvery` is the odd one
-    // out: null leaves the agent to derive it from the window.
+    // something fixed when the agent was built. An unnamed strategy means "the
+    // one this branch was last spoken to with" — switching branches must not
+    // silently switch strategy too.
     agent.contextMessages = window;
     agent.maxTokens = ceiling;
-    agent.summarizeEvery = every;
-    agent.compressionEnabled = compressionEnabled ?? true;
-    const { text, meta } = await agent.run(message);
+    agent.strategy = strategy ?? agent.branchStrategy(branch);
+
+    const { text, meta } = await agent.run(message, { branchId: branch });
     res.json({ reply: text, meta });
   } catch (err) {
     // Log the detail server-side; send back only something safe and readable.
@@ -184,19 +187,114 @@ app.get("/conversations/:id", async (req, res) => {
   }
 
   try {
-    const conversation = await store.load(id);
-    if (!conversation) return res.status(404).json({ error: "No such conversation." });
-    // The summary rides along with the transcript: the panel that shows it has
-    // to be right immediately on a reload, not one turn later.
+    const agent = await agentFor(id);
+    const branchId = typeof req.query.branchId === "string" && req.query.branchId
+      ? req.query.branchId
+      : agent.activeBranchId;
+    if (!agent.branches.some((b) => b.id === branchId)) {
+      return res.status(404).json({ error: "No such branch." });
+    }
+
+    const messages = agent.history(branchId);
+    if (!messages.length && !agent.branches.some((b) => b.messageCount)) {
+      const stored = await store.load(id);
+      if (!stored) return res.status(404).json({ error: "No such conversation." });
+    }
+
+    // The strategy's panel rides along with the transcript: the right-hand
+    // column has to be right immediately on a reload, not one turn later. It is
+    // built by the strategy that owns the state, so the route never reads a
+    // field belonging to one particular strategy.
     res.json({
-      messages: conversation.messages,
-      summary: conversation.summary,
-      summarizedThrough: conversation.summarizedThrough,
-      summaryUpdatedAt: conversation.summaryUpdatedAt,
+      messages,
+      branchId,
+      branches: agent.branches,
+      activeBranchId: agent.activeBranchId,
+      strategy: agent.branchStrategy(branchId),
+      panel: agent.panel(branchId),
     });
   } catch (err) {
     console.error("[/conversations/:id]", err);
     res.status(500).json({ error: "Could not load that conversation." });
+  }
+});
+
+// ---- branches --------------------------------------------------------------
+
+app.get("/conversations/:id/branches", async (req, res) => {
+  const { id } = req.params;
+  if (!isValidSessionId(id)) {
+    return res.status(400).json({ error: "Not a valid conversation id." });
+  }
+  try {
+    const agent = await agentFor(id);
+    res.json({ branches: agent.branches, activeBranchId: agent.activeBranchId });
+  } catch (err) {
+    console.error("[GET /branches]", err);
+    res.status(500).json({ error: "Could not list branches." });
+  }
+});
+
+app.post("/conversations/:id/branches", async (req, res) => {
+  const { id } = req.params;
+  const { fromMessageId, name } = req.body ?? {};
+  if (!isValidSessionId(id)) {
+    return res.status(400).json({ error: "Not a valid conversation id." });
+  }
+  if (typeof fromMessageId !== "string" || !fromMessageId) {
+    return res.status(400).json({ error: "A 'fromMessageId' is required." });
+  }
+
+  try {
+    const agent = await agentFor(id);
+    const branch = await agent.fork({
+      fromMessageId,
+      name: typeof name === "string" ? name.trim().slice(0, BRANCH_NAME_MAX) : "",
+    });
+    res.json({ branch, branches: agent.branches, activeBranchId: agent.activeBranchId });
+  } catch (err) {
+    console.error("[POST /branches]", err);
+    res.status(400).json({ error: err?.message ?? "Could not fork that message." });
+  }
+});
+
+app.post("/conversations/:id/branches/:branchId/activate", async (req, res) => {
+  const { id, branchId } = req.params;
+  if (!isValidSessionId(id)) {
+    return res.status(400).json({ error: "Not a valid conversation id." });
+  }
+
+  try {
+    const agent = await agentFor(id);
+    const branch = await agent.activateBranch(branchId);
+    res.json({
+      branch,
+      branches: agent.branches,
+      activeBranchId: agent.activeBranchId,
+      messages: agent.history(branchId),
+      strategy: agent.branchStrategy(branchId),
+      panel: agent.panel(branchId),
+    });
+  } catch (err) {
+    console.error("[POST /activate]", err);
+    res.status(404).json({ error: err?.message ?? "No such branch." });
+  }
+});
+
+app.delete("/conversations/:id/branches/:branchId", async (req, res) => {
+  const { id, branchId } = req.params;
+  if (!isValidSessionId(id)) {
+    return res.status(400).json({ error: "Not a valid conversation id." });
+  }
+
+  try {
+    const agent = await agentFor(id);
+    await agent.removeBranch(branchId);
+    res.json({ ok: true, branches: agent.branches, activeBranchId: agent.activeBranchId });
+  } catch (err) {
+    // `main` and the active branch are refused by the Agent, and both are a
+    // client mistake rather than a server fault.
+    res.status(400).json({ error: err?.message ?? "Could not delete that branch." });
   }
 });
 
@@ -216,11 +314,15 @@ app.get("/conversations/:id/usage", async (req, res) => {
     const conversation = await store.load(id);
     if (!conversation) return res.status(404).json({ error: "No such conversation." });
 
+    const branchId = typeof req.query.branchId === "string" && req.query.branchId
+      ? req.query.branchId
+      : conversation.activeBranchId;
+
     let cumulativeCost = 0;
     let cumulativeTokens = 0;
     const turns = [];
 
-    for (const message of conversation.messages) {
+    for (const message of getBranchHistory(conversation, branchId)) {
       if (message.role !== "assistant" || !message.tokens) continue;
       const tokens = message.tokens;
       const cost =
@@ -239,6 +341,7 @@ app.get("/conversations/:id/usage", async (req, res) => {
         model: message.model ?? null,
         ms: message.ms ?? null,
         truncated: Boolean(message.truncated),
+        strategy: message.strategy ?? message.compression ?? null,
         tokens,
         cost,
         cumulativeCost,
@@ -246,7 +349,13 @@ app.get("/conversations/:id/usage", async (req, res) => {
       });
     }
 
-    res.json({ id, usage: conversation.usage, storedMessages: conversation.messages.length, turns });
+    res.json({
+      id,
+      branchId,
+      usage: conversation.usage,
+      storedMessages: conversation.messages.length,
+      turns,
+    });
   } catch (err) {
     console.error("[/conversations/:id/usage]", err);
     res.status(500).json({ error: "Could not load usage for that conversation." });
@@ -254,22 +363,19 @@ app.get("/conversations/:id/usage", async (req, res) => {
 });
 
 /**
- * Answer one question three ways against a stored conversation, so the
- * "does compression help?" question gets a number instead of an impression.
+ * Answer one question once per strategy against a stored conversation, so the
+ * "which of these is worth it?" question gets a table instead of an impression.
  *
- *   full        — the entire history, nothing cropped, no summary
- *   cropped     — the last N exchanges only (the previous version's behaviour)
- *   compressed  — the stored summary plus the last N exchanges (this version)
- *
- * Strictly read-only. It loads the record, builds three payloads from it and
- * throws them away: no message is appended, no summary is written, and the
- * conversation's own usage totals are untouched. The three completions it does
- * pay for are reported in the response and nowhere else, because they belong to
- * the experiment rather than to the conversation.
+ * Strictly read-only. It loads the record, asks each strategy to build a
+ * payload from it and throws the results away: no message is appended, no
+ * state is written back, and the conversation's own usage totals are
+ * untouched. The completions it pays for — and the overhead calls the
+ * strategies make while building — are reported in the response and nowhere
+ * else, because they belong to the experiment rather than to the conversation.
  */
 app.post("/conversations/:id/replay", async (req, res) => {
   const { id } = req.params;
-  const { question, contextMessages } = req.body ?? {};
+  const { question, contextMessages, strategies, branchId, expect } = req.body ?? {};
 
   if (!isValidSessionId(id)) {
     return res.status(400).json({ error: "Not a valid conversation id." });
@@ -285,63 +391,55 @@ app.post("/conversations/:id/replay", async (req, res) => {
       .json({ error: `'contextMessages' must be an integer between 1 and ${MAX_CONTEXT_MESSAGES}.` });
   }
 
+  const wanted = strategies === undefined ? STRATEGY_IDS : strategies;
+  if (!Array.isArray(wanted) || !wanted.length || !wanted.every(isStrategyId)) {
+    return res
+      .status(400)
+      .json({ error: `'strategies' must be a non-empty array of: ${STRATEGY_IDS.join(", ")}.` });
+  }
+
+  const expected = Array.isArray(expect)
+    ? expect.map((value) => String(value).trim()).filter(Boolean)
+    : [];
+
   try {
     const conversation = await store.load(id);
     if (!conversation) return res.status(404).json({ error: "No such conversation." });
-    if (!conversation.messages.length) {
-      return res.status(400).json({ error: "That conversation has nothing to replay." });
+
+    const branch = branchId ?? conversation.activeBranchId;
+    if (!conversation.branches[branch]) return res.status(404).json({ error: "No such branch." });
+
+    const stored = getBranchHistory(conversation, branch);
+    if (!stored.length) {
+      return res.status(400).json({ error: "That branch has nothing to replay." });
     }
 
-    // The question is appended exactly as a real turn would append it, and the
-    // window is computed on the result — so `cropped` and `compressed` are the
-    // payloads the agent itself would have built, not approximations of them.
-    const history = [
-      ...conversation.messages.map(({ role, content }) => ({ role, content })),
-      { role: "user", content: question.trim() },
-    ];
-    const start = windowStart(history, window);
-    const cropped = history.slice(start);
-    const withSummary = personas.helpful + summaryBlock(conversation.summary);
+    // The question is appended exactly as a real turn would append it, so each
+    // arm is the payload the agent itself would have built — not an
+    // approximation of it.
+    const history = [...stored, { role: "user", content: question.trim() }];
+    const state = conversation.branches[branch].strategyState ?? {};
 
-    const variants = [
-      {
-        key: "full",
-        label: "Full history",
-        note: `every one of the ${history.length} messages, nothing cropped`,
-        system: personas.helpful,
-        messages: history,
-        summaryUsed: false,
-      },
-      {
-        key: "cropped",
-        label: "Cropped",
-        note: `the last ${window} exchange${window === 1 ? "" : "s"}, everything older simply gone`,
-        system: personas.helpful,
-        messages: cropped,
-        summaryUsed: false,
-      },
-      {
-        key: "compressed",
-        label: "Summary + cropped",
-        note: conversation.summary
-          ? `the same ${cropped.length} messages, with the summary in the system prompt`
-          : "no summary has been written yet, so this is identical to cropped",
-        system: withSummary,
-        messages: cropped,
-        summaryUsed: Boolean(conversation.summary),
-      },
-    ];
-
-    const answers = await Promise.all(variants.map((variant) => replayOne(variant)));
+    const variants = await Promise.all(
+      wanted.map((strategyId) =>
+        replayOne({
+          strategyId,
+          history,
+          state: structuredClone(state[strategyId] ?? {}),
+          window,
+          expected,
+        })
+      )
+    );
 
     res.json({
       id,
+      branchId: branch,
       question: question.trim(),
       contextMessages: window,
-      storedMessages: conversation.messages.length,
-      summarizedThrough: conversation.summarizedThrough,
-      hasSummary: Boolean(conversation.summary),
-      variants: answers,
+      storedMessages: stored.length,
+      expected,
+      variants,
     });
   } catch (err) {
     console.error("[/conversations/:id/replay]", err);
@@ -352,15 +450,25 @@ app.post("/conversations/:id/replay", async (req, res) => {
 /**
  * One arm of the comparison. A failure in one arm is reported as that arm's
  * result rather than thrown: an over-long full history is a perfectly
- * interesting outcome, and it should not take the other two answers down with
- * it.
+ * interesting outcome, and it should not take the other three answers down
+ * with it.
  */
-async function replayOne({ key, label, note, system, messages, summaryUsed }) {
+async function replayOne({ strategyId, history, state, window, expected }) {
   const startedAt = Date.now();
+  const strategy = createStrategy(strategyId, { contextMessages: window });
+  strategy.contextMessages = window;
+
   try {
+    const built = await strategy.buildPayload({
+      history,
+      systemPrompt: personas.helpful,
+      state,
+      provider,
+    });
+
     const result = await provider.complete({
-      system,
-      messages,
+      system: built.system,
+      messages: built.messages,
       temperature: 0,
       maxTokens: REPLAY_MAX_TOKENS,
     });
@@ -369,30 +477,44 @@ async function replayOne({ key, label, note, system, messages, summaryUsed }) {
     const cost = estimateCost({ model: result.model, inputTokens, outputTokens });
 
     return {
-      key,
-      label,
-      note,
+      key: strategyId,
+      label: strategy.label,
+      note: built.meta?.note ?? "",
       reply: result.text,
       model: result.model,
-      messagesSent: messages.length,
-      summaryUsed,
+      messagesSent: built.messages.length,
       inputTokens,
       outputTokens,
       cost: toNeutralCost(cost),
+      overheadTokens: built.meta?.overheadTokens ?? 0,
+      overheadCost: built.meta?.overheadCost ?? null,
+      overheadCalls: built.meta?.overheadCalls ?? 0,
+      recall: score(result.text, expected),
       ms: Date.now() - startedAt,
     };
   } catch (err) {
-    console.error(`[/replay:${key}]`, err);
+    console.error(`[/replay:${strategyId}]`, err);
     return {
-      key,
-      label,
-      note,
+      key: strategyId,
+      label: strategy.label,
+      note: "",
       error: readableError(err),
-      messagesSent: messages.length,
-      summaryUsed,
+      messagesSent: 0,
       ms: Date.now() - startedAt,
     };
   }
+}
+
+/**
+ * Recall, by substring. It is a blunt instrument and it is the right one: the
+ * facts being checked are a port number and a name, and a strategy either put
+ * them in front of the model or it did not.
+ */
+function score(reply, expected) {
+  if (!expected.length) return null;
+  const text = String(reply ?? "").toLowerCase();
+  const hits = expected.filter((value) => text.includes(value.toLowerCase()));
+  return { hits: hits.length, of: expected.length, missed: expected.filter((v) => !hits.includes(v)) };
 }
 
 app.delete("/conversations/:id", async (req, res) => {
@@ -433,12 +555,24 @@ function toNeutralCost({ inputCost, outputCost, totalCost }) {
 /**
  * A one-line, client-safe description of a failure: no stack traces, and
  * nothing that could echo back a credential.
+ *
+ * The 400 case passes the provider's own sentence through, which is the one
+ * place that is worth doing. A 400 from the Messages API is almost always
+ * something the caller can act on — an empty credit balance, a model id that
+ * does not exist, a malformed request — and `error.message` is a string the
+ * provider wrote to be displayed. Swallowing it into "something went wrong"
+ * turns the only actionable failure into the least actionable message in the
+ * app. Nothing else is passed through: a 401 must never repeat back what it
+ * was we sent.
  */
 function readableError(err) {
   const status = err?.status;
   if (status === 401 || status === 403) return "The model rejected our credentials.";
   if (status === 429) return "Rate limited by the model provider. Try again in a moment.";
   if (status === 408) return "The model took too long to respond. Try again.";
+  if (status === 400 && typeof err?.message === "string" && err.message.trim()) {
+    return "The model provider rejected the request: " + err.message.trim().slice(0, 300);
+  }
   if (typeof status === "number" && status >= 500) return "The model provider is having trouble. Try again shortly.";
   return "Something went wrong while generating a reply.";
 }

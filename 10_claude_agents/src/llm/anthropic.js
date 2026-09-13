@@ -190,6 +190,16 @@ function errorMessageFrom(raw, status) {
  * warning all behave without a key. They are not billed and not accurate;
  * `fake-provider` is deliberately absent from PRICING, which is also how the
  * unknown-model path gets exercised.
+ *
+ * It recognises the three system prompts this app sends — the summarizer's,
+ * the fact extractor's, and the persona's — and answers each in the right
+ * shape, so every context strategy and the whole scenario harness run offline.
+ *
+ * **It does not understand anything; it reflects.** Asked a question, it reads
+ * back what its own payload contains and nothing else. That makes an offline
+ * recall score a measurement of *what reached the context*, which is exactly
+ * what the strategies differ on — and an upper bound on what a real model
+ * would do with the same payload, never a prediction of it.
  */
 export class FakeProvider extends LlmProvider {
   #delayMs;
@@ -208,12 +218,7 @@ export class FakeProvider extends LlmProvider {
   async complete({ system, messages, maxTokens = 1024 }) {
     await new Promise((resolve) => setTimeout(resolve, this.#delayMs));
     const lastUser = [...messages].reverse().find((m) => m.role === "user");
-    let text =
-      this.#reply ??
-      (looksLikeSummarisation(system)
-        ? fakeSummary(lastUser?.content ?? "")
-        : `(fake reply) You said: "${lastUser?.content ?? ""}". ` +
-          `No API key is configured, so nothing was sent to a real model.`);
+    let text = this.#reply ?? fakeAnswer({ system, messages, lastUser: lastUser?.content ?? "" });
 
     // Honour the ceiling the same way a real model does: stop mid-sentence and
     // say so, so the truncation path is reachable offline.
@@ -244,27 +249,131 @@ function approximateTokens(text) {
   return Math.ceil(String(text ?? "").length / 4);
 }
 
-/**
- * The Summarizer's system prompt is recognisable by the sections it demands.
- * Matching on it lets the offline provider return something summary-shaped
- * rather than a canned sentence, so the summary panel can be exercised without
- * a key. The text is still synthetic — it quotes the material back rather than
- * understanding it.
- */
-function looksLikeSummarisation(system) {
-  return typeof system === "string" && system.includes("## Facts about the user");
+/** Route the request to whichever of the three shapes it is asking for. */
+function fakeAnswer({ system, messages, lastUser }) {
+  if (looksLikeSummarisation(system)) return fakeSummary(lastUser);
+  if (looksLikeFactExtraction(system)) return fakeFactOps(lastUser);
+  if (looksLikeQuestion(lastUser)) return fakeRecall({ system, messages, lastUser });
+  return (
+    `(fake reply) You said: "${lastUser}". ` +
+    "No API key is configured, so nothing was sent to a real model."
+  );
 }
 
-function fakeSummary(prompt) {
-  const dropped = String(prompt)
-    .split("\n")
+/**
+ * A question gets the contents of the payload read back at it: the auxiliary
+ * block from the system prompt first, then the user messages still on the
+ * wire. Whatever the strategy kept, the fake can repeat; whatever it dropped,
+ * the fake cannot. That is the only honest thing an offline provider can say
+ * about recall.
+ */
+function fakeRecall({ system, messages, lastUser }) {
+  const block = /<(known_facts|conversation_summary)>([\s\S]*?)<\/\1>/.exec(system ?? "");
+  const visible = (messages ?? [])
+    .filter((m) => m.role === "user" && m.content !== lastUser)
+    .map((m) => "- " + String(m.content).replace(/\s+/g, " "));
+
+  return [
+    "(fake reply) I do not reason — here is everything I can currently see.",
+    block ? `From the ${block[1]} block:` : "There is no auxiliary block in my system prompt.",
+    block ? block[2].trim().split("\n").slice(1).join("\n") : "",
+    visible.length ? "From the messages still in my window:" : "No earlier messages are in my window.",
+    ...visible,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+/** A question, roughly: the shape the scenario's final turn takes. */
+function looksLikeQuestion(text) {
+  const said = String(text ?? "");
+  return /\?/.test(said) || /\b(what|which|who|when|where|remind|recap|list|read .* back)\b/i.test(said);
+}
+
+/**
+ * The extractor's system prompt is recognisable by the operation format it
+ * demands. The offline answer records **every** user message under a key
+ * derived from its own text — a content hash, so the same message always lands
+ * on the same key and re-stating something is an idempotent `set` rather than
+ * a new fact.
+ *
+ * This is the most generous extractor imaginable: it makes no judgement about
+ * what is worth keeping, which is the hard part of the real task. Offline it
+ * measures the plumbing — patching, capping, eviction, the block reaching the
+ * system prompt — and nothing about extraction quality.
+ */
+function fakeFactOps(prompt) {
+  const exchange = String(prompt).split("\n");
+  const start = exchange.findIndex((line) => line.startsWith("LATEST EXCHANGE:"));
+  const said = exchange
+    .slice(start + 1)
     .filter((line) => line.startsWith("[user] "))
     .map((line) => line.slice(7).replace(/\s+/g, " ").trim())
     .filter(Boolean);
 
+  if (!said.length) return "[]";
+  return JSON.stringify(
+    said.map((value) => ({ op: "set", key: "decision." + hash(value), value }))
+  );
+}
+
+function looksLikeFactExtraction(system) {
+  return typeof system === "string" && system.includes('{"op":"set"');
+}
+
+/** Small, stable and dependency-free — enough to key a fact by its content. */
+function hash(text) {
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36);
+}
+
+/**
+ * The Summarizer's system prompt is recognisable by its opening line.
+ * Matching on it lets the offline provider return something summary-shaped
+ * rather than a canned sentence, so the summary panel can be exercised without
+ * a key. The text is still synthetic — it quotes the material back rather than
+ * understanding it.
+ *
+ * It deliberately does not match on the section headers: those also appear in
+ * the summary *block*, which rides along in the conversation's own system
+ * prompt, and matching them made the agent answer every ordinary turn with a
+ * summary of itself.
+ */
+function looksLikeSummarisation(system) {
+  return typeof system === "string" && system.startsWith("You maintain a running summary");
+}
+
+/**
+ * The offline summary is **incremental**, like the real one: it keeps the
+ * bullets already in the summary it was handed and appends the ones that have
+ * just fallen out. A fake that rewrote the whole thing from the newest slice
+ * would quietly make compression look like forgetting, which is the one thing
+ * the strategy is supposed not to do.
+ */
+function fakeSummary(prompt) {
+  const lines = String(prompt).split("\n");
+  const from = (header) => {
+    const at = lines.findIndex((line) => line.startsWith(header));
+    return at === -1 ? [] : lines.slice(at + 1);
+  };
+
+  const kept = from("SUMMARY SO FAR:")
+    .filter((line) => line.startsWith("- said: "))
+    .map((line) => line.trim());
+  const dropped = from("MESSAGES THAT HAVE JUST LEFT")
+    .filter((line) => line.startsWith("[user] "))
+    .map((line) => "- said: " + line.slice(7).replace(/\s+/g, " ").trim().slice(0, 160))
+    .filter((line) => line.length > 8);
+
+  const bullets = [...kept, ...dropped];
+
   return [
     "## Facts about the user",
-    ...(dropped.length ? dropped.map((line) => "- said: " + line.slice(0, 160)) : ["- none"]),
+    ...(bullets.length ? bullets : ["- none"]),
     "",
     "## Decisions made",
     "- none (fake-provider does not read, it only reflects)",
@@ -279,3 +388,4 @@ function fakeSummary(prompt) {
     "- none",
   ].join("\n");
 }
+
