@@ -7,7 +7,7 @@ them, switchable per conversation, measured against each other by a scripted
 scenario rather than argued about.
 
 
-https://github.com/user-attachments/assets/592fd24b-cec4-4d2e-92a4-5dbc664f42d7
+https://github.com/user-attachments/assets/a53cca41-859c-45a9-84d1-17c3734f0f6f
 
 
 ## Run
