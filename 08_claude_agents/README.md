@@ -7,7 +7,7 @@ It reports real token usage and cost for every turn and for the conversation as
 a whole, and it shows what breaks when history is cropped to a small window.
 
 
-https://github.com/user-attachments/assets/58c02d23-5d1e-447e-aced-4757de728ebd
+https://github.com/user-attachments/assets/c9091763-f0a8-4818-ac17-c34e262338a1
 
 
 ## Install
