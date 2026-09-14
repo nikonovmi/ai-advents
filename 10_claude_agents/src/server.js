@@ -13,7 +13,7 @@ import { isValidSessionId } from "./store/conversationStore.js";
 import { JsonFileStore } from "./store/jsonFileStore.js";
 import { MemoryStore } from "./store/memoryStore.js";
 
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, "..", "public");
 const PRICING_FILE = path.join(__dirname, "llm", "pricing.js");
