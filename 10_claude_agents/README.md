@@ -6,7 +6,7 @@ management as a **pluggable strategy**: four of them, switchable per
 conversation, measured against each other by a scripted scenario.
 
 
-https://github.com/user-attachments/assets/e9922362-4994-4b83-ba24-be1ff1d13965
+https://github.com/user-attachments/assets/c4021fa3-62c8-4764-a67a-598e370a5ede
 
 
 
