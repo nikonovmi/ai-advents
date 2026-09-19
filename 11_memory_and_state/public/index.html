@@ -649,6 +649,122 @@
   .facts .fact .was { display: block; color: var(--accent); font-size: 10px; }
   .facts .fact.changed { background: color-mix(in srgb, var(--accent) 14%, var(--bg)); }
 
+  /* ---- the three-layer memory panel --------------------------------------- */
+
+  /* Three sections, drawn as three sections. The layers differ in *lifetime*
+     rather than in content, and nothing about a flat list of keys would tell
+     you that the middle one is about to be cleared and the top one never is —
+     so each section says out loud how long the things under it live. */
+  .memory { font-size: 11px; line-height: 1.4; }
+  .memory .layer { margin-top: 14px; }
+  .memory .layer:first-child { margin-top: 0; }
+  .memory .layer > h3 {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin: 0 0 4px;
+    color: var(--ink);
+    font-weight: 600;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .memory .layer > h3 .lifetime {
+    flex: 1;
+    color: var(--muted);
+    font-weight: 400;
+    font-size: 9.5px;
+    letter-spacing: 0.02em;
+    text-align: right;
+    text-transform: none;
+  }
+  .memory .entry {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 3px 6px;
+    margin: 0 -6px;
+    border-radius: 6px;
+    transition: background-color 0.6s ease;
+  }
+  .memory .entry .body { flex: 1; min-width: 0; }
+  .memory .entry .k {
+    color: var(--muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px;
+  }
+  .memory .entry .v { color: var(--ink); overflow-wrap: anywhere; }
+  .memory .entry .was { display: block; color: var(--accent); font-size: 10px; }
+  .memory .entry .churn { color: var(--accent); }
+  .memory .entry .origin { color: var(--muted); }
+  .memory .entry.contested .v { opacity: 0.6; }
+  .memory .entry.contested .v { text-decoration: line-through; }
+  .memory .entry.legacy .v { text-decoration: none; opacity: 1; }
+  .memory .entry.changed { background: color-mix(in srgb, var(--accent) 14%, var(--bg)); }
+
+  /* The row buttons stay out of the way until the row is under the cursor.
+     Every one of them is destructive or permanent, and a panel of small red
+     verbs reads as a control surface rather than as a memory. */
+  .memory .acts { display: flex; gap: 4px; flex: none; opacity: 0; transition: opacity 0.15s ease; }
+  .memory .entry:hover .acts,
+  .memory .acts:focus-within { opacity: 1; }
+  .memory button.act,
+  .memory button.finish {
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--muted);
+    border-radius: 999px;
+    padding: 1px 7px;
+    font: inherit;
+    font-size: 9.5px;
+    cursor: pointer;
+  }
+  .memory button.act:hover { color: var(--accent); border-color: var(--accent); }
+  .memory button.finish {
+    width: 100%;
+    margin-top: 6px;
+    padding: 5px;
+    border-radius: 7px;
+    font-size: 10.5px;
+  }
+  .memory button.finish:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+  .memory button:disabled { opacity: 0.45; cursor: default; }
+
+  /* A proposal is not memory yet. It is drawn as a form, because that is what
+     it is: an editable sentence with a yes and a no, and nothing is written
+     anywhere until one of them is pressed. */
+  .memory .proposal {
+    border: 1px dashed color-mix(in srgb, var(--accent) 55%, var(--line));
+    border-radius: 7px;
+    padding: 6px 7px;
+    margin: 6px 0;
+  }
+  .memory .proposal textarea {
+    width: 100%;
+    margin: 3px 0;
+    padding: 4px 5px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: var(--bg);
+    color: var(--ink);
+    font: inherit;
+    font-size: 11px;
+    resize: vertical;
+  }
+  .memory .proposal .acts { opacity: 1; }
+  .memory .proposal.answered { opacity: 0.55; border-style: solid; }
+  .memory .past { margin: 4px 0; color: var(--muted); }
+  .memory .past summary { cursor: pointer; }
+  .memory .past .entry { color: var(--muted); }
+  .memory .discarded { color: var(--muted); font-style: italic; }
+  .memory .discarded code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-style: normal;
+  }
+  .memory .none { color: var(--muted); font-style: italic; }
+  .memory .digest { margin-top: 4px; }
+
   /* ---- the strategy selector --------------------------------------------- */
 
   .window-banner .strategy-note {
@@ -785,6 +901,8 @@
   const panelBody = document.getElementById("panel-body");
 
   let pending = false;
+  /** How many replies have been drawn, so a turn can be named while painting. */
+  let paintedTurns = 0;
   /** Id, label and one line of description for each, straight from the registry. */
   let catalog = [];
   let branches = [];
@@ -858,7 +976,47 @@
   }
 
   /** The word the per-turn counter uses for the block a strategy injects. */
-  const BLOCK_WORD = { summary: "summary", facts: "facts" };
+  const BLOCK_WORD = { summary: "summary", facts: "facts", memory: "memory" };
+
+  /**
+   * `(140 profile, 98 task)` — the blocks called out **inside** the input
+   * figure, not added to it.
+   *
+   * The total is measured: the server counted the request twice, once with the
+   * blocks and once without. The split across them is not — it is that
+   * measured total apportioned by the size of each block on the turn it was
+   * sent, which the strategy records in its own state as it builds them. An
+   * exact per-block count would need three more count calls per turn to answer
+   * a question about proportions, which is not worth three network round trips.
+   *
+   * Turns taken before the strategy started recording, and turns on some other
+   * branch, have no row: those fall back to the single total.
+   */
+  function blockNote(strategy, turn) {
+    const total = strategy?.blockTokens;
+    const word = BLOCK_WORD[strategy?.id];
+    if (!total || !word) return "";
+    if (strategy.id !== "memory") return ` (${formatTokens(total)} ${word})`;
+
+    const row = (panelState.kind === "memory" ? panelState.attribution ?? [] : []).find(
+      (entry) => entry.turn === turn
+    );
+    const parts = [
+      ["profile", row?.profile ?? 0],
+      ["task", row?.working ?? 0],
+      ["digest", row?.digest ?? 0],
+    ].filter(([, size]) => size > 0);
+    const characters = parts.reduce((sum, [, size]) => sum + size, 0);
+    if (!characters) return ` (${formatTokens(total)} memory)`;
+
+    return (
+      " (" +
+      parts
+        .map(([label, size]) => `${formatTokens(Math.round((total * size) / characters))} ${label}`)
+        .join(", ") +
+      ")"
+    );
+  }
 
   /**
    * The line under a reply: real billed tokens, what they cost, how long it
@@ -869,17 +1027,12 @@
    * of the request, and the interesting question is how much of the input it
    * accounts for.
    */
-  function agentMetaLine(meta) {
+  function agentMetaLine(meta, turn) {
     const { tokens, cost, model, ms } = meta;
     const strategy = strategyOf(meta);
-    const block = strategy?.blockTokens;
-    const word = BLOCK_WORD[strategy?.id];
     const parts = [];
     if (tokens?.input != null) {
-      parts.push(
-        formatTokens(tokens.input) + " in" +
-          (block && word ? ` (${formatTokens(block)} ${word})` : "")
-      );
+      parts.push(formatTokens(tokens.input) + " in" + blockNote(strategy, turn));
     }
     if (tokens?.output != null) parts.push(formatTokens(tokens.output) + " out");
     if (cost?.total != null) parts.push(formatCost(cost.total));
@@ -925,6 +1078,11 @@
     }
     if (who !== "user" && strategy?.id) lastPaintedStrategy = strategy.id;
 
+    // Which exchange this is, counted as it is drawn. The per-turn counter
+    // needs it to look up what the blocks cost on that particular turn.
+    if (who !== "user" && !error) paintedTurns += 1;
+    const turn = paintedTurns;
+
     const row = document.createElement("div");
     row.className = "row " + who + (error ? " error" : "");
 
@@ -941,7 +1099,7 @@
     line.textContent = meta
       ? who === "user"
         ? userMetaLine(meta)
-        : agentMetaLine(meta)
+        : agentMetaLine(meta, turn)
       : "";
     // Forking is offered on the message, not in a dialogue box: "what if I had
     // said something else here" is a question about one specific message.
@@ -998,6 +1156,9 @@
     newButton.disabled = value;
     branchSelect.disabled = value;
     strategySelect.disabled = value;
+    // The panel's own buttons write to memory. A second click while the first
+    // is in flight would be applied to a state the page has not seen yet.
+    for (const button of panelBody.querySelectorAll("button")) button.disabled = value;
   }
 
   function autoGrow() {
@@ -1124,6 +1285,415 @@
     target.appendChild(table);
   }
 
+  /**
+   * The three-layer panel: profile, the task in hand, what was thrown away.
+   *
+   * Every row is addressable — *forget* on all of them, *promote* on the ones
+   * the routing table marks promotable — and every button goes through the
+   * same `applyOps` path on the server that the extractor's patch does. A
+   * button that could change memory in a way a patch cannot express would be a
+   * second code path with no test behind it.
+   *
+   * `interactive` is false where the panel is drawn inside the transcript, at
+   * the context boundary: that copy is a caption, and a caption with buttons
+   * in it is a trap.
+   */
+  function renderMemoryInto(target, panel, { interactive = true } = {}) {
+    target.innerHTML = "";
+    const root = document.createElement("div");
+    root.className = "memory";
+
+    root.appendChild(
+      memoryLayer({
+        title: "Profile",
+        lifetime: "never expires",
+        rows: panel.profile ?? [],
+        prefix: "profile:",
+        empty: "Nothing about you has been kept yet.",
+        actions: interactive
+          ? (row) => [actButton("forget", () => memoryOps([{ op: "delete", key: row.key, from: "profile" }]))]
+          : null,
+      })
+    );
+
+    const task = memoryLayer({
+      title: "Current task",
+      lifetime: "cleared when you finish it",
+      rows: panel.task ?? [],
+      prefix: "task:",
+      empty: "No task in hand — whatever you say next starts one.",
+      actions: interactive
+        ? (row) => [
+            row.promotable
+              ? actButton("promote", () => memoryOps([{ op: "promote", key: row.key }]))
+              : null,
+            actButton("forget", () => memoryOps([{ op: "delete", key: row.key, from: "working" }])),
+          ].filter(Boolean)
+        : null,
+    });
+    if (interactive) task.appendChild(finishTaskButton(panel));
+    root.appendChild(task);
+
+    if (panel.proposals?.length) root.appendChild(memoryProposals(panel.proposals, interactive));
+    if (panel.pastTasks?.length) root.appendChild(memoryPastTasks(panel.pastTasks));
+    if (panel.discarded?.length) root.appendChild(memoryDiscarded(panel.discarded));
+    if (panel.digest?.text) root.appendChild(memoryDigest(panel.digest));
+
+    target.appendChild(root);
+  }
+
+  function memoryLayer({ title, lifetime, rows, prefix, empty, actions }) {
+    const section = document.createElement("div");
+    section.className = "layer";
+
+    const heading = document.createElement("h3");
+    heading.textContent = `${title} (${rows.length})`;
+    const life = document.createElement("span");
+    life.className = "lifetime";
+    life.textContent = lifetime;
+    heading.appendChild(life);
+    section.appendChild(heading);
+
+    if (!rows.length) {
+      const none = document.createElement("div");
+      none.className = "none";
+      none.textContent = empty;
+      section.appendChild(none);
+      return section;
+    }
+
+    for (const row of rows) {
+      const entry = document.createElement("div");
+      entry.className = "entry" + (changedKeys.has(prefix + row.key) ? " changed" : "");
+
+      const body = document.createElement("div");
+      body.className = "body";
+      const key = document.createElement("div");
+      key.className = "k";
+      key.textContent = row.key;
+      if (row.rewrites) {
+        // Drift is the failure this block cannot show by itself: every version
+        // of a rewritten key looks right, because every version agrees with
+        // whatever was said last.
+        const churn = document.createElement("span");
+        churn.className = "churn";
+        churn.textContent = ` ⟲${row.rewrites}`;
+        churn.title =
+          `Overwritten ${row.rewrites} time${row.rewrites === 1 ? "" : "s"} since it was first established.`;
+        key.appendChild(churn);
+      }
+      const value = document.createElement("div");
+      value.className = "v";
+      value.textContent = row.value;
+      body.append(key, value);
+
+      const was = changedKeys.has(prefix + row.key) ? row.previous?.[0] : null;
+      if (was) {
+        const before = document.createElement("span");
+        before.className = "was";
+        before.textContent = "was: " + was;
+        body.appendChild(before);
+      }
+      if (row.source) {
+        // Who decided this. `extracted` means the routing table put it there
+        // on the turn it was said, with nobody asked; `promoted` means you
+        // approved it at a task boundary. Long-term never expires, so the
+        // difference is worth being able to see months later.
+        const origin = document.createElement("span");
+        origin.className = "origin";
+        origin.textContent =
+          row.source === "promoted"
+            ? " · you approved this"
+            : row.source === "panel"
+              ? " · you added this"
+              : " · remembered automatically";
+        key.appendChild(origin);
+      }
+      if (row.legacy) {
+        entry.className += " contested legacy";
+        const note = document.createElement("span");
+        note.className = "was";
+        note.textContent =
+          "older key shape — anything new about you lands beside this, not over it";
+        body.appendChild(note);
+      }
+      if (row.contested) {
+        // The row is still stored, and deliberately not on the wire: the task
+        // in hand holds the same key with a different value, and the more
+        // recent of the two is the one the user just said.
+        entry.className += " contested";
+        const flag = document.createElement("span");
+        flag.className = "was";
+        flag.textContent = "the current task contradicts this — not being sent";
+        body.appendChild(flag);
+      }
+
+      entry.appendChild(body);
+      if (actions) {
+        const acts = document.createElement("div");
+        acts.className = "acts";
+        for (const button of actions(row)) acts.appendChild(button);
+        entry.appendChild(acts);
+      }
+      section.appendChild(entry);
+    }
+
+    return section;
+  }
+
+  function actButton(label, onClick) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "act";
+    button.textContent = label;
+    button.disabled = pending;
+    button.addEventListener("click", () => {
+      if (pending) return;
+      onClick();
+    });
+    return button;
+  }
+
+  /**
+   * One control, three effects: one promotion call, proposals back for you to
+   * approve or edit, and working memory cleared because the task is over.
+   *
+   * There is no "start a task" to go with it. The next thing said starts one
+   * implicitly, which is the only signal that never needs maintaining.
+   */
+  function finishTaskButton(panel) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "finish";
+    button.textContent = "Finish task";
+    button.disabled = pending || !(panel.task?.length);
+    button.title = panel.task?.length
+      ? "Close the task: propose what is worth keeping, then clear working memory."
+      : "There is nothing in working memory to finish.";
+    button.addEventListener("click", () => {
+      if (pending) return;
+      memoryRequest("finish-task", {});
+    });
+    return button;
+  }
+
+  function memoryProposals(proposals, interactive) {
+    const section = document.createElement("div");
+    section.className = "layer";
+    const pending_ = proposals.filter((p) => p.status === "pending").length;
+
+    const corrections = proposals.filter((p) => p.status === "pending" && p.kind === "correction").length;
+    const heading = document.createElement("h3");
+    heading.textContent = corrections
+      ? `Waiting for you (${pending_})`
+      : `Proposed for long-term (${pending_})`;
+    const life = document.createElement("span");
+    life.className = "lifetime";
+    life.textContent = "nothing is written until you say so";
+    heading.appendChild(life);
+    section.appendChild(heading);
+
+    for (const proposal of proposals) {
+      const box = document.createElement("div");
+      box.className = "proposal" + (proposal.status === "pending" ? "" : " answered");
+
+      const key = document.createElement("div");
+      key.className = "k";
+      key.textContent =
+        proposal.key +
+        (proposal.kind === "correction" ? " · correction" : "") +
+        (proposal.status === "pending" ? "" : " · " + proposal.status);
+      box.appendChild(key);
+
+      if (proposal.was) {
+        const stale = document.createElement("div");
+        stale.className = "was";
+        stale.textContent = "long-term still says: " + proposal.was;
+        box.appendChild(stale);
+      }
+
+      if (!interactive || proposal.status !== "pending") {
+        const value = document.createElement("div");
+        value.className = "v";
+        value.textContent = proposal.value;
+        box.append(value);
+        section.appendChild(box);
+        continue;
+      }
+
+      // Editable, because the rephrasing is the part most likely to be wrong
+      // and this is the last moment anyone will look at it.
+      const field = document.createElement("textarea");
+      field.rows = 3;
+      field.value = proposal.value;
+
+      const acts = document.createElement("div");
+      acts.className = "acts";
+      acts.append(
+        actButton(proposal.kind === "correction" ? "update it" : "keep it", () =>
+          memoryRequest(`proposals/${encodeURIComponent(proposal.id)}`, {
+            action: "approve",
+            value: field.value,
+          })
+        ),
+        actButton(proposal.kind === "correction" ? "leave it" : "discard", () =>
+          memoryRequest(`proposals/${encodeURIComponent(proposal.id)}`, { action: "reject" })
+        )
+      );
+
+      box.append(field, acts);
+      section.appendChild(box);
+    }
+
+    return section;
+  }
+
+  /** Cleared, not deleted: a closed task is still here, it just stops being sent. */
+  function memoryPastTasks(tasks) {
+    const section = document.createElement("div");
+    section.className = "layer";
+
+    const heading = document.createElement("h3");
+    heading.textContent = `Past tasks (${tasks.length})`;
+    const life = document.createElement("span");
+    life.className = "lifetime";
+    life.textContent = "kept, not sent";
+    heading.appendChild(life);
+    section.appendChild(heading);
+
+    for (const task of [...tasks].reverse()) {
+      const block = document.createElement("details");
+      block.className = "past";
+      const label = document.createElement("summary");
+      label.textContent =
+        `closed after turn ${task.turn} · ${task.entries.length} entr${task.entries.length === 1 ? "y" : "ies"}` +
+        (task.promoted ? ` · ${task.promoted} promoted` : "");
+      block.appendChild(label);
+
+      for (const entry of task.entries) {
+        const row = document.createElement("div");
+        row.className = "entry";
+        const body = document.createElement("div");
+        body.className = "body";
+        const key = document.createElement("div");
+        key.className = "k";
+        key.textContent = entry.key;
+        const value = document.createElement("div");
+        value.className = "v";
+        value.textContent = entry.value;
+        body.append(key, value);
+        row.appendChild(body);
+        block.appendChild(row);
+      }
+      section.appendChild(block);
+    }
+
+    return section;
+  }
+
+  /**
+   * What the extractor proposed and the routing table refused.
+   *
+   * Without this line, a key discarded for having a namespace nobody
+   * recognises looks exactly like an extraction that found nothing — and the
+   * two call for opposite fixes.
+   */
+  function memoryDiscarded(rows) {
+    const section = document.createElement("div");
+    section.className = "layer";
+    const heading = document.createElement("h3");
+    heading.textContent = "Proposed, not stored";
+    section.appendChild(heading);
+
+    for (const row of [...rows].reverse()) {
+      const line = document.createElement("div");
+      line.className = "discarded";
+      const code = document.createElement("code");
+      code.textContent = row.key;
+      line.append(code, ` — ${row.reason}`);
+      // What it would have stored. A refusal you cannot read is one you cannot
+      // judge: the whole point of showing this list is that you can tell a key
+      // worth rescuing by hand from one that was never worth keeping.
+      if (row.value) {
+        const dropped = document.createElement("span");
+        dropped.className = "was";
+        dropped.textContent = "dropped: " + row.value;
+        line.appendChild(dropped);
+      }
+      section.appendChild(line);
+    }
+    return section;
+  }
+
+  /** The digest is compressed short-term, not a fourth layer — so it is last. */
+  function memoryDigest(digest) {
+    const section = document.createElement("div");
+    section.className = "layer";
+    const heading = document.createElement("h3");
+    heading.textContent = "Digest";
+    const life = document.createElement("span");
+    life.className = "lifetime";
+    life.textContent = `covers ${digest.covers} message${digest.covers === 1 ? "" : "s"}`;
+    heading.appendChild(life);
+    section.appendChild(heading);
+
+    const block = document.createElement("details");
+    block.className = "past";
+    const label = document.createElement("summary");
+    label.textContent = "what was discussed, compressed";
+    const body = document.createElement("div");
+    body.className = "digest";
+    renderSummaryInto(body, digest.text);
+    block.append(label, body);
+    section.appendChild(block);
+    return section;
+  }
+
+  /** `forget` and `promote`, as a patch. */
+  function memoryOps(ops) {
+    return memoryRequest("ops", { ops });
+  }
+
+  /**
+   * Every memory action is the same request: post it, take the panel that
+   * comes back as the new truth, and redraw. The server answers with the whole
+   * panel rather than with what changed, so the page can never hold a view of
+   * memory that the store disagrees with.
+   */
+  async function memoryRequest(path, body) {
+    setPending(true);
+    try {
+      const res = await fetch(`/conversations/${sessionId}/memory/${path}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ branchId, ...body }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        memoryNote(data.error || `Could not change memory (${res.status}).`);
+        return;
+      }
+      panelState = data.panel ?? panelState;
+      diffMemory(panelState);
+      renderPanel();
+      renderWindowBanner();
+      if (data.note) memoryNote(data.note);
+      flashPanel();
+    } catch (err) {
+      memoryNote("Could not reach the server.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  /** One line under the panel's heading, for what just happened to memory. */
+  function memoryNote(text) {
+    const line = document.createElement("div");
+    line.className = "none";
+    line.textContent = text;
+    panelBody.prepend(line);
+  }
+
   function panelPlaceholder() {
     const node = document.createElement("div");
     node.className = "placeholder";
@@ -1133,6 +1703,18 @@
 
   /** `Known facts · 7 facts · 3 namespaces`, or the summary's own headline. */
   function panelHeadline() {
+    if (panelState.kind === "memory") {
+      const profile = panelState.profile?.length ?? 0;
+      const task = panelState.task?.length ?? 0;
+      const waiting = (panelState.proposals ?? []).filter((p) => p.status === "pending").length;
+      const parts = [
+        `${profile} in profile`,
+        `${task} in this task`,
+        panelState.digest?.text ? "digest" : null,
+        waiting ? `${waiting} to approve` : null,
+      ].filter(Boolean);
+      return parts.join(" · ");
+    }
     if (panelState.kind === "facts") {
       const count = panelState.facts?.length ?? 0;
       if (!count) return "nothing established yet";
@@ -1155,7 +1737,12 @@
     label.textContent = panelState.title || "Context";
     panelStats.append(label, " ", panelHeadline());
 
-    if (panelState.kind === "facts" && panelState.facts?.length) {
+    if (panelState.kind === "memory") {
+      // Always drawn, even when every layer is empty: the sections are what
+      // explain the three lifetimes, and the button that ends a task has to be
+      // reachable before there is anything to show under it.
+      renderMemoryInto(panelBody, panelState);
+    } else if (panelState.kind === "facts" && panelState.facts?.length) {
       renderFactsInto(panelBody, panelState.facts);
     } else if (panelState.kind === "summary" && panelState.text) {
       renderSummaryInto(panelBody, panelState.text);
@@ -1181,6 +1768,25 @@
       }
     }
     previousFacts = new Map((facts ?? []).map((fact) => [fact.key, fact.value]));
+    return changedKeys.size;
+  }
+
+  /**
+   * The same idea across two layers: a profile row and a working row can share
+   * a key without being the same thing, so each one is diffed under its own
+   * prefix. Promoting a decision lights up the profile row, not the task row
+   * it came from.
+   */
+  function diffMemory(panel) {
+    const rows = [
+      ...(panel.profile ?? []).map((row) => ["profile:" + row.key, row.value]),
+      ...(panel.task ?? []).map((row) => ["task:" + row.key, row.value]),
+    ];
+    changedKeys = new Set();
+    for (const [key, value] of rows) {
+      if (!previousFacts.has(key) || previousFacts.get(key) !== value) changedKeys.add(key);
+    }
+    previousFacts = new Map(rows);
     return changedKeys.size;
   }
 
@@ -1387,6 +1993,7 @@
     body.className = "summary-body";
     if (panelState.kind === "summary" && panelState.text) renderSummaryInto(body, panelState.text);
     else if (panelState.kind === "facts" && panelState.facts?.length) renderFactsInto(body, panelState.facts);
+    else if (panelState.kind === "memory") renderMemoryInto(body, panelState, { interactive: false });
     else body.appendChild(panelPlaceholder());
 
     block.append(label, body);
@@ -1394,6 +2001,10 @@
   }
 
   function boundaryLabel(dropped) {
+    if (panelState.kind === "memory") {
+      const task = panelState.task?.length ?? 0;
+      return `⟵ ${dropped} messages folded into the digest · ${task} kept in working memory`;
+    }
     if (panelState.kind === "summary" && panelState.text) {
       return `⟵ ${dropped} messages folded into the summary`;
     }
@@ -1435,6 +2046,23 @@
         "Full history is stored but not sent. " +
           `Once ${contextMessages} exchanges have piled up the oldest ${Math.max(1, Math.floor(contextMessages / 2))} are folded in, ` +
           "so every stored message is either in the summary or on the wire — never in neither."
+      );
+      return;
+    }
+
+    if (id === "memory" && panelState.kind === "memory") {
+      const count = document.createElement("span");
+      count.className = "dropped";
+      const profile = panelState.profile?.length ?? 0;
+      const task = panelState.task?.length ?? 0;
+      count.textContent =
+        `${profile} profile entr${profile === 1 ? "y" : "ies"} + ${task} working entr${task === 1 ? "y" : "ies"}` +
+        (panelState.digest?.text ? ` + a digest of ${panelState.digest.covers} earlier messages` : "");
+      windowText.append(count, ` + ${verbatimExchanges} exchange${verbatimExchanges === 1 ? "" : "s"} verbatim. `);
+      windowText.append(
+        "Three lifetimes on one wire: the profile outlives this conversation, working memory is " +
+          "cleared when you press Finish task, and the digest stands in for everything that has " +
+          "scrolled past. Extraction runs on every turn; the fold runs at the mark."
       );
       return;
     }
@@ -1658,6 +2286,11 @@
         // measured it — that number comes from the API, not from guessing.
         userRow.querySelector(".meta").textContent = userMetaLine(data.meta);
         userRow.querySelector(".meta").appendChild(forkButton(data.meta.branch.userMessageId));
+
+        // The panel is adopted *before* the reply is drawn: the counter under
+        // that reply attributes its input to the blocks this turn sent, and
+        // those numbers arrive with the panel.
+        panelState = data.meta.strategy.panel ?? panelState;
         addMessage("agent", data.reply, { meta: data.meta, id: data.meta.branch.replyMessageId });
 
         windowState = { ...windowState, ...data.meta.window };
@@ -1666,10 +2299,11 @@
         branches = data.meta.branches ?? branches;
         strategyId = data.meta.strategy.id;
 
-        panelState = data.meta.strategy.panel ?? panelState;
         const moved = panelState.kind === "facts"
           ? diffFacts(panelState.facts)
-          : data.meta.strategy.overheadCalls && data.meta.strategy.note.startsWith("folded");
+          : panelState.kind === "memory"
+            ? diffMemory(panelState)
+            : data.meta.strategy.overheadCalls && data.meta.strategy.note.startsWith("folded");
         renderPanel();
         renderBranchBar();
         if (moved) flashPanel();
@@ -1729,6 +2363,7 @@
     previousFacts = new Map();
     changedKeys = new Set();
     lastPaintedStrategy = null;
+    paintedTurns = 0;
     branches = [];
     branchId = null;
   }
@@ -1758,6 +2393,7 @@
   async function paintTranscript(id) {
     messages.innerHTML = "";
     lastPaintedStrategy = null;
+    paintedTurns = 0;
 
     try {
       const res = await fetch("/conversations/" + id + branchQuery());
@@ -1773,7 +2409,11 @@
       branchId = record.branchId ?? "main";
       panelState = record.panel ?? { kind: "none", title: "", note: "" };
       // A repaint is not a change: the flash belongs to turns, not to reloads.
-      previousFacts = new Map((panelState.facts ?? []).map((fact) => [fact.key, fact.value]));
+      previousFacts = new Map([
+        ...(panelState.facts ?? []).map((fact) => [fact.key, fact.value]),
+        ...(panelState.profile ?? []).map((row) => ["profile:" + row.key, row.value]),
+        ...(panelState.task ?? []).map((row) => ["task:" + row.key, row.value]),
+      ]);
       changedKeys = new Set();
 
       // The branch remembers which strategy it was last spoken to with, and

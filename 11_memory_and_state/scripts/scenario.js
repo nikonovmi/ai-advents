@@ -30,6 +30,7 @@ import { STRATEGY_IDS, createStrategy } from "../src/context/index.js";
 import { AnthropicProvider, FakeProvider } from "../src/llm/anthropic.js";
 import { formatTokens } from "../src/llm/pricing.js";
 import { MemoryStore } from "../src/store/memoryStore.js";
+import { MemoryProfileStore } from "../src/store/profileStore.js";
 
 const COLOUR = process.stdout.isTTY && !process.env.NO_COLOR;
 const ESC = String.fromCharCode(27);
@@ -95,6 +96,11 @@ async function runStrategy(id) {
     maxTokens: options.maxTokens,
     temperature: 0,
     strategy: id,
+    // Long-term memory is the one store that outlives a conversation, so the
+    // run gets its own. Sharing the real one would mean the second run of the
+    // day started with the first one's answers already in the profile — and a
+    // comparison that leaks between arms is not a comparison.
+    strategyOptions: { profileStore: new MemoryProfileStore() },
   });
 
   const label = createStrategy(id).label;
@@ -124,10 +130,15 @@ async function runStrategy(id) {
   }
 
   const usage = agent.usage;
+  // A strategy that runs more than one schedule reports them apart. The
+  // Agent's own total is right for comparing strategies and useless for tuning
+  // one: it cannot tell you whether the bill is the per-turn call or the fold.
+  const split = agent.panel()?.usage ?? null;
   return {
     id,
     label,
     error,
+    split,
     turns,
     reply: finalReply,
     recall: score(finalReply),
@@ -212,6 +223,19 @@ function printComparison(runs) {
         pad(money(run.allInCost), 12) +
         pad(String(run.overheadCalls), 7) +
         (run.overheadTokens ? formatTokens(run.overheadTokens) : "—")
+    );
+  }
+
+  for (const run of runs) {
+    const parts = Object.entries(run.split ?? {}).filter(([, bill]) => bill?.calls);
+    if (parts.length < 2) continue;
+    console.log(
+      dim(
+        `  ${run.label}: ` +
+          parts
+            .map(([name, bill]) => `${name.replace("overhead", "").toLowerCase()} ${bill.calls} calls / ${formatTokens(bill.inputTokens + bill.outputTokens)} tokens / ${money(bill.costUsd)}`)
+            .join(" · ")
+      )
     );
   }
 

@@ -252,6 +252,7 @@ function approximateTokens(text) {
 /** Route the request to whichever of the three shapes it is asking for. */
 function fakeAnswer({ system, messages, lastUser }) {
   if (looksLikeSummarisation(system)) return fakeSummary(lastUser);
+  if (looksLikePromotion(system)) return fakeProposals(lastUser);
   if (looksLikeFactExtraction(system)) return fakeFactOps(lastUser);
   if (looksLikeQuestion(lastUser)) return fakeRecall({ system, messages, lastUser });
   return (
@@ -268,15 +269,26 @@ function fakeAnswer({ system, messages, lastUser }) {
  * about recall.
  */
 function fakeRecall({ system, messages, lastUser }) {
-  const block = /<(known_facts|conversation_summary)>([\s\S]*?)<\/\1>/.exec(system ?? "");
+  // Every auxiliary block, not just the first: the layered strategy sends
+  // three of them, and a fake that read one would make two of its layers look
+  // like they had never been sent at all.
+  const blocks = [
+    ...String(system ?? "").matchAll(/<(known_facts|conversation_summary|profile|working)>([\s\S]*?)<\/\1>/g),
+  ];
   const visible = (messages ?? [])
     .filter((m) => m.role === "user" && m.content !== lastUser)
     .map((m) => "- " + String(m.content).replace(/\s+/g, " "));
 
   return [
     "(fake reply) I do not reason — here is everything I can currently see.",
-    block ? `From the ${block[1]} block:` : "There is no auxiliary block in my system prompt.",
-    block ? block[2].trim().split("\n").slice(1).join("\n") : "",
+    ...(blocks.length
+      ? blocks.flatMap((block) => [
+          `From the ${block[1]} block:`,
+          // The first line of every block is its own instruction to the model,
+          // not content, so it is dropped rather than read back.
+          block[2].trim().split("\n").slice(1).join("\n"),
+        ])
+      : ["There is no auxiliary block in my system prompt."]),
     visible.length ? "From the messages still in my window:" : "No earlier messages are in my window.",
     ...visible,
   ]
@@ -319,6 +331,34 @@ function fakeFactOps(prompt) {
 
 function looksLikeFactExtraction(system) {
   return typeof system === "string" && system.includes('{"op":"set"');
+}
+
+/**
+ * The task-boundary call. The offline answer proposes every candidate it was
+ * handed, unchanged except for a prefix that makes the one thing it cannot do
+ * obvious: a real promoter **rephrases** each value so it stands alone, and a
+ * fake that pretended to would hide the only hard part of the job.
+ */
+function fakeProposals(prompt) {
+  const lines = String(prompt).split("\n");
+  const start = lines.findIndex((line) => line.startsWith("PROMOTION CANDIDATES:"));
+  const candidates = [];
+
+  for (const line of lines.slice(start + 1)) {
+    if (!line.trim()) break;
+    const at = line.indexOf(":");
+    if (at === -1) continue;
+    candidates.push({
+      key: line.slice(0, at).trim(),
+      value: "From a finished task: " + line.slice(at + 1).trim(),
+    });
+  }
+
+  return JSON.stringify(candidates);
+}
+
+function looksLikePromotion(system) {
+  return typeof system === "string" && system.startsWith("A piece of work has just finished");
 }
 
 /** Small, stable and dependency-free — enough to key a fact by its content. */

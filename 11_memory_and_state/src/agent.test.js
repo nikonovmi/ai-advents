@@ -8,6 +8,7 @@ import { Agent, personas } from "./agent.js";
 import { FakeProvider } from "./llm/anthropic.js";
 import { JsonFileStore } from "./store/jsonFileStore.js";
 import { MemoryStore } from "./store/memoryStore.js";
+import { MemoryProfileStore } from "./store/profileStore.js";
 
 const SESSION = "11111111-1111-4111-8111-111111111111";
 
@@ -45,13 +46,19 @@ function agentWith(options = {}) {
 
 // ---- strategies ------------------------------------------------------------
 
-test("all four strategies answer a turn, and each reports its own overhead", async () => {
+test("all five strategies answer a turn, and each reports its own overhead", async () => {
   const seen = [];
 
-  for (const id of ["sliding", "summary", "facts", "full"]) {
-    // The offline provider answers all three prompt shapes this app sends, so
-    // every strategy can be driven end to end without a key.
-    const { agent } = agentWith({ provider: new FakeProvider({ delayMs: 0 }), strategy: id });
+  for (const id of ["sliding", "summary", "facts", "memory", "full"]) {
+    // The offline provider answers every prompt shape this app sends, so each
+    // strategy can be driven end to end without a key. The profile store is
+    // handed in rather than defaulted, so a test run never writes to the real
+    // long-term memory in `data/memory/`.
+    const { agent } = agentWith({
+      provider: new FakeProvider({ delayMs: 0 }),
+      strategy: id,
+      strategyOptions: { profileStore: new MemoryProfileStore() },
+    });
     let meta;
     for (const word of ["one", "two", "three", "four"]) ({ meta } = await agent.run(word));
 
@@ -74,6 +81,9 @@ test("all four strategies answer a turn, and each reports its own overhead", asy
   // half-window. Over four turns at a window of four that is four calls to one.
   assert.equal(byId.facts.calls, 4);
   assert.equal(byId.summary.calls, 1);
+  // The layered one runs both schedules, so it pays both bills: four
+  // extractions and the one fold.
+  assert.equal(byId.memory.calls, 5);
 });
 
 test("an unknown strategy is refused the way an unknown provider would be", () => {

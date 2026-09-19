@@ -10,8 +10,10 @@ import { AnthropicProvider, FakeProvider } from "./llm/anthropic.js";
 import { estimateCost } from "./llm/pricing.js";
 import { getBranchHistory } from "./store/branches.js";
 import { isValidSessionId } from "./store/conversationStore.js";
+import { memoryRoutes } from "./memoryRoutes.js";
 import { JsonFileStore } from "./store/jsonFileStore.js";
 import { MemoryStore } from "./store/memoryStore.js";
+import { defaultProfileStore } from "./store/profileStore.js";
 
 const PORT = Number(process.env.PORT) || 3000;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -26,6 +28,9 @@ const BRANCH_NAME_MAX = 40;
 // One provider and one store, built once at startup and shared by every agent.
 const provider = createProvider();
 const store = await createStore();
+// And one profile store: long-term memory belongs to the user, not to any one
+// conversation, so there is exactly one of it for the whole process.
+const profileStore = defaultProfileStore();
 
 // A cache in front of the store, not the source of truth: a miss is a load,
 // not a blank slate. That is what lets a conversation survive a restart.
@@ -94,6 +99,13 @@ app.use(express.static(PUBLIC_DIR));
 app.get("/pricing.js", (_req, res) => {
   res.type("application/javascript").sendFile(PRICING_FILE);
 });
+
+// The task boundary — finishing a task, answering a proposal, forgetting a row.
+// None of it is a turn, so none of it belongs on /chat. Dropping the cached
+// agent is what stops the next turn writing stale memory back over it.
+app.use(
+  memoryRoutes({ store, provider, profileStore, invalidate: (id) => sessions.delete(id) })
+);
 
 /** The selector is built from the registry, not from a second list in the UI. */
 app.get("/strategies", (_req, res) => {

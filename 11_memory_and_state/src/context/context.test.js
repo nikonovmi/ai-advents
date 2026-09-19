@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { MemoryProfileStore } from "../store/profileStore.js";
 import {
   exchangeStarts,
   foldTo,
@@ -11,6 +12,7 @@ import {
 import { FactsStrategy, applyOps, factsBlock } from "./facts.js";
 import { FullHistoryStrategy } from "./fullHistory.js";
 import { createStrategy, STRATEGY_IDS } from "./index.js";
+import { MemoryStrategy } from "./memory.js";
 import { SlidingWindowStrategy } from "./slidingWindow.js";
 import { SummarizationStrategy, summaryBlock } from "./summarization.js";
 
@@ -161,9 +163,9 @@ class StubExtractor {
     this.#fail = fail;
   }
 
-  async extract({ keys, exchange }) {
+  async extract({ keys, stored, exchange }) {
     const index = this.calls.length;
-    this.calls.push({ keys, exchange });
+    this.calls.push({ keys: keys ?? stored, exchange });
     if (this.#fail) throw new Error("extractor is down");
     return {
       ops: Array.isArray(this.#scripted[index]) ? this.#scripted[index] : [],
@@ -174,12 +176,18 @@ class StubExtractor {
   }
 }
 
-/** One of each, wired with stubs so none of them touches a network. */
+/** One of each, wired with stubs so none of them touches a network — or a disk. */
 function everyStrategy(window) {
   return [
     new SlidingWindowStrategy({ contextMessages: window }),
     new SummarizationStrategy({ contextMessages: window, summarizer: new StubSummarizer() }),
     new FactsStrategy({ contextMessages: window, extractor: new StubExtractor() }),
+    new MemoryStrategy({
+      contextMessages: window,
+      profileStore: new MemoryProfileStore(),
+      extractor: new StubExtractor(),
+      summarizer: new StubSummarizer(),
+    }),
     new FullHistoryStrategy({ contextMessages: window }),
   ];
 }
@@ -228,8 +236,8 @@ test("no strategy mutates the history it is given", async () => {
   assert.deepEqual(history, before);
 });
 
-test("the registry knows exactly four strategies and builds each one", () => {
-  assert.deepEqual(STRATEGY_IDS, ["sliding", "summary", "facts", "full"]);
+test("the registry knows exactly five strategies and builds each one", () => {
+  assert.deepEqual(STRATEGY_IDS, ["sliding", "summary", "facts", "memory", "full"]);
   for (const id of STRATEGY_IDS) {
     const strategy = createStrategy(id);
     assert.equal(strategy.id, id);
