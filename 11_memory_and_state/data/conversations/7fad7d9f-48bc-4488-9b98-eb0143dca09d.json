@@ -1,0 +1,92 @@
+{
+  "id": "7fad7d9f-48bc-4488-9b98-eb0143dca09d",
+  "title": "I am planning a trip to Lisbon. What is…",
+  "createdAt": "2026-09-13T16:39:43.482Z",
+  "updatedAt": "2026-09-13T16:39:47.985Z",
+  "usage": {
+    "totalInputTokens": 575,
+    "totalOutputTokens": 357,
+    "totalCostUsd": 0.0023599999999999997,
+    "turnCount": 3
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "I am planning a trip to Lisbon. What is one thing I should not miss?",
+      "tokens": {
+        "request": 26
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "**Pastéis de Nata** – the creamy custard tarts with crispy, flaky pastry. They're iconic to Lisbon, best eaten fresh and warm, ideally at a traditional bakery like Pastéis de Belém in the Belém neighborhood.\n\nIf you want a broader experience though, the **Tejo River waterfront** is also unmissable – it's beautiful for walking, has great views, and connects you to historic neighborhoods like Belém and Alfama.",
+      "tokens": {
+        "request": 26,
+        "sent": 65,
+        "input": 65,
+        "output": 116,
+        "total": 181
+      },
+      "cost": {
+        "input": 0.000065,
+        "output": 0.00058,
+        "total": 0.000645
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 2523,
+      "stopReason": "end_turn"
+    },
+    {
+      "role": "user",
+      "content": "What is the local dish I should try there?",
+      "tokens": {
+        "request": 17
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "**Bacalhau à Brás** – salted cod shredded into thin strips, fried until crispy, then mixed with thin potato fries and onions. It's quintessentially Portuguese and you'll find it in most traditional restaurants.\n\nOther classics worth trying: **Caldo Verde** (kale and potato soup) and **Arroz de Marisco** (seafood rice). Lisbon's right on the coast, so fresh fish and seafood are always excellent choices too.",
+      "tokens": {
+        "request": 17,
+        "sent": 194,
+        "input": 194,
+        "output": 112,
+        "total": 306
+      },
+      "cost": {
+        "input": 0.000194,
+        "output": 0.00056,
+        "total": 0.0007539999999999999
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 2226,
+      "stopReason": "end_turn"
+    },
+    {
+      "role": "user",
+      "content": "How many days would you suggest?",
+      "tokens": {
+        "request": 14
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "**3-4 days** is ideal for Lisbon.\n\nThat gives you time to:\n- Explore the main neighborhoods (Alfama, Belém, Chiado)\n- Visit key sights like the Jerónimos Monastery and São Jorge Castle\n- Enjoy the food and cafes without rushing\n- Take a day trip if you want (Sintra or Cascais are popular)\n\nYou could do it in 2 days if you're short on time, but 3-4 lets you actually relax and soak in the vibe.",
+      "tokens": {
+        "request": 14,
+        "sent": 316,
+        "input": 316,
+        "output": 129,
+        "total": 445
+      },
+      "cost": {
+        "input": 0.000316,
+        "output": 0.000645,
+        "total": 0.0009609999999999999
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 2237,
+      "stopReason": "end_turn"
+    }
+  ]
+}

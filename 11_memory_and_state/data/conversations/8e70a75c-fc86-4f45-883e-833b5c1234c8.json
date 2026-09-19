@@ -1,0 +1,196 @@
+{
+  "id": "8e70a75c-fc86-4f45-883e-833b5c1234c8",
+  "title": "I live in Eberswalde with my wife and a…",
+  "createdAt": "2026-09-13T16:44:36.090Z",
+  "updatedAt": "2026-09-13T16:47:44.953Z",
+  "usage": {
+    "totalInputTokens": 2698,
+    "totalOutputTokens": 663,
+    "totalCostUsd": 0.006013,
+    "turnCount": 7
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "I live in Eberswalde with my wife and a doggy called Django. I wanna move to Berlin. Which neighbourhood would you recommend?",
+      "tokens": {
+        "request": 38
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Great question! Here are some dog-friendly Berlin neighborhoods worth considering:\n\n**Best for dogs & families:**\n- **Prenzlauer Berg** - lots of parks, dog-friendly cafes, young families, but pricey\n- **Friedrichshain** - grittier vibe, great parks (Rummelsburger Bucht), more affordable\n- **Kreuzberg** - alternative scene, good parks, cheaper rent\n- **Charlottenburg** - leafy, spacious, quieter, good for dogs\n\n**Key things for Django:**\n- Look for areas near big parks: Tiergarten, Grunewald, Mauerpark, Treptower Park\n- Check if neighborhoods have dog parks (Hundewiesen)\n- Prenzlauer Berg & Charlottenburg are particularly dog-friendly\n\n**Practical tip:** Since you're coming from Eberswalde (close to Berlin), you could visit neighborhoods on weekends with Django to get a feel for them.\n\nWhat matters most to you—affordability, nightlife, quietness, or something else? That might help narrow it down!",
+      "tokens": {
+        "request": 38,
+        "sent": 77,
+        "input": 77,
+        "output": 254,
+        "total": 331
+      },
+      "cost": {
+        "input": 0.000077,
+        "output": 0.0012699999999999999,
+        "total": 0.0013469999999999999
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 3726,
+      "stopReason": "end_turn"
+    },
+    {
+      "role": "user",
+      "content": "What is a usual price for 50 square meters? Answer short.",
+      "tokens": {
+        "request": 22
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "In Berlin, expect €500-800/month for a 50m² apartment, depending on the neighborhood. Prenzlauer Berg and Charlottenburg are pricier (€700-900+), while Friedrichshain and Kreuzberg are cheaper (€500-700).",
+      "tokens": {
+        "request": 22,
+        "sent": 349,
+        "input": 349,
+        "output": 67,
+        "total": 416
+      },
+      "cost": {
+        "input": 0.000349,
+        "output": 0.000335,
+        "total": 0.000684
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 1794,
+      "stopReason": "end_turn"
+    },
+    {
+      "role": "user",
+      "content": "Is it Warm or Kalt?",
+      "tokens": {
+        "request": 16
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Usually **Kalt** (cold rent, without utilities). Warm rent (with heating/utilities) would be roughly €100-150 more per month.",
+      "tokens": {
+        "request": 16,
+        "sent": 428,
+        "input": 428,
+        "output": 37,
+        "total": 465
+      },
+      "cost": {
+        "input": 0.000428,
+        "output": 0.000185,
+        "total": 0.000613
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 1578,
+      "stopReason": "end_turn"
+    },
+    {
+      "role": "user",
+      "content": "So how much a 100 square meter apartment would cost?",
+      "tokens": {
+        "request": 20
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Roughly **€1,000-1,600/month Kalt**, depending on the neighborhood. Same pattern: pricier areas like Prenzlauer Berg around €1,400-1,800, cheaper areas like Friedrichshain/Kreuzberg around €1,000-1,300.",
+      "tokens": {
+        "request": 20,
+        "sent": 481,
+        "input": 481,
+        "output": 72,
+        "total": 553
+      },
+      "cost": {
+        "input": 0.000481,
+        "output": 0.00036,
+        "total": 0.000841
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 1507,
+      "stopReason": "end_turn"
+    },
+    {
+      "role": "user",
+      "content": "Is Prenzlauer Berg safe?",
+      "tokens": {
+        "request": 16
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Yes, Prenzlauer Berg is generally safe. It's one of Berlin's safer neighborhoods with good police presence and lots of foot traffic, especially in the main areas.\n\nLike any city neighborhood, just use normal precautions (watch your stuff on public transport, avoid isolated streets late at night). But overall, it's a family-friendly area where many people feel comfortable.",
+      "tokens": {
+        "request": 16,
+        "sent": 565,
+        "input": 565,
+        "output": 82,
+        "total": 647
+      },
+      "cost": {
+        "input": 0.000565,
+        "output": 0.00041,
+        "total": 0.000975
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 1730,
+      "stopReason": "end_turn"
+    },
+    {
+      "role": "user",
+      "content": "What is the safest part of Berlin?",
+      "tokens": {
+        "request": 16
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "**Charlottenburg** and **Zehlendorf** are generally considered the safest—more residential, affluent, quieter.\n\n**Prenzlauer Berg** and **Kreuzberg** are also safe in main areas, though Kreuzberg has some rougher pockets.\n\n**Avoid late night alone**: Kottbusser Tor (Kreuzberg), parts of Neukölln, and some areas around Hauptbahnhof.\n\nOverall, Berlin is quite safe compared to other major cities. Most neighborhoods are fine during the day.",
+      "tokens": {
+        "request": 16,
+        "sent": 371,
+        "input": 371,
+        "output": 130,
+        "total": 501
+      },
+      "cost": {
+        "input": 0.000371,
+        "output": 0.00065,
+        "total": 0.001021
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 2492,
+      "stopReason": "end_turn"
+    },
+    {
+      "role": "user",
+      "content": "What is the name of my dog?",
+      "tokens": {
+        "request": 15
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "I don't know—you haven't told me! What's your dog's name?",
+      "tokens": {
+        "request": 15,
+        "sent": 427,
+        "input": 427,
+        "output": 21,
+        "total": 448
+      },
+      "cost": {
+        "input": 0.000427,
+        "output": 0.00010499999999999999,
+        "total": 0.000532
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 1212,
+      "stopReason": "end_turn"
+    }
+  ]
+}
