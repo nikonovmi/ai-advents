@@ -4,6 +4,21 @@ import { DEFAULT_USER, defaultProfileStore } from "../store/profileStore.js";
 import { exchangeStarts, foldTo, snapToUserMessage, toWire } from "./boundaries.js";
 import { ContextStrategy, NO_OVERHEAD, overheadFrom } from "./strategy.js";
 import { summaryBlock } from "./summarization.js";
+import {
+  STAGES,
+  applyTaskOps,
+  edgesFrom,
+  emptyTask,
+  frozenKeys,
+  guardFor,
+  normaliseTask,
+  splitTaskOps,
+  stageOf,
+  taskAsOf,
+  taskLines,
+  transition,
+  warningFor,
+} from "./taskState.js";
 
 /**
  * **The routing table.** One place, in code, identical every run.
@@ -159,18 +174,57 @@ export function profileBlock(entries) {
  * The header earns its place: without "what is true now, not what was said"
  * the model treats the block as a second digest and starts narrating from it.
  *
+ * The stage rides **inside this block**, above the keys, because it is the
+ * same kind of claim they are — what is currently true about the work — and a
+ * fourth block would be a fourth thing the model has to be told how to read.
+ * Its instruction line is what stops the state machine being decoration: the
+ * same question asked in `planning` and in `validation` has to come back
+ * visibly different, and this is the only place that difference is created.
+ *
+ * The block is emitted whenever there is a task, keys or no keys. A brand new
+ * conversation is in `planning` with nothing in it yet, and that is precisely
+ * the moment the planning instruction has work to do.
+ *
  * @param {Record<string, { value: string }>} working
+ * @param {object} [task] - The lifecycle record. Omitted, the block is the
+ *   plain key list it always was.
  */
-export function workingBlock(working) {
+export function workingBlock(working, task = null) {
   const lines = orderKeys(working).map((key) => `${key}: ${working[key].value}`);
-  if (!lines.length) return "";
+  const stage = task ? taskLines(task) : [];
+  if (!lines.length && !stage.length) return "";
   return [
     "",
     "",
     "<working>",
     "The task in hand — what is currently *true about the work*, not a record of what was said. All of it is live.",
+    ...stage,
     ...lines,
     "</working>",
+  ].join("\n");
+}
+
+/**
+ * The handoff brief, for the system prompt.
+ *
+ * It sits **after** `<working>` and before the digest, because it is the long
+ * form of the same subject: the keys say what is true about the work, this
+ * says what the work *is*. The header has to be explicit that it replaces the
+ * conversation, or the model treats it as a summary of something it is also
+ * about to be shown and starts hedging against a history it cannot see.
+ *
+ * @param {{ text: string, status: string } | null} brief
+ */
+export function briefBlock(brief) {
+  const text = brief?.status === "accepted" ? String(brief.text ?? "").trim() : "";
+  if (!text) return "";
+  return [
+    "",
+    "",
+    "<brief>",
+    "The task, as it was agreed before the work started. The conversation that produced it is not being sent — this is the whole of it, and the user has read and approved these words. Work from this.",
+    text,
+    "</brief>",
   ].join("\n");
 }
 
@@ -189,7 +243,23 @@ const EXTRACTOR_PROMPT = [
   "",
   "Choose the key. Nothing else about where it is kept is yours to decide — do not",
   "label anything short-term, long-term, temporary or permanent, and do not add any",
-  "field other than op, key and value.",
+  "field other than op, key and value — except on the three task ops below, which",
+  "have fields of their own.",
+  "",
+  "THE TASK ITSELF. The work has a stage, and you are told which one it is in the",
+  "<working> block. Three ops describe it, and they are the only ops that are not",
+  "key-value pairs:",
+  '- {"op":"step","value":"writing the migration script"} — one line, what is in',
+  "  progress right now. Emit it whenever what is actually being worked on has moved on.",
+  '- {"op":"awaiting","actor":"user","what":"confirm the March 14 date"} — whose turn',
+  "  it is next. `actor` is exactly one of user or agent. Use `user` whenever the work",
+  "  cannot go further until the user says or does something; that is what being",
+  "  blocked looks like here.",
+  '- {"op":"stage","to":"validation","reason":"the script is written and ready to check"}',
+  "  — only when the work has plainly moved past the stage you were told it is in.",
+  "  This is a **suggestion shown to the user beside a button**, never a change. Never",
+  "  emit it to restate the stage you are already in, and never assume it took effect.",
+  "  The stages are: " + STAGES.join(" → ") + ", and validation can go back to execution.",
   "",
   "The namespaces, and what each one means:",
   ...Object.entries(MEANINGS).map(([key, meaning]) => `- ${key}: ${meaning}`),
@@ -220,6 +290,16 @@ const EXTRACTOR_PROMPT = [
   "- Something you have **learned** is a `finding.*`, never an `open.*`. 'The candidate",
   "  struggled with DFS', 'the p99 is 400ms', 'the team was impressed' are findings. An",
   "  `open.*` is only ever a question nobody has answered yet.",
+  "- **A question the assistant asked and the user did not answer is an `open.*`.** This is",
+  "  the one thing in the assistant's own message you must record. When the assistant asked",
+  "  for something — which stack, which deadline, what the invariants are — and the user's",
+  "  reply did not give it, emit one `open.*` per unanswered question, worded as the",
+  "  question: `open.invariants = \"Which rules must the agent never violate?\"`. Nothing else",
+  "  in the conversation writes these down, and an unknown nobody wrote down is an unknown",
+  "  that gets assumed later.",
+  "- The mirror of that rule matters as much: a question the user **did** answer in this",
+  "  exchange is not an `open.*` at all. Record the answer (`finding.*` or `decision.*`) and,",
+  "  if the question was already stored, delete it in the same array.",
   "- **Closing an open question must record its answer, in the same array.** The moment the",
   "  exchange answers an `open.*` — including when the assistant answered it in the very",
   "  message you are reading — emit both ops: the `delete` for the question *and* a `set` for",
@@ -259,7 +339,9 @@ const EXTRACTOR_PROMPT = [
   "  user stated them. Never round, rename or paraphrase a specific value.",
   "- Values are under 20 words.",
   "- Use `delete` only when the user withdraws something or an open question is answered.",
-  "- Record what the USER established. Do not record the assistant's own suggestions.",
+  "- Record what the USER established. Do not record the assistant's own suggestions,",
+  "  opinions, examples or plans as facts — with the single exception of an unanswered",
+  "  question it asked, which is an `open.*` as described above.",
   "- Output the JSON array and nothing else: no prose, no explanation, no code fences.",
 ].join("\n");
 
@@ -385,6 +467,84 @@ export class Promoter {
   }
 }
 
+const BRIEFER_PROMPT = [
+  "The planning for a piece of work is over and the work itself is about to start. You are",
+  "shown the planning conversation and the store of what it established, and you write the",
+  "**handoff brief**: the description of the task that the work itself will run on.",
+  "",
+  "This matters more than it sounds. Once the brief exists the conversation above it is",
+  "dropped — the assistant doing the work will see your brief and the key-value store, and",
+  "nothing else. Anything established in planning and left out of the brief is lost.",
+  "",
+  "Write it as plain prose and short lists, under these headings, omitting any that have",
+  "nothing in them:",
+  "",
+  "  The task — one paragraph. What is being built or decided, and what done looks like.",
+  "  Constraints — the hard ones, each with the reason if one was given.",
+  "  Decided — the choices already made, and what they rule out.",
+  "  Established — what was learned in planning that the work depends on.",
+  "  Still open — questions nobody answered. Say so plainly; do not invent answers.",
+  "",
+  "Rules:",
+  "- **Write only what was actually established.** You are transcribing a conversation, not",
+  "  advising on it. Do not add steps, suggest an approach, estimate anything, or resolve a",
+  "  question that was left open — the whole point of the next stage is that it does that",
+  "  work with a human watching.",
+  "- Keep names, numbers, versions, ports, paths and dates **exactly** as they were stated.",
+  "- Prefer the user's own words for anything they were specific about.",
+  "- Address the assistant that will do the work, not the user. No greeting, no sign-off.",
+  "- Be complete before you are brief. This is the only thing carrying the planning forward.",
+  "- Output the brief and nothing else: no preamble, no code fences, no commentary on it.",
+].join("\n");
+
+/**
+ * **The handoff, written once, on the way out of planning.**
+ *
+ * The same shape as `Promoter`: one call at a stage boundary, its output a
+ * *proposal* rather than a write, and nothing it produces reaches the payload
+ * until a person has read it.
+ *
+ * It exists because of what the transition does to the wire. Planning is a
+ * back-and-forth — questions, half-answers, corrections, a tangent about
+ * command-line flags — and execution does not want to read any of it. Working
+ * memory is the distilled state but its values are capped at twenty words,
+ * which makes it an index, not a description. The brief is the description,
+ * and after it the planning messages stop being sent.
+ */
+export class Briefer {
+  #provider;
+
+  constructor({ provider, model, maxTokens = 1200 } = {}) {
+    if (!provider || typeof provider.complete !== "function") {
+      throw new Error("Briefer requires a provider with a complete() method");
+    }
+    this.#provider = provider;
+    this.model = model;
+    this.maxTokens = maxTokens;
+  }
+
+  /**
+   * @param {{ entries: { key: string, value: string }[], messages: import("../llm/provider.js").Message[] }} params
+   */
+  async write({ entries = [], messages = [] } = {}) {
+    const startedAt = Date.now();
+    const result = await this.#provider.complete({
+      model: this.model,
+      system: BRIEFER_PROMPT,
+      messages: [{ role: "user", content: briefPrompt(entries, messages) }],
+      temperature: 0,
+      maxTokens: this.maxTokens,
+    });
+
+    return {
+      text: String(result?.text ?? "").trim(),
+      usage: result?.usage ?? { inputTokens: 0, outputTokens: 0 },
+      model: result?.model ?? null,
+      ms: Date.now() - startedAt,
+    };
+  }
+}
+
 // ---- the one mutation path --------------------------------------------------
 
 /**
@@ -431,6 +591,12 @@ export class Promoter {
  * @param {"declared" | "learned" | null} [params.source] - What to stamp on
  *   long-term writes. `null` keeps whatever the entry already had, and makes a
  *   brand-new entry `learned`.
+ * @param {string[]} [params.frozen] - Working keys the task has committed to.
+ *   A *model-originated* op on one of these becomes a correction proposal
+ *   instead of a write, exactly as a `declared` profile entry does. It is the
+ *   same rule with a different reason behind it: there, the user wrote the
+ *   sentence down on purpose; here, the work moved past the point where the
+ *   sentence was still up for revision. A person-originated op still writes.
  */
 export function applyOps(
   { working, profile },
@@ -443,8 +609,10 @@ export function applyOps(
     unpairedCloses = false,
     origin = "model",
     source = null,
+    frozen = [],
   } = {}
 ) {
+  const locked = new Set(frozen);
   const nextWorking = { ...(working ?? {}) };
   const nextProfile = { ...profile, entries: { ...(profile?.entries ?? {}) } };
   const permitted = new Set(allow);
@@ -620,6 +788,16 @@ export function applyOps(
     // A `set` that changes nothing is not a change: it must not re-stamp the
     // timestamp that drives eviction, or flash the row in the UI.
     if (nextWorking[key]?.value === value) continue;
+
+    // **The freeze.** The goal stopped being freely writable when the task
+    // left planning. The op is not dropped — the model may well be right, and
+    // the disagreement is exactly the thing worth surfacing — it becomes the
+    // same correction proposal a contradicted long-term entry becomes.
+    if (locked.has(key) && origin === "model" && key in nextWorking) {
+      contested.push({ key, value, was: nextWorking[key].value, reason: "frozen" });
+      continue;
+    }
+
     const previous = nextWorking[key]
       ? [...(nextWorking[key].previous ?? []), nextWorking[key].value].slice(-HISTORY_DEPTH)
       : [];
@@ -721,6 +899,7 @@ export class MemoryStrategy extends ContextStrategy {
   #profileStore;
   #extractor;
   #promoter;
+  #briefer;
   #summarizer;
   #cachedFor = null;
 
@@ -749,6 +928,7 @@ export class MemoryStrategy extends ContextStrategy {
     profileStore,
     extractor,
     promoter,
+    briefer,
     summarizer,
   } = {}) {
     super();
@@ -761,6 +941,7 @@ export class MemoryStrategy extends ContextStrategy {
     this.#profileStore = profileStore ?? null;
     this.#extractor = extractor ?? null;
     this.#promoter = promoter ?? null;
+    this.#briefer = briefer ?? null;
     this.#summarizer = summarizer ?? null;
   }
 
@@ -799,6 +980,23 @@ export class MemoryStrategy extends ContextStrategy {
   emptyState() {
     return {
       working: {},
+      // Every conversation starts in `planning`, and there is no null/no-task
+      // state to special-case anywhere downstream. An empty transition log
+      // derives to `planning`, so the first turn is already inside the machine
+      // without anything having had to be created for it.
+      task: emptyTask(),
+      // The handoff written on the way out of planning. Null until a task has
+      // left planning, and null again once it closes.
+      brief: null,
+      // **The floor the brief established, which outlives the brief.**
+      //
+      // Separate from `brief.through` on purpose. The brief is cleared when
+      // the task reaches `done` — it describes finished work — but the
+      // messages it replaced must not come back on the next turn. Tying the
+      // floor to the object's lifetime put a whole planning conversation back
+      // on the wire the moment the task closed, with the thing that had
+      // replaced it already gone. It only ever moves forward.
+      briefThrough: 0,
       digest: null,
       digestThrough: 0,
       digestUpdatedAt: null,
@@ -832,6 +1030,10 @@ export class MemoryStrategy extends ContextStrategy {
     // shown: the model repeating something nobody on this branch ever said
     // does not read as a storage bug, it reads as a hallucination.
     current.working = entriesAsOf(current.working, turn - 1);
+    // The lifecycle gets the same treatment, for the same reason: a fork that
+    // inherited a `validation` its own branch never reached would have every
+    // stage line telling the model something false about where it is.
+    current.task = taskAsOf(current.task, turn - 1);
 
     const profile = await this.#loadProfile();
     const inherited = visibleProfile(profile, current.promotedAt, turn - 1);
@@ -890,7 +1092,10 @@ export class MemoryStrategy extends ContextStrategy {
 
     const blocks = {
       profile: profileBlock(visible),
-      working: workingBlock(next.working),
+      working: workingBlock(next.working, next.task),
+      // The long form of the same subject, and the reason the planning
+      // messages below can be left off the wire.
+      brief: briefBlock(next.brief),
       digest: summaryBlock(next.digest),
     };
 
@@ -921,15 +1126,21 @@ export class MemoryStrategy extends ContextStrategy {
         turn,
         profile: blocks.profile.length,
         working: blocks.working.length,
+        brief: blocks.brief.length,
         digest: blocks.digest.length,
       },
     ].slice(-MAX_ATTRIBUTION);
 
     const overhead = combine(extracted.overhead, folded.overhead);
-    const start = Math.min(Math.max(0, next.digestThrough), history.length);
+    // **Two floors, and the later one wins.** The digest covers what scrolled
+    // out of the window; the brief covers the planning that produced the task.
+    // A message below either of them is already represented in the system
+    // prompt, and sending it again would be paying twice to say it worse.
+    const floor = Math.max(next.digestThrough, next.briefThrough);
+    const start = Math.min(Math.max(0, snapToUserMessage(history, floor)), history.length);
 
     return {
-      system: systemPrompt + blocks.profile + blocks.working + blocks.digest,
+      system: systemPrompt + blocks.profile + blocks.working + blocks.brief + blocks.digest,
       messages: toWire(history.slice(start)),
       state: next,
       meta: {
@@ -938,9 +1149,11 @@ export class MemoryStrategy extends ContextStrategy {
         droppedMessages: start,
         changedKeys: extracted.changed,
         verbatimExchanges: exchangeStarts(history, start).length,
+        stage: stageOf(next.task),
         layers: {
           profile: Object.keys(visible).length,
           working: Object.keys(next.working).length,
+          brief: next.brief?.status === "accepted" ? 1 : 0,
           digest: next.digest ? 1 : 0,
           shadowed,
           // Keys the task also holds that were sent from the profile anyway,
@@ -977,11 +1190,52 @@ export class MemoryStrategy extends ContextStrategy {
       if (proposal.kind === "correction") correctionFor.set(proposal.key, proposal);
     }
 
+    const task = taskAsOf(current.task, turns);
+    const stage = stageOf(task);
+    const frozen = new Set(frozenKeys(task));
+
     return {
       kind: "memory",
       title: "Memory",
       /** Whose long-term memory the rows below were read from, last turn. */
       user: current.profileUser ?? null,
+      /**
+       * **The lifecycle.** Everything the stage strip draws, composed from
+       * stored state and nothing else — which is what makes the resume banner
+       * a render rather than a model call, and what makes it identical before
+       * and after a restart.
+       */
+      lifecycle: {
+        id: task.id,
+        previous: task.previous,
+        stage,
+        stages: [...STAGES],
+        step: task.step,
+        expectedAction: { ...task.expectedAction },
+        // The buttons, straight from `TRANSITIONS` filtered by where we are.
+        // A disabled one carries the guard's own sentence, so the rule lives
+        // in one place and the tooltip is that place quoting itself.
+        edges: edgesFrom(task, working),
+        suggestion: task.suggestion,
+        refused: task.refused,
+        // Enough to draw a divider per transition in the transcript, and to
+        // answer "how did we get here" without a second store.
+        log: task.transitions,
+        frozen: [...frozen],
+        updatedAt: task.updatedAt,
+        // The handoff, and whether it is waiting to be read. A pending brief
+        // is the only thing standing between planning and execution, so the
+        // strip renders an editor instead of its usual buttons.
+        brief: current.brief
+          ? {
+              text: current.brief.text,
+              status: current.brief.status,
+              through: current.brief.through,
+              edited: current.brief.edited,
+              acceptedAt: current.brief.acceptedAt,
+            }
+          : null,
+      },
       profile: orderKeys(profile).map((key) => ({
         key,
         namespace: key.split(".")[0],
@@ -1022,6 +1276,17 @@ export class MemoryStrategy extends ContextStrategy {
         turn: working[key].turn,
         updatedAt: working[key].updatedAt,
         promotable: Boolean(routeFor(key)?.promotable),
+        // Committed to. The panel draws a lock, for the same reason it marks a
+        // declared profile row: a write policy nobody can see is a write
+        // policy that reads as the extractor having quietly stopped working.
+        frozen: frozen.has(key),
+        // ...and what the conversation wants it to say instead, on the row it
+        // is about. Same argument as the declared rows above: a correction you
+        // can only find by scrolling is one you answer without looking at what
+        // it would replace.
+        proposal: correctionFor.has(key)
+          ? { id: correctionFor.get(key).id, value: correctionFor.get(key).value, reason: correctionFor.get(key).reason ?? "task" }
+          : null,
         // How many times this key has been overwritten. A key that quietly
         // rewrites itself every turn is as broken as one that goes stale, and
         // it is the harder of the two to notice — the block always looks
@@ -1039,12 +1304,17 @@ export class MemoryStrategy extends ContextStrategy {
         was: p.was ?? null,
       })),
       pastTasks: current.pastTasks
-        .filter((task) => (task.turn ?? 0) <= turns)
-        .map((task) => ({
-          closedAt: task.closedAt,
-          turn: task.turn,
-          promoted: task.promoted ?? 0,
-          entries: task.entries ?? [],
+        .filter((past) => (past.turn ?? 0) <= turns)
+        .map((past) => ({
+          closedAt: past.closedAt,
+          turn: past.turn,
+          promoted: past.promoted ?? 0,
+          entries: past.entries ?? [],
+          // The stage it was in when it closed, and how it got there. A task
+          // list with no outcomes on it is a list of dates.
+          stage: past.stage ?? null,
+          transitions: past.transitions ?? [],
+          brief: past.brief ?? null,
         })),
       discarded: current.discarded
         .filter((row) => (row.turn ?? 0) <= turns)
@@ -1068,20 +1338,259 @@ export class MemoryStrategy extends ContextStrategy {
   // ---- the task boundary ----------------------------------------------------
 
   /**
-   * The "Finish task" button, in one call: propose, clear, keep the record.
+   * **The only way the stage changes.** Buttons, the demo harness and a model
+   * proposal a person has clicked all arrive here.
    *
-   * What it deliberately is **not**: a status field, an `openTask` op, or any
-   * attempt to detect that the subject has changed. The user knows when they
-   * are done and nothing else reliably does. Pressing the button is the whole
-   * signal; the next turn starts a new task implicitly.
+   * It is `applyOps` for the lifecycle: the guard decides, an illegal edge is
+   * refused and recorded rather than coerced, and the state that comes back is
+   * either the new one or exactly the one that went in. Nothing else in the
+   * app may append to the transition log.
+   *
+   * Entering `done` is the one edge with side effects, and they are the *same*
+   * side effects Day 11's button had — the promotion call, the proposals, the
+   * clearing into `pastTasks` — reached through here rather than in parallel
+   * with it. `done` is terminal, so "promotion fires exactly once" is a
+   * property of the table rather than a flag somebody has to remember to set.
+   *
+   * @param {object} params
+   * @param {object} params.state
+   * @param {string} params.to - The stage being asked for.
+   * @param {"user" | "model" | "system"} [params.by]
+   * @param {string} [params.reason]
+   * @param {object[]} [params.history]
+   * @param {object} [params.provider]
+   * @param {string} [params.model]
+   */
+  async transition({ state, to, by = "user", reason = "", history = [], provider, model }) {
+    const turn = exchangeStarts(history).length;
+    const current = normaliseState(state);
+    const working = entriesAsOf(current.working, turn);
+
+    // **Leaving planning needs a handoff, and the handoff needs a reader.**
+    //
+    // The transition is what drops the planning conversation off the wire, so
+    // what replaces it had better be right. The call happens on the click and
+    // the stage waits: a task sitting in `execution` with an unreviewed brief
+    // would be running on exactly the messages the brief was meant to replace.
+    //
+    // This is the same bargain `→ done` strikes — a model call at the edge,
+    // whose output a person answers — with one difference that earns the extra
+    // step: a promotion proposal is about long-term memory and changes nothing
+    // about the task in hand, while the brief *is* what the task in hand runs
+    // on from here.
+    if (stageOf(current.task) === "planning" && to === "execution" && current.brief?.status !== "accepted") {
+      const guard = guardFor("planning", "execution", working);
+      if (guard !== true) {
+        return { ok: false, state: current, proposals: [], overhead: { ...NO_OVERHEAD }, warning: null, note: guard };
+      }
+      return await this.#writeBrief({ state: current, history, provider, model, turn });
+    }
+
+    const moved = transition(current.task, { to, by, reason, working, turn });
+    if (!moved.ok) {
+      // Refused, and the state is the state it was. The refusal itself is
+      // carried back in `task.refused` so the panel can say what happened —
+      // a button that does nothing and says nothing is indistinguishable from
+      // a broken one.
+      return {
+        ok: false,
+        state: { ...current, task: moved.task },
+        proposals: [],
+        overhead: { ...NO_OVERHEAD },
+        warning: null,
+        note: moved.reason,
+      };
+    }
+
+    if (moved.to !== "done") {
+      return {
+        ok: true,
+        state: { ...current, task: moved.task },
+        proposals: [],
+        overhead: { ...NO_OVERHEAD },
+        // Carried out as its own field, not only folded into the note: the
+        // caller decides whether a warning is a sentence or a dialogue, and
+        // it cannot do that by pattern-matching a human-readable line.
+        warning: moved.warning,
+        note: `${moved.from} → ${moved.to}` + (moved.warning ? ` · ${moved.warning}` : ""),
+      };
+    }
+
+    const closed = await this.#closeTask({ state: current, history, provider, model, task: moved.task });
+    if (!closed.ok) {
+      // The promotion call fell over. The task does **not** move to `done`:
+      // half a close — the stage says finished, working memory is still full,
+      // and nothing was ever proposed — is the one outcome worth refusing,
+      // because `done` cannot be left and so it cannot be retried either.
+      return { ...closed, state: { ...closed.state, task: current.task } };
+    }
+
+    return {
+      ...closed,
+      state: { ...closed.state, task: moved.task },
+      note: [`${moved.from} → done`, closed.note, moved.warning].filter(Boolean).join(" · "),
+      warning: moved.warning,
+    };
+  }
+
+  /**
+   * One call, one pending brief. The stage does not move.
+   *
+   * A failure here leaves the task in planning with nothing pending and says
+   * so — the same contract the promotion call has. Pressing the button again
+   * is the whole of the retry, and the alternative (moving anyway, with no
+   * brief) would drop the planning messages and put nothing in their place.
+   */
+  async #writeBrief({ state, history, provider, model, turn }) {
+    if (state.brief?.status === "pending") {
+      return {
+        ok: true,
+        state,
+        proposals: [],
+        overhead: { ...NO_OVERHEAD },
+        warning: null,
+        note: "the brief is already written and waiting for you",
+      };
+    }
+
+    const working = entriesAsOf(state.working, turn);
+    const startedAt = Date.now();
+    let result;
+    try {
+      result = await this.#brieferFor(provider).write({
+        entries: orderKeys(working).map((key) => ({ key, value: working[key].value })),
+        // Everything not already covered by the digest. The brief and the
+        // digest between them have to account for every message that is about
+        // to stop being sent.
+        messages: toWire(history.slice(Math.max(0, state.digestThrough))),
+      });
+    } catch (err) {
+      console.error("[memory] the brief failed, the task stays in planning:", err?.message ?? err);
+      return {
+        ok: false,
+        state,
+        proposals: [],
+        overhead: { ...NO_OVERHEAD, overheadMs: Date.now() - startedAt },
+        warning: null,
+        note: "could not write the brief — nothing moved, try again",
+      };
+    }
+
+    if (!result.text) {
+      return { ok: false, state, proposals: [], overhead: { ...NO_OVERHEAD }, warning: null, note: "the brief came back empty — nothing moved, try again" };
+    }
+
+    const overhead = overheadFrom({ usage: result.usage, model: result.model ?? model, ms: result.ms ?? Date.now() - startedAt });
+    return {
+      ok: true,
+      awaitingBrief: true,
+      state: {
+        ...state,
+        brief: { text: result.text, status: "pending", turn, through: 0, createdAt: new Date().toISOString(), acceptedAt: null, edited: false },
+        usage: addSpend(state.usage, "overheadWorking", overhead),
+      },
+      proposals: [],
+      overhead,
+      warning: warningFor("planning", "execution", working),
+      note: "the brief is written — read it, change anything it got wrong, then start execution",
+    };
+  }
+
+  /**
+   * A person answering the brief. Accepting it is what actually leaves
+   * planning, and the edit they made is the text that gets stored.
+   *
+   * `through` is set **here**, at the moment of acceptance, and not when the
+   * brief was written: those are two different points in the conversation if
+   * anything was said in between, and the brief must stand in for exactly the
+   * messages it is replacing — no more.
+   *
+   * @param {{ state: object, history: object[], action: "accept" | "discard", text?: string }} params
+   */
+  async answerBrief({ state, history = [], action, text }) {
+    const turn = exchangeStarts(history).length;
+    const current = normaliseState(state);
+    if (current.brief?.status !== "pending") throw new Error("There is no brief waiting to be answered.");
+
+    if (action === "discard") {
+      return {
+        ok: true,
+        state: { ...current, brief: null },
+        note: "brief discarded — still in planning",
+      };
+    }
+    if (action !== "accept") throw new Error("An answer is either 'accept' or 'discard'.");
+
+    const edited = String(text ?? current.brief.text).trim();
+    if (!edited) throw new Error("An accepted brief needs some text.");
+
+    const working = entriesAsOf(current.working, turn);
+    const moved = transition(current.task, { to: "execution", by: "user", reason: "brief accepted", working, turn });
+    if (!moved.ok) {
+      return { ok: false, state: current, note: moved.reason };
+    }
+
+    return {
+      ok: true,
+      state: {
+        ...current,
+        task: moved.task,
+        brief: {
+          ...current.brief,
+          text: edited,
+          status: "accepted",
+          // Everything said up to now is what the brief stands in for.
+          through: history.length,
+          acceptedAt: new Date().toISOString(),
+          edited: edited !== current.brief.text,
+        },
+        // ...and the floor it sets stays put after the brief itself is gone.
+        briefThrough: Math.max(current.briefThrough, history.length),
+      },
+      warning: moved.warning,
+      note: `planning → execution · the brief replaces ${history.length} message${history.length === 1 ? "" : "s"} on the wire`,
+    };
+  }
+
+  /**
+   * **Resuming is a new task that references the old one.**
+   *
+   * `done` never reopens, so this is the only thing offered once a task is
+   * closed: a fresh record in `planning`, carrying the finished task's id and
+   * nothing else. Working memory is already empty — it was cleared on the way
+   * into `done` — so there is nothing here to clear and nothing to promote.
+   */
+  startTask({ state }) {
+    const current = normaliseState(state);
+    const stage = stageOf(current.task);
+    if (stage !== "done") {
+      return { ok: false, state: current, note: `This task is still in ${stage} — finish it first.` };
+    }
+    return {
+      ok: true,
+      // The brief belonged to the task that just closed. A successor starting
+      // in planning with the previous task's handoff still on the wire would
+      // be told it is working on something nobody has asked for yet.
+      state: { ...current, task: emptyTask({ previous: current.task.id }), brief: null },
+      note: "new task · planning",
+    };
+  }
+
+  /**
+   * Propose, clear, keep the record — Day 11's button, unchanged, now reached
+   * only by entering `done`.
+   *
+   * What it deliberately is **not**: any attempt to detect that the subject
+   * has changed. The user knows when they are done and nothing else reliably
+   * does.
    *
    * Clearing is **not** deleting. The closed task moves to `pastTasks` and
    * simply stops being sent, so "what did we decide in the last one?" is still
    * answerable from the panel even though it costs no tokens.
    *
-   * @param {{ state: object, history: object[], provider: object, model?: string }} params
+   * @param {{ state: object, history: object[], provider: object, model?: string, task?: object }} params
    */
-  async finishTask({ state, history = [], provider, model }) {
+  async #closeTask({ state, history = [], provider, model, task = null }) {
     const turn = exchangeStarts(history).length;
     const current = normaliseState(state);
     const working = entriesAsOf(current.working, turn);
@@ -1139,6 +1648,13 @@ export class MemoryStrategy extends ContextStrategy {
     const next = {
       ...current,
       working: {},
+      // **The brief is cleared with the keys, and for the same reason.** It
+      // describes the task that has just closed; left on the wire it would go
+      // on telling every later turn what this finished work was about, and
+      // the next task would start with the previous one's description in its
+      // system prompt. Cleared is not deleted — it goes into the archive
+      // below, beside the entries it was written from.
+      brief: null,
       proposals: [...current.proposals, ...proposals],
       pastTasks: [
         ...current.pastTasks,
@@ -1147,6 +1663,17 @@ export class MemoryStrategy extends ContextStrategy {
           turn,
           promoted: 0,
           entries: keys.map((key) => ({ key, value: working[key].value })),
+          // The lifecycle goes into the archive with the entries. A list of
+          // closed tasks with no outcome on any of them is a list of dates,
+          // and the route a task took — whether validation sent it back once
+          // or three times — is the part worth reading later.
+          taskId: task?.id ?? null,
+          stage: task ? stageOf(task) : null,
+          transitions: task?.transitions ?? [],
+          // The handoff the work actually ran on. Of everything a closed task
+          // leaves behind this is the most readable, and "what was that one
+          // about?" is answered by it and by nothing else.
+          brief: current.brief?.status === "accepted" ? current.brief.text : null,
         },
       ].slice(-MAX_PAST_TASKS),
       usage: addSpend(current.usage, "overheadWorking", overhead),
@@ -1188,6 +1715,28 @@ export class MemoryStrategy extends ContextStrategy {
     // is the moment they are allowed to disagree with the phrasing.
     const text = String(value ?? proposal.value).replace(/\s+/g, " ").trim();
     if (!text) throw new Error("An approved proposal needs a value.");
+
+    // **A frozen key is corrected in place, not promoted.** The other two
+    // kinds of proposal are about long-term memory, so approving them is a
+    // write to the profile; this one is the task's own goal being changed by
+    // the person who is allowed to change it, and promoting it would file the
+    // current task's goal in the profile forever.
+    if (proposal.reason === "frozen") {
+      // No profile is read or written: `goal` routes to working memory, so the
+      // long-term half of `applyOps` has nothing to do here.
+      const applied = applyOps({ working: current.working, profile: { entries: {}, nextId: 1 } }, [
+        { op: "set", key: proposal.key, value: text },
+      ], { turn: turns, maxWorking: this.maxWorking, allow: ["set"], origin: "person" });
+
+      return {
+        state: {
+          ...current,
+          working: applied.working,
+          proposals: current.proposals.map((p) => (p.id === id ? { ...p, status: "approved", value: text } : p)),
+        },
+        note: `${proposal.key} updated — a person may rewrite a frozen key`,
+      };
+    }
 
     const profile = await this.#loadProfile();
     const applied = applyOps(
@@ -1303,7 +1852,14 @@ export class MemoryStrategy extends ContextStrategy {
       };
     }
 
-    const applied = applyOps({ working: state.working, profile }, result.ops, {
+    // One call, two mutation paths. The patch is split before either path
+    // sees the other's ops, so `applyOps` goes on refusing everything that is
+    // not a routable key and `transition` goes on being the only way a stage
+    // changes.
+    const { taskOps, memoryOps } = splitTaskOps(result.ops);
+    const task = applyTaskOps(state.task, taskOps, { turn });
+
+    const applied = applyOps({ working: state.working, profile }, memoryOps, {
       turn,
       maxWorking: this.maxWorking,
       // The model proposes a key and a value. It may not promote, and it may
@@ -1312,6 +1868,9 @@ export class MemoryStrategy extends ContextStrategy {
       // The patch came from a model, which is what makes a declared entry
       // untouchable by it.
       origin: "model",
+      // ...and what makes the goal untouchable once the task has left
+      // planning. The write becomes a proposal rather than a silent rewrite.
+      frozen: frozenKeys(state.task),
     });
 
     const profileKeys = [...applied.set, ...applied.deleted, ...applied.promoted].filter(
@@ -1329,6 +1888,7 @@ export class MemoryStrategy extends ContextStrategy {
       state: {
         ...state,
         working: applied.working,
+        task: task.task,
         // A long-term entry the task has just contradicted is not rewritten
         // here. Long-term writes are human-approved, so the contradiction
         // becomes a proposal like any other — and until it is answered, the
@@ -1340,7 +1900,7 @@ export class MemoryStrategy extends ContextStrategy {
       profile: applied.profile,
       profileKeys,
       changed: applied.changed,
-      note: describe(applied),
+      note: describe(applied, task.suggested),
       overhead,
     };
   }
@@ -1431,6 +1991,12 @@ export class MemoryStrategy extends ContextStrategy {
     return this.#promoter;
   }
 
+  #brieferFor(provider) {
+    if (this.#briefer && this.#cachedFor === null) return this.#briefer;
+    this.#rebuild(provider);
+    return this.#briefer;
+  }
+
   #summarizerFor(provider) {
     if (this.#summarizer && this.#cachedFor === null) return this.#summarizer;
     this.#rebuild(provider);
@@ -1442,6 +2008,7 @@ export class MemoryStrategy extends ContextStrategy {
     if (this.#cachedFor === provider) return;
     this.#extractor = new MemoryExtractor({ provider, model: this.model, maxTokens: this.maxTokens });
     this.#promoter = new Promoter({ provider, model: this.model });
+    this.#briefer = new Briefer({ provider, model: this.model });
     this.#summarizer = new Summarizer({ provider, model: this.model });
     this.#cachedFor = provider;
   }
@@ -1586,8 +2153,14 @@ function withCorrections(proposals, contested, turn) {
   return next;
 }
 
-/** One human line for the per-turn counter. */
-function describe({ set, deleted, promoted, discarded, contested = [] }) {
+/**
+ * One human line for the per-turn counter.
+ *
+ * `suggested` is the stage the model thinks we have moved to, which is not a
+ * change and must not read as one — it is a button lighting up, and the line
+ * says so in those words.
+ */
+function describe({ set, deleted, promoted, discarded, contested = [] }, suggested = null) {
   const parts = [];
   if (set.length) parts.push(`${set.length} key${set.length === 1 ? "" : "s"} set`);
   if (deleted.length) parts.push(`${deleted.length} forgotten`);
@@ -1597,10 +2170,32 @@ function describe({ set, deleted, promoted, discarded, contested = [] }) {
   // the extractor found nothing.
   const declared = contested.filter((row) => row.reason === "declared").length;
   if (declared) parts.push(`${declared} held back by what you declared`);
+  // The same sentence for the other refused write. A frozen goal rewritten in
+  // the vocabulary of the newest message is the drift bug arriving on time,
+  // and it should read as "the machine stopped it", not as a quiet turn.
+  const frozen = contested.filter((row) => row.reason === "frozen").length;
+  if (frozen) parts.push(`${frozen} held back — the goal is frozen`);
+  // **Say which refusal it was.** Everything that was not an unroutable key
+  // used to be reported as a "malformed op", which is wrong about most of
+  // them and unhelpful about all of them: a lone `delete` on an answered
+  // question is perfectly well formed and was refused by a rule, and reading
+  // that the model emitted garbage sends you looking for a bug in the wrong
+  // place entirely. The reason is already written on the row; this prints it.
   const unknown = discarded.filter((row) => row.reason === "unknown namespace");
   if (unknown.length) parts.push(`${unknown.length} proposed, not stored`);
-  else if (discarded.length) parts.push(`${discarded.length} malformed op${discarded.length === 1 ? "" : "s"} discarded`);
+  const refused = discarded.filter((row) => row.reason !== "unknown namespace");
+  for (const [reason, rows] of tally(refused)) {
+    parts.push(`${rows} refused — ${reason}`);
+  }
+  if (suggested) parts.push(`suggests → ${suggested}, waiting for a click`);
   return parts.length ? parts.join(", ") : "nothing new established";
+}
+
+/** `[[reason, count], …]`, so one sentence covers three identical refusals. */
+function tally(rows) {
+  const counts = new Map();
+  for (const row of rows) counts.set(row.reason, (counts.get(row.reason) ?? 0) + 1);
+  return [...counts];
 }
 
 /**
@@ -1625,6 +2220,18 @@ function extractionPrompt(stored, exchange) {
     ...exchange.map((m) => `[${m.role}] ${m.content}`),
     "",
     "Return the operations.",
+  ].join("\n");
+}
+
+function briefPrompt(entries, messages) {
+  return [
+    "WHAT PLANNING ESTABLISHED — the store, as it stands:",
+    entries.length ? entries.map((entry) => `${entry.key}: ${entry.value}`).join("\n") : "(nothing was recorded)",
+    "",
+    "THE PLANNING CONVERSATION:",
+    ...messages.map((m) => `[${m.role}] ${m.content}`),
+    "",
+    "Write the brief.",
   ].join("\n");
 }
 
@@ -1725,10 +2332,37 @@ function orderKeys(entries) {
   });
 }
 
+/**
+ * The brief, coerced. An accepted one with no text is not accepted — it would
+ * drop the planning messages and put nothing in their place, which is the one
+ * outcome worse than either half on its own.
+ */
+function normaliseBrief(brief) {
+  const source = brief && typeof brief === "object" ? brief : null;
+  const text = String(source?.text ?? "").trim();
+  if (!text) return null;
+  const status = source.status === "accepted" ? "accepted" : "pending";
+  return {
+    text,
+    status,
+    turn: Number.isInteger(source.turn) ? source.turn : 0,
+    // How much of the conversation it stands in for. Only meaningful once
+    // accepted, which is the moment those messages stop being sent.
+    through: status === "accepted" && Number.isInteger(source.through) ? source.through : 0,
+    createdAt: typeof source.createdAt === "string" ? source.createdAt : null,
+    acceptedAt: typeof source.acceptedAt === "string" ? source.acceptedAt : null,
+    /** Whether a person edited the words before accepting them. */
+    edited: source.edited === true,
+  };
+}
+
 /** Whatever came off disk, coerced into a state this strategy can work with. */
 export function normaliseState(state) {
   const empty = {
     working: {},
+    task: emptyTask(),
+    brief: null,
+    briefThrough: 0,
     digest: null,
     digestThrough: 0,
     digestUpdatedAt: null,
@@ -1777,6 +2411,13 @@ export function normaliseState(state) {
     ...empty,
     ...source,
     working,
+    // The lifecycle survives whatever the file says: a record written before
+    // the machine existed has no `task` at all and loads in `planning` with an
+    // empty log, which is exactly where a conversation with no recorded
+    // transitions actually is.
+    task: normaliseTask(source.task),
+    brief: normaliseBrief(source.brief),
+    briefThrough: Number.isInteger(source.briefThrough) ? source.briefThrough : 0,
     profileSeen,
     promotedAt,
     profileUser: typeof source.profileUser === "string" ? source.profileUser : null,

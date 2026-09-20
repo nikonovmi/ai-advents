@@ -3,9 +3,11 @@ import test from "node:test";
 
 import { Agent } from "../agent.js";
 import { MemoryStore } from "../store/memoryStore.js";
+import { getBranchHistory } from "../store/branches.js";
 import { MemoryProfileStore, emptyProfile } from "../store/profileStore.js";
 import { exchangeStarts } from "./boundaries.js";
-import { MemoryStrategy, ROUTES, applyOps, routeFor } from "./memory.js";
+import { MemoryExtractor, MemoryStrategy, ROUTES, applyOps, routeFor } from "./memory.js";
+import { stageOf } from "./taskState.js";
 
 const SESSION = "22222222-2222-4222-8222-222222222222";
 
@@ -76,6 +78,27 @@ class StubPromoter {
   }
 }
 
+/** A briefer whose output is recognisable, so a test can see it reach the wire. */
+class StubBriefer {
+  calls = [];
+  #fail;
+
+  constructor({ fail = false } = {}) {
+    this.#fail = fail;
+  }
+
+  async write({ entries, messages }) {
+    this.calls.push({ entries, messages });
+    if (this.#fail) throw new Error("briefer is down");
+    return {
+      text: ["THE BRIEF", ...entries.map((entry) => `${entry.key} — ${entry.value}`)].join("\n"),
+      usage: { inputTokens: 200, outputTokens: 90 },
+      model: "stub",
+      ms: 1,
+    };
+  }
+}
+
 class StubSummarizer {
   calls = [];
 
@@ -94,16 +117,29 @@ class StubSummarizer {
 function strategyWith({ ops = [], window = 10, profileStore = new MemoryProfileStore(), ...rest } = {}) {
   const extractor = new StubExtractor({ ops });
   const promoter = new StubPromoter();
+  const briefer = new StubBriefer();
   const summarizer = new StubSummarizer();
   const strategy = new MemoryStrategy({
     contextMessages: window,
     profileStore,
     extractor,
     promoter,
+    briefer,
     summarizer,
     ...rest,
   });
-  return { strategy, extractor, promoter, summarizer, profileStore };
+  return { strategy, extractor, promoter, briefer, summarizer, profileStore };
+}
+
+/**
+ * `→ execution`, which is two steps now: the click writes a brief, and
+ * accepting it is what actually leaves planning. Every test that just wants to
+ * be in execution goes through here, because that is the only way there.
+ */
+async function toExecution(strategy, { state, history, provider = new StubProvider(), text } = {}) {
+  const written = await strategy.transition({ state, to: "execution", history, provider });
+  if (!written.awaitingBrief) return written;
+  return await strategy.answerBrief({ state: written.state, history, action: "accept", text });
 }
 
 /** Drive a strategy over a scripted conversation, as the Agent would. */
@@ -477,6 +513,24 @@ test("extraction failure keeps the memory and answers the turn anyway", async ()
 
 // ---- the task boundary ------------------------------------------------------
 
+/**
+ * *Finish task* is now `→ done`, and `done` is only reachable through the
+ * stages in front of it. Walking them is exactly what the strip's buttons do,
+ * one click each, so the helper is the button press.
+ */
+async function finish(strategy, { state, history, provider = new StubProvider() }) {
+  let last = await toExecution(strategy, { state, history, provider });
+  let current = last.state;
+  if (!last.ok) return last;
+
+  for (const to of ["validation", "done"]) {
+    last = await strategy.transition({ state: current, to, history, provider });
+    current = last.state;
+    if (!last.ok) break;
+  }
+  return last;
+}
+
 /** Take a task to the point where the button would be pressed. */
 async function aTask(overrides = {}) {
   const parts = strategyWith({
@@ -496,7 +550,7 @@ async function aTask(overrides = {}) {
 test("finishing a task proposes, clears, and keeps the closed record", async () => {
   const { strategy, promoter, state, history, profileStore } = await aTask();
 
-  const finished = await strategy.finishTask({ state, history, provider: new StubProvider() });
+  const finished = await finish(strategy, { state, history });
 
   // Only the promotable namespaces are offered — a goal or a constraint was
   // about this task, a decision can outlive it.
@@ -524,10 +578,11 @@ test("a failed promotion call leaves the task open rather than clearing it", asy
     profileStore: new MemoryProfileStore(),
     extractor: new StubExtractor(),
     promoter: new StubPromoter({ fail: true }),
+    briefer: new StubBriefer(),
     summarizer: new StubSummarizer(),
   });
 
-  const finished = await broken.finishTask({ state, history, provider: new StubProvider() });
+  const finished = await finish(broken, { state, history });
   assert.equal(finished.ok, false);
   assert.deepEqual(Object.keys(finished.state.working).sort(), [
     "constraint.database",
@@ -539,7 +594,7 @@ test("a failed promotion call leaves the task open rather than clearing it", asy
 
 test("a proposal reaches long-term only when a human says so, and only as edited", async () => {
   const { strategy, state, history, profileStore } = await aTask();
-  const finished = await strategy.finishTask({ state, history, provider: new StubProvider() });
+  const finished = await finish(strategy, { state, history });
   const [proposal] = finished.proposals;
 
   const rejected = await strategy.answerProposal({
@@ -573,7 +628,7 @@ test("a proposal reaches long-term only when a human says so, and only as edited
 
 test("the second task sees the promoted decision and not the cleared constraints", async () => {
   const { strategy, state, history, profileStore } = await aTask();
-  const finished = await strategy.finishTask({ state, history, provider: new StubProvider() });
+  const finished = await finish(strategy, { state, history });
   const approved = await strategy.answerProposal({
     state: finished.state,
     id: finished.proposals[0].id,
@@ -613,7 +668,7 @@ test("without the button, working memory degrades to facts with an LRU budget", 
 
 test("a fork cannot read what its parent promoted after the fork", async () => {
   const { strategy, state, history, profileStore } = await aTask();
-  const finished = await strategy.finishTask({ state, history, provider: new StubProvider() });
+  const finished = await finish(strategy, { state, history });
   const approved = await strategy.answerProposal({
     state: finished.state,
     id: finished.proposals[0].id,
@@ -750,6 +805,7 @@ test("the profile survives a restart and a brand new conversation", async () => 
       profileStore,
       extractor: new StubExtractor(),
       promoter: new StubPromoter(),
+      briefer: new StubBriefer(),
       summarizer: new StubSummarizer(),
     }),
   });
@@ -757,7 +813,13 @@ test("the profile survives a restart and a brand new conversation", async () => 
 
   const system = provider.calls.at(-1).system;
   assert.match(system, /<profile>[\s\S]*preference\.tooling: never suggest Kubernetes/);
-  assert.doesNotMatch(system, /<working>/, "the new conversation inherited a task it never had");
+  // The block is there — every conversation starts in `planning`, and that
+  // stage's instruction is most of what shapes its first few turns — but it
+  // holds the stage and nothing else. None of the previous conversation's keys
+  // came along.
+  assert.match(system, /<working>[\s\S]*stage: planning/);
+  assert.doesNotMatch(system, /goal:/, "the new conversation inherited a task it never had");
+  assert.doesNotMatch(system, /constraint\./);
   assert.deepEqual(second.panel().profile.map((row) => row.key), ["preference.tooling"]);
 });
 
@@ -816,7 +878,7 @@ test("style, format and standing rules are durable, and Finish task does not tou
   // model reads "prefers bullets" as biography and answers in prose anyway.
   assert.match(turns[0].system, /standing instructions about how to answer/);
 
-  const finished = await strategy.finishTask({ state, history, provider: new StubProvider() });
+  const finished = await finish(strategy, { state, history });
   assert.deepEqual(Object.keys(finished.state.working), [], "the task was not cleared");
   assert.deepEqual(Object.keys((await profileStore.load("local")).entries).sort(), durable);
 
@@ -1011,6 +1073,567 @@ test("the profile's per-turn cost is a number beside the two call bills", async 
   assert.equal(overheadWorking.calls, 4);
   assert.equal(overheadSummary.calls, 1);
 });
+
+test("the extractor is told to file the questions the assistant asked", async () => {
+  const { strategy, extractor } = strategyWith({
+    ops: [
+      [{ op: "set", key: "goal", value: "set up a coding agent with invariants" }],
+      [{ op: "set", key: "open.invariants", value: "Which rules must the agent never violate?" }],
+    ],
+  });
+  const first = await converse(strategy, ["I need invariants my coding agent cannot violate"]);
+  const { state } = await converse(strategy, ["I'll go for the prompt-based approach"], {
+    from: { history: first.history, state: first.state },
+  });
+
+  // The clarifying question rides in with the assistant's half of the
+  // exchange, which is the only reason the extractor can file it at all.
+  assert.equal(extractor.calls[1].exchange[0].role, "assistant");
+  assert.equal(state.working["open.invariants"].value, "Which rules must the agent never violate?");
+
+  // And the prompt says so out loud. The planning instruction tells the model
+  // that answers the turn to surface unknowns as open questions — but that
+  // model cannot write memory at all, so unless the extractor is told to pick
+  // them up, "point clarification at open.*" is a sentence with nothing
+  // behind it and the guard on leaving planning has nothing real to check.
+  const system = new StubProvider();
+  await new MemoryExtractor({ provider: system }).extract({ exchange: [{ role: "user", content: "hi" }] });
+  const prompt = system.calls[0].system;
+  assert.match(prompt, /question the assistant asked and the user did not answer is an `open\.\*`/);
+  // ...and the old blanket rule no longer contradicts it.
+  assert.match(prompt, /with the single exception of an unanswered/);
+});
+
+// ---- the task lifecycle -----------------------------------------------------
+
+test("the stage rides in <working>, and the same question in two stages is not the same prompt", async () => {
+  const { strategy } = strategyWith({
+    ops: [[{ op: "set", key: "goal", value: "migrate billing off Heroku" }]],
+  });
+  const first = await converse(strategy, ["help me move billing off Heroku"]);
+  const from = { history: first.history, state: first.state };
+
+  // The same next message, asked of the same memory, from two stages. The
+  // only difference between the two runs is which stage the state is in.
+  const planning = await converse(strategy, ["what's the weather?"], { from });
+  const moved = await toExecution(strategy, { ...from });
+  const executing = await converse(strategy, ["what's the weather?"], {
+    from: { history: first.history, state: moved.state },
+  });
+
+  assert.match(planning.turns[0].system, /<working>[\s\S]*stage: planning/);
+  assert.match(planning.turns[0].system, /STAGE — planning/);
+  assert.equal(planning.turns[0].meta.stage, "planning");
+
+  assert.match(executing.turns[0].system, /<working>[\s\S]*stage: execution/);
+  assert.match(executing.turns[0].system, /STAGE — execution/);
+  assert.doesNotMatch(executing.turns[0].system, /STAGE — planning/);
+
+  // The keys are identical; the instruction is not. That difference is the
+  // whole of what makes the machine more than a diagram of itself.
+  assert.match(planning.turns[0].system, /goal: migrate billing off Heroku/);
+  assert.match(executing.turns[0].system, /goal: migrate billing off Heroku/);
+  assert.notEqual(planning.turns[0].system, executing.turns[0].system);
+});
+
+test("a model op on a frozen goal is a proposal; a person's op is a write", async () => {
+  const { strategy } = strategyWith({
+    ops: [
+      [{ op: "set", key: "goal", value: "migrate billing off Heroku" }],
+      // The drift: the same goal, rewritten in the vocabulary of whatever was
+      // said last. In planning it would simply overwrite.
+      [{ op: "set", key: "goal", value: "get the Fly.io deploy green" }],
+    ],
+  });
+  const first = await converse(strategy, ["move billing off Heroku"]);
+  const moved = await toExecution(strategy, { state: first.state, history: first.history });
+
+  const second = await converse(strategy, ["what about the deploy?"], {
+    from: { history: first.history, state: moved.state },
+  });
+
+  // Not written. The task has been committed to, and the model has read one
+  // exchange while the user chose the goal on purpose.
+  assert.equal(second.state.working.goal.value, "migrate billing off Heroku");
+  assert.match(second.turns[0].system, /goal: migrate billing off Heroku/);
+  assert.match(second.turns[0].meta.note, /goal is frozen/);
+
+  // Kept, though — as the same correction proposal a contradicted long-term
+  // entry becomes, where the person who set the goal can see both sentences.
+  const proposal = second.state.proposals.find((p) => p.key === "goal");
+  assert.equal(proposal.kind, "correction");
+  assert.equal(proposal.reason, "frozen");
+  assert.equal(proposal.was, "migrate billing off Heroku");
+
+  // The panel marks the row, so a refusal nobody can see is not mistaken for
+  // an extractor that has quietly stopped working.
+  const row = strategy.panel(second.state, { turns: 2 }).task.find((r) => r.key === "goal");
+  assert.equal(row.frozen, true);
+
+  // And a person answering that proposal writes it, to working memory rather
+  // than to the profile: it is this task's goal, not a fact about the user.
+  const answered = await strategy.answerProposal({
+    state: second.state,
+    id: proposal.id,
+    action: "approve",
+    turns: 2,
+  });
+  assert.equal(answered.state.working.goal.value, "get the Fly.io deploy green");
+});
+
+test("going back to planning thaws the goal", async () => {
+  const { strategy } = strategyWith({
+    ops: [
+      [{ op: "set", key: "goal", value: "migrate billing off Heroku" }],
+      [{ op: "set", key: "goal", value: "decide whether to migrate at all" }],
+    ],
+  });
+  const first = await converse(strategy, ["move billing off Heroku"]);
+  let moved = await toExecution(strategy, { state: first.state, history: first.history });
+  assert.equal(moved.ok, true, moved.note);
+  moved = await strategy.transition({ state: moved.state, to: "planning", history: first.history, provider: new StubProvider() });
+  assert.equal(moved.ok, true, moved.note);
+  const state = moved.state;
+
+  const second = await converse(strategy, ["actually, should we?"], {
+    from: { history: first.history, state },
+  });
+  // `execution → planning` is the edge you press when the goal is the thing
+  // that was wrong, so the goal had better be writable on the other side.
+  assert.equal(second.state.working.goal.value, "decide whether to migrate at all");
+  assert.deepEqual(second.state.proposals, []);
+});
+
+test("→ done is the only way a task closes, and it closes exactly once", async () => {
+  const { strategy, promoter, state, history, profileStore } = await aTask();
+  const provider = new StubProvider();
+
+  // Not from here. The promotion call has not happened and working memory is
+  // untouched, because the edge does not exist.
+  const skipped = await strategy.transition({ state, to: "done", history, provider });
+  assert.equal(skipped.ok, false);
+  assert.equal(promoter.calls.length, 0, "a refused edge ran the promotion call");
+  assert.equal(Object.keys(skipped.state.working).length, 3);
+  assert.equal(skipped.state.pastTasks.length, 0);
+
+  const finished = await finish(strategy, { state, history, provider });
+  assert.equal(finished.ok, true);
+  assert.equal(promoter.calls.length, 1);
+  assert.deepEqual(Object.keys(finished.state.working), []);
+  assert.equal(finished.state.pastTasks.length, 1);
+  // The archive keeps the route, not just the date: a task that went through
+  // validation twice was a different piece of work from one that did not.
+  assert.equal(finished.state.pastTasks[0].stage, "done");
+  assert.deepEqual(
+    finished.state.pastTasks[0].transitions.map((entry) => entry.to),
+    ["execution", "validation", "done"]
+  );
+
+  // Terminal. Every further attempt is refused, so the promotion call cannot
+  // run a second time on the same task — it is a property of the table rather
+  // than a flag somebody has to remember to set.
+  for (const to of ["done", "validation", "planning", "execution"]) {
+    const again = await strategy.transition({ state: finished.state, to, history, provider });
+    assert.equal(again.ok, false, `done → ${to} was allowed`);
+  }
+  assert.equal(promoter.calls.length, 1);
+
+  // Resuming is a new task that references the old one.
+  const next = strategy.startTask({ state: finished.state });
+  assert.equal(next.ok, true);
+  const lifecycle = strategy.panel(next.state, { turns: 2 }).lifecycle;
+  assert.equal(lifecycle.stage, "planning");
+  assert.deepEqual(lifecycle.log, []);
+  assert.equal(lifecycle.previous, finished.state.task.id);
+  // ...and the closed one is still in the archive, still not being sent.
+  assert.equal(next.state.pastTasks.length, 1);
+  assert.deepEqual(Object.keys((await profileStore.load("local")).entries), []);
+});
+
+test("a failed promotion call leaves the stage where it was", async () => {
+  const { state, history } = await aTask();
+  const broken = new MemoryStrategy({
+    contextMessages: 10,
+    profileStore: new MemoryProfileStore(),
+    extractor: new StubExtractor(),
+    promoter: new StubPromoter({ fail: true }),
+    briefer: new StubBriefer(),
+    summarizer: new StubSummarizer(),
+  });
+
+  const finished = await finish(broken, { state, history });
+  assert.equal(finished.ok, false);
+  // Half a close — the stage says finished, working memory is still full, and
+  // nothing was ever proposed — is the one outcome worth refusing, because
+  // `done` cannot be left and so it cannot be retried either.
+  assert.equal(stageOf(finished.state.task), "validation");
+  assert.equal(Object.keys(finished.state.working).length, 3);
+  assert.equal(finished.state.pastTasks.length, 0);
+});
+
+test("the model's step and actor are written; its stage is only ever a suggestion", async () => {
+  const { strategy } = strategyWith({
+    ops: [
+      [
+        { op: "set", key: "goal", value: "migrate billing off Heroku" },
+        { op: "step", value: "writing the migration script" },
+        { op: "awaiting", actor: "user", what: "confirm the March 14 date" },
+        { op: "stage", to: "execution", reason: "the goal is settled" },
+      ],
+    ],
+  });
+  const { state, turns } = await converse(strategy, ["move billing off Heroku"]);
+  const lifecycle = strategy.panel(state, { turns: 1 }).lifecycle;
+
+  assert.equal(lifecycle.stage, "planning", "a model changed the stage");
+  assert.equal(lifecycle.step, "writing the migration script");
+  assert.deepEqual(lifecycle.expectedAction, { actor: "user", what: "confirm the March 14 date" });
+  assert.deepEqual(lifecycle.suggestion.to, "execution");
+  assert.match(turns[0].meta.note, /suggests → execution, waiting for a click/);
+
+  // The suggestion rides beside the button for the edge it names, and that
+  // button is a real edge out of the stage we are actually in.
+  assert.deepEqual(lifecycle.edges.map((edge) => edge.to), ["execution"]);
+  assert.equal(lifecycle.edges[0].allowed, true);
+
+  // The block tells the model where it is. It is never asked.
+  assert.match(turns[0].system, /step: writing the migration script/);
+  assert.match(turns[0].system, /awaiting: the user — confirm the March 14 date/);
+});
+
+test("leaving planning writes a brief, and the brief is what replaces the conversation", async () => {
+  const { strategy, briefer } = strategyWith({
+    ops: [
+      [
+        { op: "set", key: "goal", value: "migrate billing off Heroku" },
+        { op: "set", key: "constraint.database", value: "Postgres 14" },
+      ],
+    ],
+  });
+  const first = await converse(strategy, ["move billing off Heroku, we must stay on Postgres 14"]);
+
+  // The click writes a brief and **does not move**. A task sitting in
+  // execution with an unreviewed brief would be running on exactly the
+  // messages the brief was meant to replace.
+  const written = await strategy.transition({
+    state: first.state,
+    to: "execution",
+    history: first.history,
+    provider: new StubProvider(),
+  });
+  assert.equal(written.ok, true);
+  assert.equal(written.awaitingBrief, true);
+  assert.equal(written.state.brief.status, "pending");
+  assert.equal(stageOf(written.state.task), "planning", "the stage moved before anyone read the brief");
+  assert.deepEqual(written.state.task.transitions, []);
+
+  // It was shown the store and the conversation — it has to be, since it is
+  // the only thing carrying either of them forward.
+  assert.deepEqual(briefer.calls[0].entries.map((e) => e.key), ["goal", "constraint.database"]);
+  assert.equal(briefer.calls[0].messages.length, 2);
+
+  // Nothing is on the wire yet: a pending brief changes no payload.
+  const still = await strategy.buildPayload({
+    history: [...first.history, { role: "user", content: "anything" }],
+    systemPrompt: "persona",
+    state: written.state,
+    provider: new StubProvider(),
+  });
+  assert.doesNotMatch(still.system, /<brief>/);
+  assert.equal(still.messages.length, 3, "a pending brief dropped messages");
+
+  // Accepting it is what leaves planning — and the edit is what gets stored,
+  // because this is the moment a person is allowed to disagree with what the
+  // model understood.
+  const accepted = await strategy.answerBrief({
+    state: written.state,
+    history: first.history,
+    action: "accept",
+    text: "THE BRIEF\nMove billing off Heroku. Postgres 14 is fixed by compliance.",
+  });
+  assert.equal(accepted.ok, true);
+  assert.equal(stageOf(accepted.state.task), "execution");
+  assert.equal(accepted.state.brief.status, "accepted");
+  assert.equal(accepted.state.brief.edited, true);
+  assert.equal(accepted.state.brief.through, first.history.length);
+
+  // Now it is on the wire, and the planning conversation is not.
+  const next = await converse(strategy, ["carry on"], {
+    from: { history: first.history, state: accepted.state },
+  });
+  const built = next.turns[0];
+  assert.match(built.system, /<brief>[\s\S]*Postgres 14 is fixed by compliance/);
+  assert.match(built.system, /<working>[\s\S]*stage: execution/);
+  assert.equal(built.meta.layers.brief, 1);
+  assert.equal(built.meta.droppedMessages, first.history.length);
+  assert.deepEqual(built.messages.map((m) => m.content), ["carry on"]);
+  // The block is before the digest and after the keys — long form of the same
+  // subject, next to the short form.
+  assert.match(built.system, /<working>[\s\S]*<\/working>[\s\S]*<brief>/);
+});
+
+test("a discarded brief leaves planning exactly as it was", async () => {
+  const { strategy } = strategyWith({
+    ops: [[{ op: "set", key: "goal", value: "migrate billing off Heroku" }]],
+  });
+  const first = await converse(strategy, ["move billing off Heroku"]);
+  const written = await strategy.transition({
+    state: first.state,
+    to: "execution",
+    history: first.history,
+    provider: new StubProvider(),
+  });
+
+  const kept = await strategy.answerBrief({ state: written.state, history: first.history, action: "discard" });
+  assert.equal(kept.state.brief, null);
+  assert.equal(stageOf(kept.state.task), "planning");
+  assert.deepEqual(kept.state.task.transitions, []);
+  // ...and the goal is still writable, because the task never committed.
+  assert.deepEqual(strategy.panel(kept.state, { turns: 1 }).lifecycle.frozen, []);
+
+  // Answering a brief that is not there is a mistake, not a silent no-op.
+  await assert.rejects(
+    () => strategy.answerBrief({ state: kept.state, history: first.history, action: "accept" }),
+    /no brief waiting/i
+  );
+});
+
+test("a failed brief leaves the task in planning with nothing pending", async () => {
+  const profileStore = new MemoryProfileStore();
+  const strategy = new MemoryStrategy({
+    contextMessages: 10,
+    profileStore,
+    extractor: new StubExtractor({ ops: [[{ op: "set", key: "goal", value: "ship it" }]] }),
+    promoter: new StubPromoter(),
+    briefer: new StubBriefer({ fail: true }),
+    summarizer: new StubSummarizer(),
+  });
+  const first = await converse(strategy, ["ship it"]);
+
+  const written = await strategy.transition({
+    state: first.state,
+    to: "execution",
+    history: first.history,
+    provider: new StubProvider(),
+  });
+  // Failure degrades to *nothing happened*. Moving anyway would drop the
+  // planning messages and put nothing in their place, which is worse than
+  // either half on its own.
+  assert.equal(written.ok, false);
+  assert.equal(written.state.brief, null);
+  assert.equal(stageOf(written.state.task), "planning");
+  assert.match(written.note, /try again/);
+});
+
+test("the closed task keeps its brief, and the next one does not inherit it", async () => {
+  const { strategy, state, history } = await aTask();
+  const finished = await finish(strategy, { state, history });
+
+  // Cleared with the keys, and for the same reason: it describes work that is
+  // over. Left on the wire it would go on telling every later turn what this
+  // finished task was about.
+  assert.equal(finished.state.brief, null);
+  const panel = strategy.panel(finished.state, { turns: 2 });
+  assert.match(panel.pastTasks[0].brief, /THE BRIEF/);
+
+  const next = strategy.startTask({ state: finished.state });
+  assert.equal(next.state.brief, null);
+  const built = await strategy.buildPayload({
+    history: [...history, { role: "user", content: "something new" }],
+    systemPrompt: "persona",
+    state: next.state,
+    provider: new StubProvider(),
+  });
+  assert.doesNotMatch(built.system, /<brief>/);
+});
+
+test("the messages the brief replaced do not come back when the task closes", async () => {
+  const { strategy, state, history } = await aTask();
+  const finished = await finish(strategy, { state, history });
+
+  // The brief itself is gone — it describes finished work — but the floor it
+  // set is not. Tying the floor to the object's lifetime put a whole planning
+  // conversation back on the wire the moment the task closed, with the thing
+  // that had replaced it already cleared.
+  assert.equal(finished.state.brief, null);
+  assert.equal(finished.state.briefThrough, history.length);
+
+  const after = [...history, { role: "user", content: "what now?" }];
+  const built = await strategy.buildPayload({
+    history: after,
+    systemPrompt: "persona",
+    state: finished.state,
+    provider: new StubProvider(),
+  });
+  assert.equal(built.meta.droppedMessages, history.length);
+  assert.deepEqual(built.messages.map((m) => m.content), ["what now?"]);
+  // Gone, and not replaced by anything either: the task is over.
+  assert.doesNotMatch(built.system, /<brief>/);
+
+  // ...and a successor task does not resurrect them either.
+  const next = strategy.startTask({ state: finished.state });
+  const later = await strategy.buildPayload({
+    history: after,
+    systemPrompt: "persona",
+    state: next.state,
+    provider: new StubProvider(),
+  });
+  assert.equal(later.meta.droppedMessages, history.length);
+});
+
+test("a fork cannot inherit a stage its own branch never reached", async () => {
+  const { strategy } = strategyWith({
+    ops: [
+      [{ op: "set", key: "goal", value: "migrate billing off Heroku" }],
+      [],
+      [{ op: "step", value: "writing the migration script" }],
+    ],
+  });
+  const first = await converse(strategy, ["move billing off Heroku"]);
+  const second = await converse(strategy, ["and the constraints are fixed"], {
+    from: { history: first.history, state: first.state },
+  });
+
+  // Two exchanges in, the parent commits to the goal and gets on with it.
+  const moved = await toExecution(strategy, { state: second.state, history: second.history });
+  const parent = await converse(strategy, ["carry on then"], {
+    from: { history: second.history, state: moved.state },
+  });
+  assert.equal(strategy.panel(parent.state, { turns: 3 }).lifecycle.stage, "execution");
+
+  // A branch forked back at the **first** exchange carries a copy of all of
+  // that: the transition stamped after turn 2, and the step line from turn 3.
+  const forked = structuredClone(parent.state);
+  const built = await strategy.buildPayload({
+    history: [
+      { role: "user", content: "move billing off Heroku" },
+      { role: "assistant", content: "ok" },
+      { role: "user", content: "actually, hold on" },
+    ],
+    systemPrompt: "persona",
+    state: forked,
+    provider: new StubProvider(),
+  });
+
+  // None of it came along. A fork that inherited a `validation` its own branch
+  // never reached does not read as a storage bug from the outside — it reads
+  // as the agent insisting on work nobody here ever asked for, with every
+  // stage line telling the model something false about where it is.
+  assert.match(built.system, /stage: planning/);
+  assert.doesNotMatch(built.system, /stage: execution/);
+  assert.doesNotMatch(built.system, /writing the migration script/);
+  assert.equal(built.meta.stage, "planning");
+  assert.deepEqual(built.state.task.transitions, []);
+  // ...and with the goal thawed again, because this branch never froze it.
+  assert.deepEqual(strategy.panel(built.state, { turns: 2 }).lifecycle.frozen, []);
+
+  // What the parent established *before* the fork still comes along, exactly
+  // as working memory does. The rule is "not from further down another
+  // branch", not "nothing at all".
+  assert.match(built.system, /goal: migrate billing off Heroku/);
+});
+
+test("a mid-flight task survives a restart, and the resume line is a render", async () => {
+  const profileStore = new MemoryProfileStore();
+  const provider = new StubProvider();
+  const store = new MemoryStore();
+  const options = {
+    provider,
+    store,
+    sessionId: SESSION,
+    strategy: "memory",
+    strategyOptions: { profileStore },
+  };
+
+  const agent = new Agent({
+    ...options,
+    strategy: new MemoryStrategy({
+      contextMessages: 10,
+      profileStore,
+      extractor: new StubExtractor({
+        ops: [
+          [
+            { op: "set", key: "goal", value: "migrate billing off Heroku" },
+            { op: "set", key: "constraint.database", value: "Postgres 14" },
+          ],
+        ],
+      }),
+      promoter: new StubPromoter(),
+      briefer: new StubBriefer(),
+      summarizer: new StubSummarizer(),
+    }),
+  });
+  await agent.run("move billing off Heroku");
+
+  // The click, exactly as the route does it: read the record, hand the state
+  // to a strategy that holds no conversation, write the record back.
+  const strategy = new MemoryStrategy({ profileStore });
+  const record = await store.load(SESSION);
+  const moved = await toExecution(strategy, {
+    state: record.branches.main.strategyState.memory,
+    history: getBranchHistory(record, "main"),
+    provider,
+  });
+  assert.equal(moved.ok, true, moved.note);
+  await writeState(store, moved.state);
+
+  // The cached Agent is holding the state as it was a moment ago, so the route
+  // drops it. Left in place it would write that back over this on the next
+  // turn, and the stage would silently revert.
+  const after = await Agent.load({
+    ...options,
+    strategy: new MemoryStrategy({
+      contextMessages: 10,
+      profileStore,
+      extractor: new StubExtractor({ ops: [[{ op: "step", value: "writing the migration script" }]] }),
+      promoter: new StubPromoter(),
+      briefer: new StubBriefer(),
+      summarizer: new StubSummarizer(),
+    }),
+  });
+  await after.run("what next?");
+
+  // A brand new Agent, as `npm start` would build one — nothing in memory,
+  // everything off the store.
+  const resumed = await Agent.load({
+    ...options,
+    strategy: new MemoryStrategy({
+      contextMessages: 10,
+      profileStore,
+      extractor: new StubExtractor(),
+      promoter: new StubPromoter(),
+      briefer: new StubBriefer(),
+      summarizer: new StubSummarizer(),
+    }),
+  });
+
+  const lifecycle = resumed.panel().lifecycle;
+  assert.equal(lifecycle.stage, "execution");
+  assert.equal(lifecycle.step, "writing the migration script");
+  assert.equal(lifecycle.expectedAction.actor, "agent");
+  // Everything the banner says comes out of this object, so composing it is a
+  // render rather than a model call — and it is identical either side of the
+  // restart.
+  assert.deepEqual(lifecycle.log.map((entry) => `${entry.from}→${entry.to}`), ["planning→execution"]);
+  assert.equal(lifecycle.log[0].turn, 1, "the divider would be drawn in the wrong place");
+  assert.deepEqual(lifecycle.frozen, ["goal"]);
+
+  // ...and the next turn continues the work rather than asking what it was.
+  const { meta } = await resumed.run("carry on");
+  assert.equal(meta.strategy.panel.lifecycle.stage, "execution");
+  assert.match(provider.calls.at(-1).system, /stage: execution/);
+  assert.match(provider.calls.at(-1).system, /goal: migrate billing off Heroku/);
+});
+
+/** The other half of what a route does: put the changed state back. */
+async function writeState(store, state) {
+  const saved = await store.load(SESSION);
+  saved.branches.main.strategyState = { ...saved.branches.main.strategyState, memory: state };
+  await store.save(SESSION, saved.messages, saved.usage, {
+    branches: saved.branches,
+    activeBranchId: saved.activeBranchId,
+  });
+}
 
 /** `describe()` is private; this reads its output off an applied patch. */
 function describeOf(applied) {

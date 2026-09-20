@@ -248,6 +248,19 @@
     padding: 0 4px;
   }
 
+  /* A turn the strip took for you. It is a real user turn — stored as one,
+     read by the model as one — and it should not look like a sentence you
+     sat down and typed. */
+  .row.user.prompted .bubble {
+    background: transparent;
+    color: var(--muted);
+    border: 1px dashed var(--line);
+  }
+  .row.user.prompted .bubble::before {
+    content: "▶ ";
+    color: var(--accent);
+  }
+
   .empty {
     margin: auto;
     color: var(--muted);
@@ -262,6 +275,141 @@
   .dots span:nth-child(2) { animation-delay: 0.2s; }
   .dots span:nth-child(3) { animation-delay: 0.4s; }
   @keyframes blink { 0%, 80%, 100% { opacity: 0.25; } 40% { opacity: 1; } }
+
+  /* ---- the stage strip --------------------------------------------------- */
+
+  /* Above the composer, always visible while the memory strategy is loaded.
+     It is the highest-value element on the page because it answers "whose
+     turn is it" *before* the user types, rather than after they have typed
+     something the agent was not waiting for. */
+  .stage-strip {
+    flex: none;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    padding: 10px 24px;
+    border-top: 1px solid var(--line);
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .stage-strip[hidden] { display: none; }
+
+  .stage-dots { display: flex; align-items: center; gap: 6px; }
+  .stage-dots .dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    border: 1.5px solid var(--line);
+  }
+  /* Past solid, current filled and ringed, future hollow. The ring is what
+     makes "here" readable at a glance in a row of four small circles. */
+  .stage-dots .dot.past { background: var(--muted); border-color: var(--muted); }
+  .stage-dots .dot.now {
+    background: var(--ink);
+    border-color: var(--ink);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 16%, transparent);
+  }
+  .stage-dots .name {
+    margin-left: 4px;
+    color: var(--ink);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  .stage-strip .step { color: var(--ink); }
+  .stage-strip .step .lead { color: var(--muted); }
+
+  /* Styled distinctly by actor, because the whole job of the line is to be
+     read without being read: your turn and its turn should not look alike. */
+  .stage-strip .awaiting {
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  .stage-strip .awaiting.user {
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .stage-strip .awaiting.agent { color: var(--muted); font-style: italic; }
+
+  .stage-strip .edges { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+  .stage-strip .edges button { padding: 4px 10px; font-size: 12px; }
+  .stage-strip .edges button.warned { border-color: var(--accent); color: var(--accent); }
+  /* The one button in the row that spends money, so it is the one that looks
+     like an action rather than a navigation. */
+  .stage-strip .edges button.go {
+    background: var(--user);
+    color: var(--user-ink);
+    border-color: var(--user);
+  }
+  .stage-strip .suggestion {
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px dashed var(--accent);
+    color: var(--accent);
+    font-size: 11px;
+  }
+  .stage-strip .refused { color: var(--accent); }
+
+  /* The handoff, while it is still a proposal. It takes the whole strip
+     because it is the only thing that can happen next. */
+  .stage-strip .brief {
+    flex: 1 1 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .stage-strip .brief .head { font-size: 12px; color: var(--muted); }
+  .stage-strip .brief .head b { color: var(--ink); }
+  .stage-strip .brief textarea {
+    font-size: 12.5px;
+    line-height: 1.55;
+    max-height: 340px;
+    min-height: 140px;
+  }
+  .stage-strip .brief .acts { display: flex; gap: 8px; }
+  .stage-strip .brief .acts button { padding: 6px 14px; font-size: 13px; }
+  .stage-strip .brief .acts button.go {
+    background: var(--user);
+    color: var(--user-ink);
+    border-color: var(--user);
+  }
+
+  /* ---- the transition divider and the resume banner ---------------------- */
+
+  /* Thin, and drawn from the log rather than from anything the painter
+     remembers: reopening a conversation puts the dividers back in the same
+     places, which is the point of deriving the stage from an append-only log
+     in the first place. */
+  .stage-divider {
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--muted);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+  }
+  .stage-divider::before,
+  .stage-divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+  .resume {
+    align-self: stretch;
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 12.5px;
+    color: var(--muted);
+    background: var(--agent);
+  }
+  .resume b { color: var(--ink); }
+  .resume .what { display: block; margin-top: 3px; color: var(--ink); }
 
   form#composer {
     flex: none;
@@ -1016,6 +1164,11 @@
     <p class="strategy-note" id="strategy-note"></p>
   </div>
 
+  <!-- Above the composer and outside it: the answer to "whose turn is it"
+       belongs where you look before typing, not in the panel you may have
+       collapsed. -->
+  <div class="stage-strip" id="stage-strip" hidden></div>
+
   <form id="composer">
     <textarea id="input" rows="1" placeholder="Say something… (Enter to send, Shift+Enter for a newline)" autofocus></textarea>
     <button id="send" type="submit">Send</button>
@@ -1107,6 +1260,7 @@
   const panelBadge = document.getElementById("panel-badge");
   const panelBody = document.getElementById("panel-body");
   const profileSelect = document.getElementById("profile");
+  const stageStrip = document.getElementById("stage-strip");
   const compareDialog = document.getElementById("compare-dialog");
   const compareMessage = document.getElementById("compare-message");
   const compareWho = document.getElementById("compare-who");
@@ -1306,7 +1460,7 @@
     messages.appendChild(marker);
   }
 
-  function addMessage(who, text, { meta = null, error = false, id = null } = {}) {
+  function addMessage(who, text, { meta = null, error = false, id = null, prompted = false } = {}) {
     clearEmptyState();
 
     const strategy = strategyOf(meta);
@@ -1321,7 +1475,10 @@
     const turn = paintedTurns;
 
     const row = document.createElement("div");
-    row.className = "row " + who + (error ? " error" : "");
+    // A turn the strip took on your behalf is still your turn — it is stored
+    // as one and the model reads it as one — but it should not read in the
+    // transcript as a sentence you typed.
+    row.className = "row " + who + (error ? " error" : "") + (prompted ? " prompted" : "");
 
     const bubble = document.createElement("div");
     bubble.className = "bubble";
@@ -1393,9 +1550,11 @@
     newButton.disabled = value;
     branchSelect.disabled = value;
     strategySelect.disabled = value;
-    // The panel's own buttons write to memory. A second click while the first
-    // is in flight would be applied to a state the page has not seen yet.
+    // The panel's own buttons write to memory, and so do the strip's. A second
+    // click while the first is in flight would be applied to a state the page
+    // has not seen yet.
     for (const button of panelBody.querySelectorAll("button")) button.disabled = value;
+    for (const button of stageStrip.querySelectorAll("button")) button.disabled = value;
   }
 
   function autoGrow() {
@@ -1668,10 +1827,10 @@
 
     const task = memoryLayer({
       title: "Current task",
-      lifetime: "cleared when you finish it",
+      lifetime: "cleared when it reaches done",
       rows: panel.task ?? [],
       prefix: "task:",
-      empty: "No task in hand — whatever you say next starts one.",
+      empty: "No keys yet — whatever you say next fills this in.",
       actions: interactive
         ? (row) => [
             row.promotable
@@ -1680,10 +1839,15 @@
             actButton("forget", () => memoryOps([{ op: "delete", key: row.key, from: "working" }])),
           ].filter(Boolean)
         : null,
+      // The stage goes above the keys here for the same reason it goes above
+      // them in the block: it is the thing that says how to read the rest.
+      // The buttons are not repeated — they live in the strip, where they are
+      // visible without opening this panel.
+      lead: panel.lifecycle ? stageSummary(panel.lifecycle) : null,
     });
-    if (interactive) task.appendChild(finishTaskButton(panel));
     root.appendChild(task);
 
+    if (panel.lifecycle?.brief?.status === "accepted") root.appendChild(memoryBrief(panel.lifecycle.brief));
     if (panel.proposals?.length) root.appendChild(memoryProposals(panel.proposals, interactive));
     if (panel.pastTasks?.length) root.appendChild(memoryPastTasks(panel.pastTasks));
     if (panel.discarded?.length) root.appendChild(memoryDiscarded(panel.discarded));
@@ -1935,7 +2099,7 @@
     return section;
   }
 
-  function memoryLayer({ title, lifetime, rows, prefix, empty, actions }) {
+  function memoryLayer({ title, lifetime, rows, prefix, empty, actions, lead = null }) {
     const section = document.createElement("div");
     section.className = "layer";
 
@@ -1946,6 +2110,7 @@
     life.textContent = lifetime;
     heading.appendChild(life);
     section.appendChild(heading);
+    if (lead) section.appendChild(lead);
 
     if (!rows.length) {
       const none = document.createElement("div");
@@ -2008,8 +2173,25 @@
         const waiting = document.createElement("span");
         waiting.className = "pending";
         waiting.textContent =
-          (row.declared ? "the conversation suggests: " : "the task says: ") + row.proposal.value;
+          (row.proposal.reason === "frozen"
+            ? "held back by the freeze: "
+            : row.declared
+              ? "the conversation suggests: "
+              : "the task says: ") + row.proposal.value;
         body.appendChild(waiting);
+      }
+      if (row.frozen) {
+        // The task has been committed to, so this key is no longer freely
+        // writable by a model. Marking it is the difference between "the
+        // extractor stopped proposing a new goal" and "the extractor keeps
+        // proposing one and the machine keeps refusing it".
+        const lock = document.createElement("span");
+        lock.className = "origin";
+        lock.textContent = " · 🔒 frozen";
+        lock.title =
+          "Frozen when the task left planning. A model op on it becomes a correction " +
+          "proposal; you can still change it yourself, and going back to planning thaws it.";
+        key.appendChild(lock);
       }
       if (row.legacy) {
         entry.className += " contested legacy";
@@ -2061,26 +2243,45 @@
   }
 
   /**
-   * One control, three effects: one promotion call, proposals back for you to
-   * approve or edit, and working memory cleared because the task is over.
+   * The stage, in the panel — read-only, and above the keys.
    *
-   * There is no "start a task" to go with it. The next thing said starts one
-   * implicitly, which is the only signal that never needs maintaining.
+   * Deliberately no buttons: the edges are in the strip, where they are
+   * visible without opening a panel, and two sets of them would be two places
+   * that can disagree about which edge is legal.
    */
-  function finishTaskButton(panel) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "finish";
-    button.textContent = "Finish task";
-    button.disabled = pending || !(panel.task?.length);
-    button.title = panel.task?.length
-      ? "Close the task: propose what is worth keeping, then clear working memory."
-      : "There is nothing in working memory to finish.";
-    button.addEventListener("click", () => {
-      if (pending) return;
-      memoryRequest("finish-task", {});
-    });
-    return button;
+  function stageSummary(life) {
+    const box = document.createElement("div");
+    box.className = "none";
+
+    const stage = document.createElement("div");
+    const lead = document.createElement("b");
+    lead.textContent = "stage: " + life.stage;
+    stage.appendChild(lead);
+    if (life.step) stage.append(" · " + life.step);
+    box.appendChild(stage);
+
+    const actor = life.expectedAction?.actor === "agent" ? "the agent" : "you";
+    const awaiting = document.createElement("div");
+    awaiting.textContent =
+      `awaiting: ${actor}` + (life.expectedAction?.what ? ` — ${life.expectedAction.what}` : "");
+    box.appendChild(awaiting);
+
+    // How it got here. Four entries of `execution → validation → execution`
+    // say more about a task than any summary of it would.
+    if (life.log?.length) {
+      const route = document.createElement("div");
+      route.className = "was";
+      route.textContent =
+        "route: " + [life.log[0].from, ...life.log.map((entry) => entry.to)].join(" → ");
+      box.appendChild(route);
+    }
+    if (life.previous) {
+      const previous = document.createElement("div");
+      previous.className = "was";
+      previous.textContent = "resumes the task closed before it";
+      box.appendChild(previous);
+    }
+    return box;
   }
 
   function memoryProposals(proposals, interactive) {
@@ -2114,7 +2315,12 @@
       if (proposal.was) {
         const stale = document.createElement("div");
         stale.className = "was";
-        stale.textContent = "long-term still says: " + proposal.was;
+        // Two different disagreements wear the same shape, and they do not
+        // read the same. One is long-term going stale against the work in
+        // hand; the other is the work in hand arguing with a goal that was
+        // frozen when the task was committed to.
+        stale.textContent =
+          (proposal.reason === "frozen" ? "the goal is frozen at: " : "long-term still says: ") + proposal.was;
         box.appendChild(stale);
       }
 
@@ -2154,6 +2360,38 @@
     return section;
   }
 
+  /**
+   * The accepted brief, in the panel.
+   *
+   * It sits with the layers rather than with the digest because it is not a
+   * compression of what was said — it is the agreed statement of what the work
+   * *is*, and the only reason the planning messages can be left off the wire.
+   */
+  function memoryBrief(brief) {
+    const section = document.createElement("div");
+    section.className = "layer";
+    const heading = document.createElement("h3");
+    heading.textContent = "The brief";
+    const life = document.createElement("span");
+    life.className = "lifetime";
+    life.textContent =
+      `stands in for ${brief.through} message${brief.through === 1 ? "" : "s"}` + (brief.edited ? " · you edited it" : "");
+    heading.appendChild(life);
+    section.appendChild(heading);
+
+    const block = document.createElement("details");
+    block.className = "past";
+    const label = document.createElement("summary");
+    label.textContent = "what execution is working from";
+    const body = document.createElement("div");
+    body.className = "digest";
+    body.textContent = brief.text;
+    body.style.whiteSpace = "pre-wrap";
+    block.append(label, body);
+    section.appendChild(block);
+    return section;
+  }
+
   /** Cleared, not deleted: a closed task is still here, it just stops being sent. */
   function memoryPastTasks(tasks) {
     const section = document.createElement("div");
@@ -2172,9 +2410,31 @@
       block.className = "past";
       const label = document.createElement("summary");
       label.textContent =
-        `closed after turn ${task.turn} · ${task.entries.length} entr${task.entries.length === 1 ? "y" : "ies"}` +
+        `closed after turn ${task.turn} · ${task.stage ?? "closed"} · ` +
+        `${task.entries.length} entr${task.entries.length === 1 ? "y" : "ies"}` +
         (task.promoted ? ` · ${task.promoted} promoted` : "");
       block.appendChild(label);
+
+      // The route it took to get there, which is the part worth reading later:
+      // a task that went through validation twice was a different piece of
+      // work from one that went straight through.
+      if (task.transitions?.length) {
+        const route = document.createElement("div");
+        route.className = "discarded";
+        route.textContent =
+          [task.transitions[0].from, ...task.transitions.map((entry) => entry.to)].join(" → ");
+        block.appendChild(route);
+      }
+
+      if (task.brief) {
+        // Of everything a closed task leaves behind this is the most readable,
+        // and "what was that one about?" is answered by it and nothing else.
+        const brief = document.createElement("div");
+        brief.className = "digest";
+        brief.style.whiteSpace = "pre-wrap";
+        brief.textContent = task.brief;
+        block.appendChild(brief);
+      }
 
       for (const entry of task.entries) {
         const row = document.createElement("div");
@@ -2458,6 +2718,11 @@
       diffMemory(panelState);
       renderPanel();
       renderWindowBanner();
+      // A transition adds a line to the log, and the log is what the dividers
+      // are drawn from — so the one that was just clicked appears at the
+      // bottom of the transcript immediately rather than on the next reload.
+      markTransitions(panelState.lifecycle);
+      markContextBoundary(windowState.droppedCount);
       if (data.note) memoryNote(data.note);
       flashPanel();
     } catch (err) {
@@ -2536,6 +2801,26 @@
       kind: "memory",
       title: "Memory",
       user: null,
+      // A conversation with no state is already in `planning` — there is no
+      // null/no-task state, so the strip has something true to draw before a
+      // word has been said. The one legal edge out is blocked, and the guard's
+      // sentence is what the disabled button says.
+      lifecycle: {
+        id: null,
+        previous: null,
+        stage: "planning",
+        stages: ["planning", "execution", "validation", "done"],
+        step: "working out what the task is",
+        expectedAction: { actor: "user", what: "say what the task is" },
+        edges: [
+          { to: "execution", allowed: false, reason: "Nothing is recorded as the goal yet — say what the task is first.", warning: null },
+        ],
+        suggestion: null,
+        refused: [],
+        log: [],
+        frozen: [],
+        updatedAt: null,
+      },
       profile: [],
       task: [],
       proposals: [],
@@ -2545,6 +2830,233 @@
       usage: null,
       note: "Nothing is being carried yet — every block is omitted from the system prompt until it has something in it.",
     };
+  }
+
+  // ---- the stage strip -----------------------------------------------------
+
+  /**
+   * **Whose turn is it, before you type.**
+   *
+   * Four dots, the step line, the actor line and a button per legal edge — and
+   * every one of them is read straight out of stored state. The buttons are
+   * `TRANSITIONS` filtered by the current stage, which is why the UI cannot
+   * offer an edge the machine does not have: there is no second list of them
+   * here to fall out of step with the table.
+   *
+   * A disabled button carries the guard's own sentence as its tooltip. The
+   * rule lives in `guardFor` and the tooltip is that function quoting itself,
+   * so "why is this greyed out" has one answer rather than two that drift.
+   */
+  function renderStageStrip() {
+    const view = panelView();
+    const life = view.kind === "memory" ? view.lifecycle : null;
+    if (!life) {
+      // Only the memory strategy has a task. Showing a stage for one that does
+      // not keep one would be inventing state, so the strip goes away.
+      stageStrip.hidden = true;
+      stageStrip.innerHTML = "";
+      return;
+    }
+
+    stageStrip.hidden = false;
+    stageStrip.innerHTML = "";
+
+    const current = life.stages.indexOf(life.stage);
+    const dots = document.createElement("div");
+    dots.className = "stage-dots";
+    life.stages.forEach((name, index) => {
+      const dot = document.createElement("span");
+      dot.className = "dot" + (index < current ? " past" : index === current ? " now" : "");
+      dot.title = name;
+      dots.appendChild(dot);
+    });
+    const name = document.createElement("span");
+    name.className = "name";
+    name.textContent = life.stage;
+    dots.appendChild(name);
+    stageStrip.appendChild(dots);
+
+    if (life.step) {
+      const step = document.createElement("span");
+      step.className = "step";
+      const lead = document.createElement("span");
+      lead.className = "lead";
+      lead.textContent = "step: ";
+      step.append(lead, life.step);
+      stageStrip.appendChild(step);
+    }
+
+    const actor = life.expectedAction?.actor === "agent" ? "agent" : "user";
+    const awaiting = document.createElement("span");
+    awaiting.className = "awaiting " + actor;
+    awaiting.textContent =
+      `awaiting: ${actor === "agent" ? "the agent" : "you"}` +
+      (life.expectedAction?.what ? ` — ${life.expectedAction.what}` : "");
+    // There is no blocked state and there does not need to be: blocked is
+    // `actor: 'user'`, said in a way the next turn can act on.
+    //
+    // The agent half has to say *and nothing has happened yet*. A transition
+    // changes the instruction on the next reply; it does not produce one, and
+    // an "awaiting: the agent" that reads as "the agent is doing it" earns
+    // exactly one thing: three more clicks on the arrows while you wait.
+    awaiting.title =
+      actor === "user"
+        ? "The work cannot go further until you say or do this."
+        : "Nothing is running. Send a message — or press ▶ — and the reply comes back under this stage's instruction.";
+    stageStrip.appendChild(awaiting);
+
+    // **A pending brief is the only thing between planning and execution**, so
+    // while one is waiting the strip stops offering anything else. Rendering
+    // the arrows beside it would invite a click that skips the one step the
+    // whole handoff exists for.
+    if (life.brief?.status === "pending") {
+      stageStrip.appendChild(briefEditor(life));
+      return;
+    }
+
+    const edges = document.createElement("div");
+    edges.className = "edges";
+
+    // What the model thinks the next edge is — beside the button, and never
+    // instead of it. It is told what stage it is in; it is not consulted.
+    if (life.suggestion) {
+      const chip = document.createElement("span");
+      chip.className = "suggestion";
+      chip.textContent = `the agent suggests → ${life.suggestion.to}`;
+      chip.title = life.suggestion.reason || "No reason given. It changes nothing until you click.";
+      edges.appendChild(chip);
+    }
+
+    const last = life.refused?.[life.refused.length - 1];
+    if (last) {
+      const refused = document.createElement("span");
+      refused.className = "refused";
+      refused.textContent = `refused: ${last.from} → ${last.to}`;
+      refused.title = last.reason;
+      edges.appendChild(refused);
+    }
+
+    for (const edge of life.edges ?? []) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = "→ " + edge.to;
+      button.disabled = pending || !edge.allowed;
+      // The warning case proceeds; only the guard blocks. The two must not
+      // look alike, so one greys the button out and the other colours it.
+      if (edge.warning) button.className = "warned";
+      button.title = edge.allowed
+        ? edge.warning
+          ? edge.warning + " You can go ahead anyway."
+          : `Move this task to ${edge.to}.`
+        : edge.reason;
+      if (life.suggestion?.to === edge.to) button.style.fontWeight = "600";
+      button.addEventListener("click", () => {
+        if (pending) return;
+        // Warns, does not block. The open questions are named in the text, so
+        // the choice is made looking at what is actually unanswered.
+        if (edge.warning && !confirm(`${edge.warning}\n\nMove to ${edge.to} anyway?`)) return;
+        memoryRequest("transition", { to: edge.to });
+      });
+      edges.appendChild(button);
+    }
+
+    // **The thing that makes a stage run rather than merely be set.**
+    //
+    // A transition changes the instruction on the next reply; it does not
+    // produce one, because the agent only ever answers a message. So when the
+    // stage is waiting on the agent, the strip offers to send that message —
+    // and the message it sends is `expectedAction.what`, which is why that
+    // field holds a sentence rather than a flag.
+    //
+    // It is a button of its own rather than something the arrows do quietly:
+    // it costs a model call, and a cost you did not press is a cost you
+    // press four times by accident.
+    if (actor === "agent" && life.stage !== "done") {
+      const go = document.createElement("button");
+      go.type = "button";
+      go.className = "go";
+      go.textContent = "▶ let it continue";
+      go.disabled = pending;
+      go.title = `Send “${life.expectedAction.what}” as the next turn, under the ${life.stage} instruction.`;
+      go.addEventListener("click", () => {
+        if (pending) return;
+        send(life.expectedAction.what);
+      });
+      edges.appendChild(go);
+    }
+
+    // `done` is terminal, so the only thing left is the successor task.
+    if (!life.edges?.length && life.stage === "done") {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = "Start a new task";
+      button.disabled = pending;
+      button.title = "This one is closed for good. The new task records that it follows this one.";
+      button.addEventListener("click", () => {
+        if (pending) return;
+        memoryRequest("new-task", {});
+      });
+      edges.appendChild(button);
+    }
+
+    stageStrip.appendChild(edges);
+  }
+
+  /**
+   * The handoff, before it takes effect.
+   *
+   * Everything planning established is about to become these words and only
+   * these words — the conversation above stops being sent the moment they are
+   * accepted. So they are shown in a box you can type in, and execution starts
+   * when you say the box is right. It is the same discipline as every other
+   * write in this app: the model proposes, a person decides.
+   */
+  function briefEditor(life) {
+    const box = document.createElement("div");
+    box.className = "brief";
+
+    const heading = document.createElement("div");
+    heading.className = "head";
+    const title = document.createElement("b");
+    title.textContent = "The task, as understood";
+    const hint = document.createElement("span");
+    hint.textContent =
+      " — everything above is replaced by this. Fix anything it got wrong before starting.";
+    heading.append(title, hint);
+    box.appendChild(heading);
+
+    const field = document.createElement("textarea");
+    field.rows = 12;
+    field.value = life.brief.text;
+    box.appendChild(field);
+
+    const acts = document.createElement("div");
+    acts.className = "acts";
+
+    const start = document.createElement("button");
+    start.type = "button";
+    start.className = "go";
+    start.textContent = "start execution";
+    start.disabled = pending;
+    start.title = "Accept this brief, leave planning, and stop sending the conversation above it.";
+    start.addEventListener("click", () => {
+      if (pending) return;
+      memoryRequest("brief", { action: "accept", text: field.value });
+    });
+
+    const back = document.createElement("button");
+    back.type = "button";
+    back.textContent = "keep planning";
+    back.disabled = pending;
+    back.title = "Throw this away and stay in planning. Nothing moves and nothing is dropped.";
+    back.addEventListener("click", () => {
+      if (pending) return;
+      memoryRequest("brief", { action: "discard" });
+    });
+
+    acts.append(start, back);
+    box.appendChild(acts);
+    return box;
   }
 
   function renderPanel() {
@@ -2567,6 +3079,8 @@
       panelBody.innerHTML = "";
       panelBody.appendChild(panelPlaceholder());
     }
+
+    renderStageStrip();
   }
 
   /**
@@ -2817,10 +3331,101 @@
     messages.insertBefore(block, rows[droppedCount]);
   }
 
+  /**
+   * A thin line in the transcript at every stage change, drawn **from the
+   * log** rather than from anything the painter remembers.
+   *
+   * That is the whole reason the stage is derived from an append-only record
+   * instead of being a field: reopening the conversation a week later puts the
+   * dividers back in exactly the same places, for free, with nothing to
+   * reconstruct and nothing to ask a model.
+   */
+  function markTransitions(life) {
+    for (const old of messages.querySelectorAll(".stage-divider")) old.remove();
+    if (!life?.log?.length) return;
+
+    const userRows = [...messages.querySelectorAll(".row.user")];
+
+    // Several clicks with nothing said between them all belong at the same
+    // point in the transcript, and three lines stacked there read as nothing
+    // having moved. Grouped, the run says what it actually was: you went to
+    // execution, looked, went to validation, came back.
+    for (const [turn, run] of groupBy(life.log, (entry) => entry.turn)) {
+      const divider = document.createElement("div");
+      divider.className = "stage-divider";
+      divider.textContent =
+        [run[0].from, ...run.map((entry) => entry.to)].join(" → ") +
+        (run.every((entry) => entry.by === "user") ? "" : " · not all by you") +
+        (run.at(-1).reason ? ` · ${run.at(-1).reason}` : "");
+      divider.title = run
+        .map((entry) => `${entry.from} → ${entry.to}${entry.at ? " · " + new Date(entry.at).toLocaleString() : ""}`)
+        .join("\n");
+
+      // The entries are stamped with the number of exchanges that had happened
+      // when they were clicked, so the run belongs immediately before the next
+      // message — or at the end, when nothing has been said since.
+      const next = userRows[turn];
+      if (next) messages.insertBefore(divider, next);
+      else messages.appendChild(divider);
+    }
+  }
+
+  /** `[[key, rows], …]`, keeping the order the rows came in. */
+  function groupBy(rows, keyOf) {
+    const groups = new Map();
+    for (const row of rows ?? []) {
+      const key = keyOf(row);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(row);
+    }
+    return groups;
+  }
+
+  /**
+   * **"You were here."** Composed from state, with no model call.
+   *
+   * The stage says where the work is and `expectedAction` says what to do
+   * about it, which between them is the whole of what a person needs after a
+   * week away — and asking a model to reconstruct it would be paying for a
+   * worse answer than the one already stored.
+   */
+  function resumeBanner(life) {
+    if (!life?.log?.length || life.stage === "done") return;
+    if (!messages.querySelector(".row")) return;
+
+    const box = document.createElement("div");
+    box.className = "resume";
+
+    const head = document.createElement("b");
+    head.textContent = `You were here — ${life.stage}`;
+    box.append(head);
+    if (life.updatedAt) box.append(` · last moved ${relativeTime(life.updatedAt)}`);
+    if (life.step) box.append(document.createElement("br"), "in progress: " + life.step);
+
+    const actor = life.expectedAction?.actor === "agent" ? "the agent" : "you";
+    const what = document.createElement("span");
+    what.className = "what";
+    what.textContent =
+      `next: ${actor}` + (life.expectedAction?.what ? ` — ${life.expectedAction.what}` : "");
+    box.appendChild(what);
+
+    messages.appendChild(box);
+    messages.scrollTop = messages.scrollHeight;
+  }
+
   function boundaryLabel(dropped) {
     if (panelState.kind === "memory") {
       const task = panelState.task?.length ?? 0;
-      return `⟵ ${dropped} messages folded into the digest · ${task} kept in working memory`;
+      const stage = panelState.lifecycle?.stage;
+      const brief = panelState.lifecycle?.brief;
+      // Two different reasons a message stops being sent, and they should not
+      // read alike: the digest is what happens to anything that scrolls past,
+      // the brief is a handoff you read and approved.
+      if (brief?.status === "accepted" && brief.through >= dropped) {
+        return `⟵ ${dropped} planning messages replaced by the brief · ${task} in working memory · ${stage}`;
+      }
+      return `⟵ ${dropped} messages folded into the digest · ${task} kept in working memory` +
+        (stage ? ` · ${stage}` : "");
     }
     if (panelState.kind === "summary" && panelState.text) {
       return `⟵ ${dropped} messages folded into the summary`;
@@ -2873,14 +3478,17 @@
       count.className = "dropped";
       const profile = view.profile?.length ?? 0;
       const task = view.task?.length ?? 0;
+      const stage = view.lifecycle?.stage;
       count.textContent =
         `${profile} profile entr${profile === 1 ? "y" : "ies"} + ${task} working entr${task === 1 ? "y" : "ies"}` +
+        (stage ? ` in ${stage}` : "") +
         (view.digest?.text ? ` + a digest of ${view.digest.covers} earlier messages` : "");
       windowText.append(count, ` + ${verbatimExchanges} exchange${verbatimExchanges === 1 ? "" : "s"} verbatim. `);
       windowText.append(
         "Three lifetimes on one wire: the profile outlives this conversation, working memory is " +
-          "cleared when you press Finish task, and the digest stands in for everything that has " +
-          "scrolled past. Extraction runs on every turn; the fold runs at the mark."
+          "cleared when the task reaches done, and the digest stands in for everything that has " +
+          "scrolled past. The stage rides in the working block and contributes one instruction " +
+          "line of its own, so the same question asked in two stages is not the same prompt."
       );
       return;
     }
@@ -3071,12 +3679,19 @@
 
   // ---- sending -------------------------------------------------------------
 
-  async function send() {
-    const text = input.value.trim();
+  /**
+   * @param {string} [prompt] - Text to send instead of the composer's. The
+   *   stage strip passes `expectedAction.what` when you press *let it
+   *   continue*, which is the whole reason that field holds a sentence rather
+   *   than a flag: "what to do on the next turn" is something you can send.
+   */
+  async function send(prompt) {
+    const fromStrip = typeof prompt === "string" && prompt.trim();
+    const text = fromStrip ? prompt.trim() : input.value.trim();
     if (!text || pending) return;
 
-    const userRow = addMessage("user", text);
-    input.value = "";
+    const userRow = addMessage("user", text, { prompted: Boolean(fromStrip) });
+    if (!fromStrip) input.value = "";
     autoGrow();
     setPending(true);
     const thinking = addThinking();
@@ -3128,6 +3743,7 @@
         if (moved) flashPanel();
 
         renderWindowBanner();
+        markTransitions(panelState.lifecycle);
         markContextBoundary(windowState.droppedCount);
       }
     } catch (err) {
@@ -3256,6 +3872,13 @@
           id: turn.id,
         });
       }
+
+      // Both of these are renders of stored state and nothing else, which is
+      // what makes reopening a mid-flight task a page load rather than a
+      // model call: the dividers come back where they were, and the banner
+      // says what the next turn is for.
+      markTransitions(panelState.lifecycle);
+      resumeBanner(panelState.lifecycle);
     } catch (err) {
       resetPanel();
       renderPanel();

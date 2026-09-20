@@ -110,22 +110,95 @@ export function memoryRoutes({ store, provider, profileStore, invalidate = () =>
   }
 
   /**
-   * One button, three effects: propose, clear, keep the record.
+   * **One edge of the state machine, as HTTP.**
    *
-   * The proposals it returns are **pending** and live in the conversation
+   * Every stage change in the app is this request — the strip's buttons, and
+   * a model proposal only after somebody has clicked it. There is no separate
+   * *Finish task* endpoint any more: `→ done` is this route with
+   * `to: "done"`, and the promotion call, the proposals and the clearing into
+   * `pastTasks` happen on the way in, inside `transition`, exactly once.
+   *
+   * An illegal or guarded edge comes back `ok: false` with the guard's own
+   * sentence and the state untouched. It is a 200 rather than a 400: the
+   * request was well formed and the answer is "no, and here is why", which is
+   * a thing the strip renders rather than an error it reports.
+   *
+   * The proposals it may return are **pending** and live in the conversation
    * record. Nothing here writes to the profile store — an unapproved write
    * must not exist in long-term, not even with a flag on it, because every
    * flag is one forgotten `WHERE` clause away from being read as fact.
    */
-  router.post("/conversations/:id/memory/finish-task", (req, res) =>
+  router.post("/conversations/:id/memory/transition", (req, res) =>
     onBranch(req, res, async ({ strategy, state, history }) => {
-      const finished = await strategy.finishTask({ state, history, provider });
+      const to = text(req.body?.to);
+      if (!to) throw new Error("A 'to' stage is required.");
+      const moved = await strategy.transition({
+        state,
+        to,
+        // The model never sends this request. A proposal it made is applied by
+        // the person who clicked the button beside it, and `by` records that
+        // honestly rather than crediting the click to whoever suggested it.
+        by: "user",
+        reason: text(req.body?.reason),
+        history,
+        provider,
+      });
       return {
-        ok: finished.ok,
-        state: finished.state,
-        note: finished.note,
-        extra: { proposals: finished.proposals },
+        ok: moved.ok,
+        state: moved.state,
+        note: moved.note,
+        extra: {
+          proposals: moved.proposals ?? [],
+          warning: moved.warning ?? null,
+          // Leaving planning does not move the stage on this request: it
+          // writes a brief and waits. The flag tells the page to render the
+          // editor rather than to expect a stage that has changed.
+          awaitingBrief: moved.awaitingBrief === true,
+        },
       };
+    })
+  );
+
+  /**
+   * The handoff, answered.
+   *
+   * `→ execution` writes a brief and stops; this is the other half. Accepting
+   * it is what actually leaves planning, and the text that arrives here is the
+   * text that gets stored — this is the moment a person is allowed to disagree
+   * with what the model understood, and the last moment it is cheap.
+   */
+  router.post("/conversations/:id/memory/brief", (req, res) =>
+    onBranch(req, res, async ({ strategy, state, history }) => {
+      const action = text(req.body?.action);
+      if (action !== "accept" && action !== "discard") {
+        throw new Error("An answer is either 'accept' or 'discard'.");
+      }
+      const answered = await strategy.answerBrief({
+        state,
+        history,
+        action,
+        text: typeof req.body?.text === "string" ? req.body.text : undefined,
+      });
+      return {
+        ok: answered.ok,
+        state: answered.state,
+        note: answered.note,
+        extra: { warning: answered.warning ?? null },
+      };
+    })
+  );
+
+  /**
+   * *Start a new task* — the only thing offered once a task is `done`.
+   *
+   * `done` never reopens, so resuming is a fresh record in `planning` that
+   * carries the finished task's id. It takes no model call and changes no
+   * memory: working memory was already cleared on the way into `done`.
+   */
+  router.post("/conversations/:id/memory/new-task", (req, res) =>
+    onBranch(req, res, async ({ strategy, state }) => {
+      const started = strategy.startTask({ state });
+      return { ok: started.ok, state: started.state, note: started.note };
     })
   );
 

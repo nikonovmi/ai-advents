@@ -191,9 +191,10 @@ function errorMessageFrom(raw, status) {
  * `fake-provider` is deliberately absent from PRICING, which is also how the
  * unknown-model path gets exercised.
  *
- * It recognises the three system prompts this app sends — the summarizer's,
- * the fact extractor's, and the persona's — and answers each in the right
- * shape, so every context strategy and the whole scenario harness run offline.
+ * It recognises the system prompts this app sends — the summarizer's, the fact
+ * extractor's, the promoter's, the briefer's and the persona's — and answers
+ * each in the right shape, so every context strategy, the scenario harness and
+ * the lifecycle walk all run offline.
  *
  * **It does not understand anything; it reflects.** Asked a question, it reads
  * back what its own payload contains and nothing else. That makes an offline
@@ -252,6 +253,10 @@ function approximateTokens(text) {
 /** Route the request to whichever of the three shapes it is asking for. */
 function fakeAnswer({ system, messages, lastUser }) {
   if (looksLikeSummarisation(system)) return fakeSummary(lastUser);
+  // Before the promotion check: both are stage-boundary calls and both open by
+  // saying a piece of work has reached an edge, so the more specific test goes
+  // first rather than relying on two first lines staying different.
+  if (looksLikeBriefing(system)) return fakeBrief(lastUser);
   if (looksLikePromotion(system)) return fakeProposals(lastUser);
   if (looksLikeFactExtraction(system)) return fakeFactOps(lastUser);
   if (looksLikeQuestion(lastUser)) return fakeRecall({ system, messages, lastUser });
@@ -269,11 +274,13 @@ function fakeAnswer({ system, messages, lastUser }) {
  * about recall.
  */
 function fakeRecall({ system, messages, lastUser }) {
-  // Every auxiliary block, not just the first: the layered strategy sends
-  // three of them, and a fake that read one would make two of its layers look
-  // like they had never been sent at all.
+  // Every auxiliary block, not just the first: the layered strategy sends four
+  // of them, and a fake that read one would make the other three look like
+  // they had never been sent at all. `brief` is the newest, and it is the one
+  // that most needs reflecting — it is the only thing standing in for a whole
+  // conversation that is no longer on the wire.
   const blocks = [
-    ...String(system ?? "").matchAll(/<(known_facts|conversation_summary|profile|working)>([\s\S]*?)<\/\1>/g),
+    ...String(system ?? "").matchAll(/<(known_facts|conversation_summary|profile|working|brief)>([\s\S]*?)<\/\1>/g),
   ];
   const visible = (messages ?? [])
     .filter((m) => m.role === "user" && m.content !== lastUser)
@@ -331,6 +338,40 @@ function fakeFactOps(prompt) {
 
 function looksLikeFactExtraction(system) {
   return typeof system === "string" && system.includes('{"op":"set"');
+}
+
+/**
+ * The stage-boundary call that writes the handoff brief.
+ *
+ * The offline answer is the store, laid out under the headings a real brief
+ * uses — and nothing else. A real briefer reads the conversation and writes
+ * prose about it; a fake that pretended to would hide the only hard part of
+ * the job, which is noticing what was established in the talking and never
+ * made it into a key.
+ */
+function fakeBrief(prompt) {
+  const lines = String(prompt).split("\n");
+  const start = lines.findIndex((line) => line.startsWith("WHAT PLANNING ESTABLISHED"));
+  const stop = lines.findIndex((line) => line.startsWith("THE PLANNING CONVERSATION"));
+  const entries = lines.slice(start + 1, stop === -1 ? undefined : stop).filter((line) => line.includes(":"));
+
+  const under = (prefix) =>
+    entries.filter((line) => line.startsWith(prefix)).map((line) => "- " + line.slice(line.indexOf(":") + 1).trim());
+  const section = (title, rows) => (rows.length ? [title, ...rows, ""] : []);
+
+  return [
+    "(offline brief — the store, not a reading of the conversation)",
+    "",
+    ...section("The task", under("goal")),
+    ...section("Constraints", under("constraint")),
+    ...section("Decided", [...under("decision"), ...under("agreement")]),
+    ...section("Established", under("finding")),
+    ...section("Still open", under("open")),
+  ].join("\n").trim();
+}
+
+function looksLikeBriefing(system) {
+  return typeof system === "string" && system.includes("handoff brief");
 }
 
 /**
