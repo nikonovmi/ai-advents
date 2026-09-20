@@ -10,7 +10,8 @@
   "scripts": {
     "start": "node src/server.js",
     "test": "node --test src/",
-    "scenario": "node scripts/scenario.js"
+    "scenario": "node scripts/scenario.js",
+    "compare": "node scripts/compare.js"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

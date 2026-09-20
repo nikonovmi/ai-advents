@@ -37,6 +37,21 @@ export class ContextStrategy {
    */
   contextMessages = 10;
 
+  /**
+   * Whose long-term memory this turn belongs to.
+   *
+   * A live control in exactly the sense `contextMessages` is: the topbar can
+   * change it between two turns of the same conversation, so the Agent pushes
+   * it onto the strategy before every turn rather than the strategy capturing
+   * it at construction. Four of the five strategies have no long-term memory
+   * and no opinion about whose turn this is, so the default does nothing —
+   * which is what keeps this one line out of `run()`'s list of special cases.
+   *
+   * @param {string | null} user
+   */
+  // eslint-disable-next-line no-unused-vars
+  useProfile(user) {}
+
   /** @returns {"sliding" | "facts" | "summary" | "full"} */
   get id() {
     throw new Error("Not implemented");

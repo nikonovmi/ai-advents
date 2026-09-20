@@ -24,7 +24,8 @@ import path from "node:path";
  */
 
 /**
- * @typedef {{ id: string, key: string, value: string, updatedAt: string | null, source: string | null }} ProfileEntry
+ * @typedef {"declared" | "learned"} Provenance
+ * @typedef {{ id: string, key: string, value: string, updatedAt: string | null, source: Provenance }} ProfileEntry
  * @typedef {{ user: string, updatedAt: string | null, nextId: number, entries: Record<string, ProfileEntry> }} Profile
  */
 
@@ -38,6 +39,38 @@ export const DEFAULT_USER = "local";
 
 /** A user id has to be safe to use as a filename before it reaches one. */
 const USER_PATTERN = /^[a-z0-9][a-z0-9_-]{0,63}$/;
+
+/**
+ * Whether a string may be used as a profile id.
+ *
+ * Exported because the id now arrives from the browser — the topbar picker
+ * sends it on every turn — and a route has to be able to refuse one *before*
+ * it reaches the store and becomes a path.
+ *
+ * @param {unknown} userId
+ */
+export function isValidUser(userId) {
+  return typeof userId === "string" && USER_PATTERN.test(userId.trim().toLowerCase());
+}
+
+/**
+ * **Where a long-term entry came from.**
+ *
+ * `declared` — the user wrote it in the profile form, in as many words.
+ * `learned`  — the extractor proposed it and it was routed or approved.
+ *
+ * Two values and no more, because the only question the rest of the system
+ * asks of this field is whether a *model* may overwrite the entry. Anything
+ * finer-grained — which button was pressed, which turn it arrived on — is
+ * already recorded elsewhere and would make that question ambiguous.
+ *
+ * Anything else, including the `extracted` / `panel` / `promoted` values
+ * written before this field meant this, is `learned`: the user has not yet
+ * declared any of it.
+ */
+export function provenanceOf(value) {
+  return value === "declared" ? "declared" : "learned";
+}
 
 export class ProfileStore {
   /**
@@ -69,6 +102,19 @@ export class ProfileStore {
   // eslint-disable-next-line no-unused-vars
   async clear(userId) {
     throw new Error("Not implemented");
+  }
+
+  /**
+   * Which profiles exist, for the picker.
+   *
+   * The selector is built from the store rather than from a list in the UI,
+   * for the same reason the strategy selector is built from the registry: a
+   * second list of what exists is a second list that can be wrong.
+   *
+   * @returns {Promise<{ id: string, entryCount: number, updatedAt: string | null }[]>}
+   */
+  async list() {
+    return [];
   }
 }
 
@@ -105,7 +151,10 @@ export function normaliseProfile(data, user = DEFAULT_USER) {
         key,
         value,
         updatedAt: typeof entry?.updatedAt === "string" ? entry.updatedAt : null,
-        source: typeof entry?.source === "string" ? entry.source : null,
+        // Migration happens on read rather than in a one-off script: a
+        // profile written before provenance existed is simply one nothing has
+        // been declared in yet, and saying so costs one function call.
+        source: provenanceOf(entry?.source),
       };
       const numbered = /^e(\d+)$/.exec(profile.entries[key].id);
       if (numbered) highest = Math.max(highest, Number(numbered[1]));
@@ -185,6 +234,32 @@ export class JsonProfileStore extends ProfileStore {
     }
   }
 
+  async list() {
+    let files = [];
+    try {
+      files = await fs.readdir(this.#dir);
+    } catch (err) {
+      // No directory yet is not an error: it is a user who has never been
+      // written about, and the picker should still offer the default.
+      if (err?.code !== "ENOENT") console.warn(`[profile] could not list ${this.#dir}: ${err?.message ?? err}`);
+      return [];
+    }
+
+    const profiles = [];
+    for (const name of files.sort()) {
+      if (!name.endsWith(".json")) continue;
+      const id = name.slice(0, -5);
+      if (!isValidUser(id)) continue;
+      const profile = await this.load(id);
+      profiles.push({
+        id,
+        entryCount: Object.keys(profile.entries).length,
+        updatedAt: profile.updatedAt,
+      });
+    }
+    return profiles;
+  }
+
   /** The single place a user id becomes a path. */
   #fileFor(userId) {
     const user = String(userId ?? "").trim().toLowerCase();
@@ -218,6 +293,14 @@ export class MemoryProfileStore extends ProfileStore {
 
   async clear(userId = DEFAULT_USER) {
     this.#profiles.delete(userId);
+  }
+
+  async list() {
+    return [...this.#profiles.entries()].map(([id, profile]) => ({
+      id,
+      entryCount: Object.keys(profile.entries ?? {}).length,
+      updatedAt: profile.updatedAt ?? null,
+    }));
   }
 }
 

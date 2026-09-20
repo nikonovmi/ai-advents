@@ -111,6 +111,13 @@ export class Agent {
     this.maxTokens = maxTokens;
     this.contextMessages = contextMessages;
     this.strategyOptions = strategyOptions;
+    /**
+     * Whose long-term memory the next turn writes to, or null for the
+     * strategy's own default. Set per request by the route, the same way the
+     * window and the token ceiling are — the Agent does not know what a
+     * profile is, only that the strategy might.
+     */
+    this.profileUser = strategyOptions.user ?? null;
     this.strategy = strategy;
   }
 
@@ -187,9 +194,14 @@ export class Agent {
 
     const startedAt = Date.now();
     const strategy = this.#strategy;
-    // A live control in the UI, so it is pushed onto the strategy per turn
+    // Live controls in the UI, so they are pushed onto the strategy per turn
     // rather than frozen into it at construction.
     strategy.contextMessages = this.contextMessages;
+    // Optional on purpose: the Agent's contract with a strategy is still the
+    // two methods it validates on assignment, and four of the five strategies
+    // inherit a no-op for this one. Requiring it would make "has a profile"
+    // part of what it means to be a strategy at all.
+    strategy.useProfile?.(this.profileUser);
 
     const userMessage = appendMessage(this.#record, branchId, { role: "user", content: text });
     const history = getBranchHistory(this.#record, branchId);

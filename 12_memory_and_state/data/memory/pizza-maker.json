@@ -1,0 +1,42 @@
+{
+  "user": "pizza-maker",
+  "updatedAt": "2026-09-20T01:04:31.477Z",
+  "nextId": 7,
+  "entries": {
+    "profile.location": {
+      "id": "e1",
+      "key": "profile.location",
+      "value": "Italy",
+      "updatedAt": "2026-09-20T00:51:59.295Z",
+      "source": "learned"
+    },
+    "profile.role": {
+      "id": "e2",
+      "key": "profile.role",
+      "value": "Professional pizza chef",
+      "updatedAt": "2026-09-20T00:51:59.295Z",
+      "source": "learned"
+    },
+    "preference.style": {
+      "id": "e3",
+      "key": "preference.style",
+      "value": "Sort replies.",
+      "updatedAt": "2026-09-20T00:54:20.213Z",
+      "source": "declared"
+    },
+    "preference.format": {
+      "id": "e4",
+      "key": "preference.format",
+      "value": "Always replies in Russian.",
+      "updatedAt": "2026-09-20T00:56:12.826Z",
+      "source": "declared"
+    },
+    "rule.always-add-references-to-som": {
+      "id": "e6",
+      "key": "rule.always-add-references-to-som",
+      "value": "Always add references to some researches or wise books.",
+      "updatedAt": "2026-09-20T01:04:31.477Z",
+      "source": "declared"
+    }
+  }
+}

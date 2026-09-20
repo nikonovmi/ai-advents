@@ -1,7 +1,7 @@
 {
   "user": "local",
-  "updatedAt": "2026-09-19T23:07:20.496Z",
-  "nextId": 7,
+  "updatedAt": "2026-09-20T00:41:08.291Z",
+  "nextId": 8,
   "entries": {
     "profile.location": {
       "id": "e3",
@@ -23,6 +23,13 @@
       "value": "Willing to move forward with candidates who demonstrate strong conceptual understanding but need support on implementation details, particularly when other screening sections are solid.",
       "updatedAt": "2026-09-19T23:07:15.092Z",
       "source": "promoted"
+    },
+    "profile.learning": {
+      "id": "e7",
+      "key": "profile.learning",
+      "value": "German; focusing on improving day-to-day speech beyond basics",
+      "updatedAt": "2026-09-20T00:41:08.291Z",
+      "source": "extracted"
     }
   }
 }

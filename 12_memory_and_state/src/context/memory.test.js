@@ -296,10 +296,13 @@ test("the extractor may write long-term, but may not erase it", async () => {
   assert.deepEqual(Object.keys(entries).sort(), ["preference.sql", "profile.role"]);
   assert.equal(state.discarded.at(-1).reason, "long-term deletes are yours to make");
 
-  // The panel can say which of them a human chose and which one arrived on its
-  // own, which is the only way to audit a store that never expires.
+  // The panel can say which of them the user wrote down and which arrived on
+  // its own, which is the only way to audit a store that never expires. Both
+  // of these arrived on their own — the profile written before provenance
+  // existed migrates to `learned`, because nothing in it was ever declared.
   const panel = strategy.panel(state, { turns: 1 });
-  assert.deepEqual(panel.profile.map((row) => row.source), ["extracted", "extracted"]);
+  assert.deepEqual(panel.profile.map((row) => row.source), ["learned", "learned"]);
+  assert.deepEqual(panel.profile.map((row) => row.declared), [false, false]);
 
   // A person pressing *forget* may do what the model may not.
   await strategy.applyPanelOps({ state, ops: [{ op: "delete", key: "profile.role", from: "profile" }], turns: 1 });
@@ -776,3 +779,244 @@ test("the Agent learns no file path, and a branch keeps its own memory", async (
   // Agent was handed a strategy, not a directory.
   assert.equal(agent.strategy.profileStore, profileStore);
 });
+
+// ---- the durable namespaces -------------------------------------------------
+
+test("style, format and standing rules are durable, and Finish task does not touch them", async () => {
+  // Every new route is long-term and never-expiring, by the table rather than
+  // by anyone's judgement. This is the assertion that would have failed on the
+  // day these facts were landing in `constraint.*` and dying with the task.
+  for (const key of ["preference.style", "preference.format", "rule.emdash", "rule"]) {
+    const route = routeFor(key);
+    assert.ok(route, `${key} resolved to nothing`);
+    assert.equal(route.layer, "longterm", `${key} is not durable`);
+    assert.equal(route.evict, "never", `${key} expires`);
+  }
+
+  const { strategy, profileStore } = strategyWith({
+    ops: [
+      [
+        { op: "set", key: "preference.style", value: "Terse. No preamble." },
+        { op: "set", key: "preference.format", value: "Bullets, code first" },
+        { op: "set", key: "rule.emdash", value: "Never use em-dashes" },
+        { op: "set", key: "goal", value: "pick a queue" },
+        // Same sentiment, task-scoped namespace — this one *should* die with
+        // the task, and the pair is the whole distinction the router draws.
+        { op: "set", key: "constraint.length", value: "the plan must fit two pages" },
+      ],
+    ],
+  });
+
+  const { state, history, turns } = await converse(strategy, ["how I like to be answered"]);
+  const durable = ["preference.format", "preference.style", "rule.emdash"];
+  assert.deepEqual(Object.keys((await profileStore.load("local")).entries).sort(), durable);
+  assert.deepEqual(Object.keys(state.working).sort(), ["constraint.length", "goal"]);
+  assert.match(turns[0].system, /<profile>[\s\S]*rule\.emdash: Never use em-dashes/);
+  // The block says out loud that these lines are instructions. Without it a
+  // model reads "prefers bullets" as biography and answers in prose anyway.
+  assert.match(turns[0].system, /standing instructions about how to answer/);
+
+  const finished = await strategy.finishTask({ state, history, provider: new StubProvider() });
+  assert.deepEqual(Object.keys(finished.state.working), [], "the task was not cleared");
+  assert.deepEqual(Object.keys((await profileStore.load("local")).entries).sort(), durable);
+
+  // And the next turn, on the far side of the boundary, still carries them.
+  const next = await converse(strategy, ["something completely different"], {
+    from: { history, state: finished.state },
+  });
+  assert.match(next.turns[0].system, /preference\.style: Terse\. No preamble\./);
+  assert.match(next.turns[0].system, /rule\.emdash: Never use em-dashes/);
+  assert.doesNotMatch(next.turns[0].system, /two pages/, "a task-scoped constraint outlived its task");
+});
+
+test("the profile form may only write durable keys", () => {
+  const applied = applyOps({ working: {}, profile: emptyProfile() }, [
+    { op: "set", key: "preference.style", value: "Terse" },
+    { op: "set", key: "constraint.length", value: "two pages" },
+  ], { turn: 1, allow: ["set", "delete", "promote"], origin: "person", source: "declared" });
+
+  assert.deepEqual(Object.keys(applied.profile.entries), ["preference.style"]);
+  assert.deepEqual(Object.keys(applied.working), []);
+  assert.match(applied.discarded[0].reason, /only long-term entries can be declared/);
+});
+
+// ---- declared vs learned ----------------------------------------------------
+
+/** A profile with one declared entry and one learned one. */
+function declaredProfile() {
+  return {
+    user: "local",
+    nextId: 3,
+    entries: {
+      "preference.style": {
+        id: "e1",
+        key: "preference.style",
+        value: "Terse. Never any code.",
+        updatedAt: null,
+        source: "declared",
+      },
+      "preference.tooling": {
+        id: "e2",
+        key: "preference.tooling",
+        value: "never suggest Kubernetes",
+        updatedAt: null,
+        source: "learned",
+      },
+    },
+  };
+}
+
+test("a model may not overwrite what you declared; a person may", async () => {
+  const profile = declaredProfile();
+
+  // (a) A model-originated op onto a declared key writes nothing and leaves a
+  // correction behind instead: *you declared X, the conversation suggests Y*.
+  const byModel = applyOps({ working: {}, profile }, [
+    { op: "set", key: "preference.style", value: "Chatty, with plenty of examples" },
+  ], { turn: 3, origin: "model" });
+
+  assert.deepEqual(byModel.set, [], "a model wrote over a declared entry");
+  assert.equal(byModel.profile.entries["preference.style"].value, "Terse. Never any code.");
+  assert.equal(byModel.profileTouched, false);
+  assert.deepEqual(byModel.contested, [{
+    key: "preference.style",
+    value: "Chatty, with plenty of examples",
+    was: "Terse. Never any code.",
+    reason: "declared",
+  }]);
+  assert.match(describeOf(byModel), /held back by what you declared/);
+
+  // Learned-over-learned still overwrites exactly as it always did — the rule
+  // is about who wrote the entry, not about long-term being read-only.
+  const learned = applyOps({ working: {}, profile }, [
+    { op: "set", key: "preference.tooling", value: "Kubernetes is fine now" },
+  ], { turn: 3, origin: "model" });
+  assert.deepEqual(learned.set, ["preference.tooling"]);
+  assert.equal(learned.profile.entries["preference.tooling"].value, "Kubernetes is fine now");
+  assert.equal(learned.profile.entries["preference.tooling"].source, "learned");
+
+  // (b) A person-originated op onto the same declared key writes.
+  const byPerson = applyOps({ working: {}, profile }, [
+    { op: "set", key: "preference.style", value: "Chatty, with plenty of examples" },
+  ], { turn: 3, origin: "person", allow: ["set", "delete", "promote"], source: "declared" });
+  assert.deepEqual(byPerson.set, ["preference.style"]);
+  assert.equal(byPerson.profile.entries["preference.style"].value, "Chatty, with plenty of examples");
+  // Same entry, edited — not a second one beside the first.
+  assert.equal(byPerson.profile.entries["preference.style"].id, "e1");
+  assert.deepEqual(byPerson.contested, []);
+
+  // Approving the correction is the other person-originated path, and it keeps
+  // the provenance: you are still the one deciding what the entry says.
+  const store = new MemoryProfileStore();
+  await store.save("local", declaredProfile());
+  const { strategy } = strategyWith({
+    profileStore: store,
+    ops: [[{ op: "set", key: "preference.style", value: "Chatty, with plenty of examples" }]],
+  });
+  const { state } = await converse(strategy, ["actually give me lots of examples"]);
+
+  const [proposal] = state.proposals.filter((p) => p.status === "pending");
+  assert.equal(proposal.kind, "correction");
+  assert.equal(proposal.reason, "declared");
+  assert.equal(proposal.was, "Terse. Never any code.");
+  assert.equal((await store.load("local")).entries["preference.style"].value, "Terse. Never any code.");
+
+  const panel = strategy.panel(state, { turns: 1 });
+  const row = panel.profile.find((entry) => entry.key === "preference.style");
+  assert.equal(row.declared, true);
+  assert.equal(row.proposal.value, "Chatty, with plenty of examples");
+
+  await strategy.answerProposal({ state, id: proposal.id, action: "approve", turns: 1 });
+  const after = (await store.load("local")).entries["preference.style"];
+  assert.equal(after.value, "Chatty, with plenty of examples");
+  assert.equal(after.source, "declared", "approving a correction demoted a declared entry");
+});
+
+test("a declared entry is never shadowed by the task, and says so instead", async () => {
+  const store = new MemoryProfileStore();
+  await store.save("local", declaredProfile());
+
+  const { strategy } = strategyWith({
+    profileStore: store,
+    // A task-scoped key that collides with both long-term entries at once: one
+    // declared, one learned. Routing sends both to working, as it always does.
+    ops: [[
+      { op: "set", key: "preference.style", value: "long and chatty for this one" },
+      { op: "set", key: "preference.tooling", value: "use Kubernetes here" },
+    ]],
+  });
+
+  // The extractor cannot write either of those to long-term — one is declared,
+  // and the other it *can*, so this drives the working-memory collision by
+  // hand, which is the shape `applyOps` guards.
+  const seeded = {
+    ...strategy.emptyState(),
+    working: {
+      "preference.style": { value: "long and chatty for this one", updatedAt: null, turn: 0, previous: [] },
+      "preference.tooling": { value: "use Kubernetes here", updatedAt: null, turn: 0, previous: [] },
+    },
+  };
+  const built = await strategy.buildPayload({
+    history: [{ role: "user", content: "for this one, go long" }],
+    systemPrompt: "persona",
+    state: seeded,
+    provider: new StubProvider(),
+  });
+
+  // Rule 1: the learned entry is shadowed — one key, one block, and the task
+  // is the more recent of the two.
+  assert.deepEqual(built.meta.layers.shadowed, ["preference.tooling"]);
+  assert.doesNotMatch(built.system, /never suggest Kubernetes/);
+
+  // Rule 2: the declared entry is sent anyway. A preference the user wrote
+  // down is not silently overridden by something inferred from one exchange.
+  assert.deepEqual(built.meta.layers.declared, ["preference.style"]);
+  assert.match(built.system, /<profile>[\s\S]*preference\.style: Terse\. Never any code\./);
+
+  // ...and the disagreement is raised rather than swallowed.
+  const correction = built.state.proposals.find(
+    (p) => p.key === "preference.style" && p.status === "pending"
+  );
+  assert.equal(correction.kind, "correction");
+  assert.equal(correction.reason, "declared");
+  assert.equal(correction.was, "Terse. Never any code.");
+  assert.equal(correction.value, "long and chatty for this one");
+
+  // Working memory itself is untouched by either rule: both rows are still
+  // there, and both are still on the wire from `<working>`.
+  assert.match(built.system, /<working>[\s\S]*preference\.style: long and chatty for this one/);
+  assert.match(built.system, /<working>[\s\S]*preference\.tooling: use Kubernetes here/);
+
+  const row = strategy.panel(built.state, { turns: 1 }).profile.find((p) => p.key === "preference.style");
+  assert.equal(row.contested, true);
+  assert.equal(row.sent, true, "a declared row was reported as not being sent");
+});
+
+// ---- what the profile costs -------------------------------------------------
+
+test("the profile's per-turn cost is a number beside the two call bills", async () => {
+  const store = new MemoryProfileStore();
+  await store.save("local", declaredProfile());
+  const { strategy } = strategyWith({ profileStore: store, window: 4 });
+  const { state } = await converse(strategy, ["one", "two", "three", "four"]);
+
+  const { overheadProfile, overheadWorking, overheadSummary } = state.usage;
+  // It is counted on every turn, including the ones where no call was made —
+  // that is the claim: the profile is paid for whether or not it was used.
+  assert.equal(overheadProfile.turns, 4);
+  assert.equal(overheadProfile.calls, 0, "a block that was never a request is claiming calls");
+  assert.ok(overheadProfile.inputTokens > 0);
+  assert.equal(overheadProfile.estimated, true, "an estimate must say so");
+  // And it is a third bucket, not a share of either of the other two.
+  assert.equal(overheadWorking.calls, 4);
+  assert.equal(overheadSummary.calls, 1);
+});
+
+/** `describe()` is private; this reads its output off an applied patch. */
+function describeOf(applied) {
+  const parts = [];
+  if (applied.set.length) parts.push("set");
+  const declared = applied.contested.filter((row) => row.reason === "declared").length;
+  if (declared) parts.push(`${declared} held back by what you declared`);
+  return parts.join(", ");
+}

@@ -1,3 +1,4 @@
+import { estimateCost } from "../llm/pricing.js";
 import { Summarizer } from "../summarizer.js";
 import { DEFAULT_USER, defaultProfileStore } from "../store/profileStore.js";
 import { exchangeStarts, foldTo, snapToUserMessage, toWire } from "./boundaries.js";
@@ -30,21 +31,43 @@ export const ROUTES = {
   agreement: { layer: "working", evict: "task", promotable: true },
   profile: { layer: "longterm", evict: "never" },
   preference: { layer: "longterm", evict: "never" },
+  rule: { layer: "longterm", evict: "never" },
 };
 
 /** The namespaces, in the order a block lists them. */
 export const NAMESPACES = Object.keys(ROUTES);
 
-/** One line each, for the extractor's prompt and for the panel's legend. */
+/**
+ * One line each, for the extractor's prompt and for the panel's legend.
+ *
+ * Two of these are dotted rather than bare, and that is the whole of the fix
+ * for the thing the README calls the recurring lesson: *a misfiled fact is
+ * usually a missing row*. "Keep it short", "bullets please" and "never use
+ * em-dashes" had no durable home, so they were filed as `constraint.*` —
+ * task-scoped — and were deleted at the next *Finish task*, which is exactly
+ * backwards for the one kind of thing a user expects never to have to repeat.
+ *
+ * The routing table itself did not need a new *layer* for them. The router
+ * cares about one distinction and one only — **durable vs task-scoped** — and
+ * `preference` was already durable. What was missing was the extractor knowing
+ * that a request about tone or format is a `preference.*`, so the meanings
+ * table names the two sub-keys directly. `rule` is a namespace of its own
+ * because a standing rule is not a *want*: "I prefer bullets" and "never use
+ * em-dashes" behave differently when the two disagree with each other, and
+ * they read differently in the block the model is handed.
+ */
 const MEANINGS = {
   goal: "what the user is trying to achieve in the work at hand",
-  constraint: "something the work must respect — a version, a port, a date, a budget",
+  constraint: "something *the work in hand* must respect — a version, a port, a date, a budget. Dies with the task",
   finding: "something learned about the subject of the work — an observation, a result, a measurement",
   open: "a question nobody has answered yet — never something you have just learned",
   decision: "something that has been settled",
   agreement: "something the user and the assistant agreed to do",
   profile: "who the user is — their role, team, company, stack; true of them whatever the task",
   preference: "how this user likes to work, true beyond the task at hand",
+  "preference.style": "how they want to be spoken to — tone, warmth, verbosity, how much to assume they know",
+  "preference.format": "what an answer should look like — bullets or prose, code first, how long",
+  rule: "a hard standing rule the assistant must always obey, stated as a prohibition or an obligation ('never use em-dashes', 'always show the SQL'). Needs a sub-key: rule.emdash, rule.sql",
 };
 
 /** `constraint.database`, `preference.tooling`, or a bare `goal`. */
@@ -102,13 +125,29 @@ export function routeFor(key) {
  * @param {Record<string, { value: string }>} entries
  */
 export function profileBlock(entries) {
-  const lines = orderKeys(entries).map((key) => `${key}: ${entries[key].value}`);
+  const keys = orderKeys(entries);
+  const lines = keys.map((key) => `${key}: ${entries[key].value}`);
   if (!lines.length) return "";
+
+  // A `profile.*` fact is context; a `preference.*` or a `rule.*` is an
+  // instruction, and the difference has to be said out loud. Told only that
+  // something is "known about this user", a model treats "prefers bullets" as
+  // a biographical detail and answers in prose anyway — which makes the whole
+  // layer look like it is not working when what is not working is one line of
+  // framing. It is conditional because a profile with no standing instructions
+  // in it should not pay for a sentence about them on every turn.
+  const standing = keys.some((key) => key.startsWith("preference") || key.startsWith("rule"));
+
   return [
     "",
     "",
     "<profile>",
     "Known about this user from every conversation so far — long-lived, and true until they say otherwise.",
+    ...(standing
+      ? [
+          "The preference.* and rule.* lines are standing instructions about how to answer. Follow them in this reply and every reply, even when the question says nothing about them. A rule.* line is absolute.",
+        ]
+      : []),
     ...lines,
     "</profile>",
   ].join("\n");
@@ -153,7 +192,7 @@ const EXTRACTOR_PROMPT = [
   "field other than op, key and value.",
   "",
   "The namespaces, and what each one means:",
-  ...NAMESPACES.map((namespace) => `- ${namespace}: ${MEANINGS[namespace]}`),
+  ...Object.entries(MEANINGS).map(([key, meaning]) => `- ${key}: ${meaning}`),
   "",
   "WHAT COUNTS AS A CHANGE — this is the part that goes wrong:",
   "- Return [] when the exchange establishes nothing new. **Most turns establish nothing.**",
@@ -199,6 +238,14 @@ const EXTRACTOR_PROMPT = [
   "  themselves lands beside it instead of on top of it. A fact about someone or something",
   "  they are *working on* — a candidate, a ticket, a release — is not a profile fact: that",
   "  belongs to the task, as a `constraint.*` or a `decision.*`, and dies with it.",
+  "- **How they want to be answered is durable, never a `constraint.*`.** Ask when it stops",
+  "  being true: at the end of this task, or never. 'Keep this plan under two pages' is a",
+  "  `constraint.*`; 'keep your answers short' is about you, forever. One example of each:",
+  '    "I get lost in long answers" → {"op":"set","key":"preference.style","value":"Wants brief answers"}',
+  '    "bullets, code before the prose" → {"op":"set","key":"preference.format","value":"Bullets, code first"}',
+  '    "never use em-dashes" → {"op":"set","key":"rule.emdash","value":"Never use em-dashes"}',
+  "  A `rule.*` is an absolute they stated as one ('never', 'always'); a softer want is a",
+  "  `preference.*`. Do not promote a preference to a rule because it was said firmly.",
   "- `preference.*` is for how the user works in general ('always show me the SQL',",
   "  'I hate emoji'). Something true only of this piece of work is a constraint, not a",
   "  preference.",
@@ -358,9 +405,32 @@ export class Promoter {
  *                 a *human* saying yes, so it is refused when it arrives from a
  *                 model: `allow` does not include it during extraction.
  *
+ * **Declared wins.** Long-term entries carry where they came from: `declared`
+ * if the user typed them into the profile form, `learned` if the extractor
+ * proposed them and they were routed or approved. A *model-originated* op onto
+ * a key whose current entry is `declared` does not write — it becomes a
+ * correction proposal, in the same shape the task boundary produces, reading
+ * *you declared X, the conversation suggests Y*. A person-originated op always
+ * writes, and learned-over-learned keeps overwriting exactly as it did before.
+ *
+ * `origin` and `source` are two different questions and it is worth being
+ * clear which is which: `origin` is **who sent this patch** and decides
+ * whether the write is allowed at all; `source` is **what to stamp on what
+ * gets written** and only matters in long-term. Collapsing them into one field
+ * was the first thing tried, and it makes "a person approving a correction to
+ * a declared entry" unrepresentable.
+ *
  * @param {{ working: Record<string, object>, profile: import("../store/profileStore.js").Profile }} stores
  * @param {unknown[]} ops
- * @param {{ turn?: number, maxWorking?: number, allow?: string[], source?: string }} [params]
+ * @param {object} [params]
+ * @param {number} [params.turn]
+ * @param {number} [params.maxWorking]
+ * @param {string[]} [params.allow]
+ * @param {"model" | "person"} [params.origin] - Who sent these ops. Defaults to
+ *   the cautious answer, which is also the default `allow` list's answer.
+ * @param {"declared" | "learned" | null} [params.source] - What to stamp on
+ *   long-term writes. `null` keeps whatever the entry already had, and makes a
+ *   brand-new entry `learned`.
  */
 export function applyOps(
   { working, profile },
@@ -371,6 +441,7 @@ export function applyOps(
     allow = ["set", "delete"],
     longtermDeletes = false,
     unpairedCloses = false,
+    origin = "model",
     source = null,
   } = {}
 ) {
@@ -400,13 +471,22 @@ export function applyOps(
   /** Keys that were proposed and not stored — the panel says so out loud. */
   const discarded = [];
   /**
-   * Working writes that land on a key long-term already holds.
+   * Everything this patch noticed and refused to resolve on its own, as
+   * `{ key, value, was, reason }` — the raw material for a correction proposal.
    *
-   * Routing is by namespace, so `decision.hire` always lands in working — even
-   * when a copy of that exact key was promoted to long-term two conversations
-   * ago. Without noticing the collision here, "we fired him" would update
-   * working while the profile went on telling every future conversation that
-   * he was hired, and nothing in the system would ever reconcile the two.
+   * Two things end up here, and they are the same shape because they are the
+   * same event seen from two sides: *long-term and the conversation disagree,
+   * and a person has to say which one is right.*
+   *
+   *   - `task`     — a working write that lands on a key long-term already
+   *                  holds. Routing is by namespace, so `decision.hire` always
+   *                  lands in working even when a copy of that exact key was
+   *                  promoted two conversations ago. Without noticing the
+   *                  collision, "we fired him" would update working while the
+   *                  profile went on telling every future conversation that he
+   *                  was hired, and nothing would ever reconcile the two.
+   *   - `declared` — a model-originated write onto a key the user declared.
+   *                  The write does not happen; the disagreement is recorded.
    */
   const contested = [];
 
@@ -443,6 +523,22 @@ export function applyOps(
     }
     if (!permitted.has(action)) {
       discarded.push({ key, op: action || "(no op)", reason: "operation not allowed here", at: now, turn });
+      continue;
+    }
+
+    // The profile form may only write to the profile. A `constraint.*` typed
+    // into a field labelled "how I like to be answered" would be routed to
+    // working memory and deleted at the next *Finish task* — the exact failure
+    // the durable namespaces were added to end, arriving by a different door.
+    if (source === "declared" && route.layer !== "longterm" && action !== "delete") {
+      discarded.push({
+        key,
+        op: action,
+        value: String(op?.value ?? "").replace(/\s+/g, " ").trim().slice(0, MAX_VALUE_LENGTH),
+        reason: `only long-term entries can be declared — ${route.namespace} is cleared when a task ends`,
+        at: now,
+        turn,
+      });
       continue;
     }
 
@@ -504,7 +600,16 @@ export function applyOps(
     }
 
     if (route.layer === "longterm") {
-      if (nextProfile.entries[key]?.value === value) continue;
+      const held = nextProfile.entries[key];
+      if (held?.value === value) continue;
+      // **Declared wins.** The model is not wrong here so much as unaware: it
+      // has read one exchange and the user has read their own profile. So the
+      // op is kept rather than dropped — as a proposal, where the person who
+      // declared the entry can see both sentences side by side and pick one.
+      if (held?.source === "declared" && origin === "model") {
+        contested.push({ key, value, was: held.value, reason: "declared" });
+        continue;
+      }
       const entry = writeProfile(nextProfile, key, value, source, now);
       stamped.push(entry.id);
       set.push(key);
@@ -521,7 +626,7 @@ export function applyOps(
     nextWorking[key] = { value, updatedAt: now, turn, previous };
     set.push(key);
     const held = nextProfile.entries[key];
-    if (held && held.value !== value) contested.push({ key, value, was: held.value });
+    if (held && held.value !== value) contested.push({ key, value, was: held.value, reason: "task" });
   }
 
   return {
@@ -546,7 +651,10 @@ function writeProfile(profile, key, value, source, now) {
     key,
     value,
     updatedAt: now,
-    source: source ?? existing?.source ?? null,
+    // `null` means "do not restate the provenance" — which keeps a declared
+    // entry declared when the person edits or approves a change to it, and
+    // makes anything brand new `learned`.
+    source: source ?? existing?.source ?? "learned",
   };
   if (!existing) profile.nextId = (profile.nextId ?? 1) + 1;
   profile.entries[key] = entry;
@@ -668,6 +776,20 @@ export class MemoryStrategy extends ContextStrategy {
     return "Profile, working memory and a rolling digest in the system prompt. Extracts every turn, folds at the mark, and keeps what you approve forever.";
   }
 
+  /**
+   * Switch profiles between turns.
+   *
+   * The store is one object shared by every profile and keyed by user, so
+   * switching is a field assignment and not a reconstruction — and the
+   * extractor, the promoter and the summarizer it has already built stay
+   * built. An empty id is ignored rather than treated as "nobody": a request
+   * that forgot to say whose profile it is should get the one it had, not a
+   * blank one.
+   */
+  useProfile(user) {
+    if (typeof user === "string" && user.trim()) this.user = user.trim().toLowerCase();
+  }
+
   /** The store, resolved lazily so listing the catalogue touches no disk. */
   get profileStore() {
     this.#profileStore ??= defaultProfileStore();
@@ -685,6 +807,7 @@ export class MemoryStrategy extends ContextStrategy {
       discarded: [],
       promotedAt: {},
       profileSeen: {},
+      profileUser: null,
       attribution: [],
       usage: emptySpend(),
     };
@@ -738,13 +861,32 @@ export class MemoryStrategy extends ContextStrategy {
     // would put "he was hired" and "he was fired" in front of the model at
     // once, under the same key, with no rule for which wins — and the more
     // recent statement is the one the user just made.
+    //
+    // **Except a declared entry, which is never shadowed.** The rule above
+    // reads the task as the more recent statement, and for a fact about the
+    // work that is right. For something the user *wrote down about how they
+    // want to be answered* it is exactly wrong: they said it on purpose, in a
+    // form, and the thing displacing it was inferred from one exchange by a
+    // model. So a declared entry is always sent, and the disagreement becomes
+    // the same correction proposal any other disagreement becomes. Silently
+    // overriding a declared preference with task state is the failure this
+    // exemption exists to make impossible.
     const shadowed = [];
+    const exempt = [];
+    const overridden = [];
     for (const key of Object.keys(visible)) {
-      if (key in next.working) {
-        delete visible[key];
-        shadowed.push(key);
+      if (!(key in next.working)) continue;
+      if (visible[key].source === "declared") {
+        exempt.push(key);
+        if (next.working[key].value !== visible[key].value) {
+          overridden.push({ key, value: next.working[key].value, was: visible[key].value, reason: "declared" });
+        }
+        continue;
       }
+      delete visible[key];
+      shadowed.push(key);
     }
+    next.proposals = withCorrections(next.proposals, overridden, turn);
 
     const blocks = {
       profile: profileBlock(visible),
@@ -752,7 +894,27 @@ export class MemoryStrategy extends ContextStrategy {
       digest: summaryBlock(next.digest),
     };
 
+    // **What the profile costs, per turn, as a number.** Every other figure in
+    // this strategy's bill is a model call it made; this one is not a call at
+    // all — it is the block riding along in the input of the turn's own
+    // request, on every turn, forever. Leaving it out of the ledger is what
+    // lets long-term memory look free, and it is the one layer whose cost is
+    // paid again on every single turn whether or not it was used.
+    //
+    // It is an *estimate*, and deliberately a cheap one: measuring it exactly
+    // would mean a second `count_tokens` round trip per turn to answer a
+    // question about proportions. The estimator is the usual four-characters-
+    // a-token, and the bucket says `estimated: true` so nothing downstream can
+    // mistake it for the measured figures beside it.
+    next.usage = addProfileSpend(next.usage, blocks.profile, model ?? provider?.model);
+
     next.profileSeen = snapshot(extracted.profile);
+    // Whose profile this was. The panel is built from stored state by routes
+    // that hold a record rather than a strategy, so without recording it here
+    // the panel could not say which profile the rows above it came from — and
+    // after a switch in the topbar it would show one profile's entries under
+    // another profile's name.
+    next.profileUser = this.user;
     next.attribution = [
       ...next.attribution.filter((row) => row.turn !== turn),
       {
@@ -781,6 +943,9 @@ export class MemoryStrategy extends ContextStrategy {
           working: Object.keys(next.working).length,
           digest: next.digest ? 1 : 0,
           shadowed,
+          // Keys the task also holds that were sent from the profile anyway,
+          // because the user declared them.
+          declared: exempt,
         },
       },
     };
@@ -806,16 +971,35 @@ export class MemoryStrategy extends ContextStrategy {
     const profile = visibleProfile({ entries: current.profileSeen }, current.promotedAt, turns);
     const proposals = current.proposals.filter((p) => (p.turn ?? 0) <= turns);
     const pending = proposals.filter((p) => p.status === "pending");
+    /** The one unanswered correction per key, so a row can show its own. */
+    const correctionFor = new Map();
+    for (const proposal of pending) {
+      if (proposal.kind === "correction") correctionFor.set(proposal.key, proposal);
+    }
 
     return {
       kind: "memory",
       title: "Memory",
+      /** Whose long-term memory the rows below were read from, last turn. */
+      user: current.profileUser ?? null,
       profile: orderKeys(profile).map((key) => ({
         key,
         namespace: key.split(".")[0],
         value: profile[key].value,
         updatedAt: profile[key].updatedAt,
-        source: profile[key].source ?? null,
+        source: profile[key].source ?? "learned",
+        // You wrote this one down on purpose. It is the flag that decides
+        // whether the extractor may overwrite the row and whether the task in
+        // hand may displace it on the wire, so the panel marks it rather than
+        // leaving the two rules invisible.
+        declared: profile[key].source === "declared",
+        // What the conversation wants this row to say instead, if anything —
+        // the same proposal the list below shows, attached to the row it is
+        // about. A correction you can only find by scrolling is one you
+        // answer without looking at what it would replace.
+        proposal: correctionFor.has(key)
+          ? { id: correctionFor.get(key).id, value: correctionFor.get(key).value, reason: correctionFor.get(key).reason ?? "task" }
+          : null,
         // A bare key in a namespace that is not singular can no longer be
         // written, so any that survive are from before that rule. They are
         // worth pointing at: the next fact about the user lands *beside* one
@@ -824,9 +1008,12 @@ export class MemoryStrategy extends ContextStrategy {
         // `profile` and `profile.location` mean the same thing — but it can
         // tell which of the two is the shape that was retired.
         legacy: Boolean(routeFor(key)?.bare && !routeFor(key)?.singular),
-        // Held by the task in hand as well, with a different value: this row
-        // is not being sent, and there is a proposal waiting to correct it.
+        // Held by the task in hand as well, with a different value.
         contested: Boolean(working[key] && working[key].value !== profile[key].value),
+        // ...and whether it is on the wire regardless. A learned row loses to
+        // the task; a declared one does not, which is the visible half of "a
+        // declared preference is never silently overridden".
+        sent: !(working[key] && working[key].value !== profile[key].value) || profile[key].source === "declared",
       })),
       task: orderKeys(working).map((key) => ({
         key,
@@ -848,6 +1035,7 @@ export class MemoryStrategy extends ContextStrategy {
         value: p.value,
         status: p.status,
         kind: p.kind ?? "promotion",
+        reason: p.reason ?? null,
         was: p.was ?? null,
       })),
       pastTasks: current.pastTasks
@@ -1005,7 +1193,11 @@ export class MemoryStrategy extends ContextStrategy {
     const applied = applyOps(
       { working: current.working, profile },
       [{ op: "promote", key: proposal.key, value: text }],
-      { turn: turns, allow: ["promote"], source: "promoted" }
+      // A person is answering, so the write happens even onto a declared key —
+      // and the entry keeps whichever provenance it already had. Approving a
+      // correction to something you declared does not demote it to `learned`:
+      // you are still the one deciding what it says.
+      { turn: turns, allow: ["promote"], origin: "person" }
     );
     await this.#saveProfile(applied.profile);
 
@@ -1039,7 +1231,7 @@ export class MemoryStrategy extends ContextStrategy {
    *
    * @param {{ state: object, ops: object[], turns?: number }} params
    */
-  async applyPanelOps({ state, ops, turns = 0 }) {
+  async applyPanelOps({ state, ops, turns = 0, declared = false }) {
     const current = normaliseState(state);
     const profile = await this.#loadProfile();
     const applied = applyOps({ working: current.working, profile }, ops, {
@@ -1049,7 +1241,10 @@ export class MemoryStrategy extends ContextStrategy {
       allow: ["set", "delete", "promote"],
       longtermDeletes: true,
       unpairedCloses: true,
-      source: "panel",
+      origin: "person",
+      // The profile form says so; *forget* and *promote* do not, and leave
+      // whatever provenance the row already had alone.
+      source: declared ? "declared" : null,
     });
 
     if (applied.profileTouched) await this.#saveProfile(applied.profile);
@@ -1063,6 +1258,7 @@ export class MemoryStrategy extends ContextStrategy {
         working: applied.working,
         promotedAt,
         profileSeen: snapshot(applied.profile),
+        proposals: withCorrections(current.proposals, applied.contested, turns),
         discarded: mergeDiscarded(current.discarded, applied.discarded),
       },
       note: describe(applied) || "nothing changed",
@@ -1113,7 +1309,9 @@ export class MemoryStrategy extends ContextStrategy {
       // The model proposes a key and a value. It may not promote, and it may
       // not say which layer anything belongs in.
       allow: ["set", "delete"],
-      source: "extracted",
+      // The patch came from a model, which is what makes a declared entry
+      // untouchable by it.
+      origin: "model",
     });
 
     const profileKeys = [...applied.set, ...applied.deleted, ...applied.promoted].filter(
@@ -1278,6 +1476,50 @@ function emptySpend() {
   return {
     overheadWorking: { calls: 0, inputTokens: 0, outputTokens: 0, costUsd: 0 },
     overheadSummary: { calls: 0, inputTokens: 0, outputTokens: 0, costUsd: 0 },
+    // The third figure is not a call. It is the `<profile>` block riding in
+    // the input of the turn's own request, every turn, and it is `estimated`
+    // rather than measured — see `addProfileSpend`.
+    overheadProfile: { calls: 0, turns: 0, inputTokens: 0, outputTokens: 0, costUsd: 0, estimated: true },
+  };
+}
+
+/**
+ * Four characters to a token.
+ *
+ * Crude, and knowingly so. The alternative is a `count_tokens` round trip per
+ * turn spent on a number nobody acts on to four significant figures, and the
+ * figure this feeds is labelled `estimated` wherever it is shown. What it has
+ * to be is *consistent*: two profiles compared against each other are measured
+ * by the same ruler, however approximate the ruler is.
+ */
+function estimateBlockTokens(text) {
+  const length = String(text ?? "").trim().length;
+  return length ? Math.ceil(length / 4) : 0;
+}
+
+/**
+ * The profile block's share of this turn's input, added to the running total.
+ *
+ * `turns` rather than `calls`: nothing was called. A bucket claiming calls it
+ * never made would be added to the strategy's call count by any code that
+ * treats the three buckets alike, and then the overhead figure would be
+ * counting a block as a request.
+ */
+function addProfileSpend(usage, block, model) {
+  const inputTokens = estimateBlockTokens(block);
+  const base = usage?.overheadProfile ?? emptySpend().overheadProfile;
+  if (!inputTokens) return { ...emptySpend(), ...usage, overheadProfile: { ...base, turns: base.turns + 1 } };
+
+  const cost = estimateCost({ model, inputTokens, outputTokens: 0 });
+  return {
+    ...emptySpend(),
+    ...usage,
+    overheadProfile: {
+      ...base,
+      turns: base.turns + 1,
+      inputTokens: base.inputTokens + inputTokens,
+      costUsd: base.costUsd + (cost.inputCost ?? 0),
+    },
   };
 }
 
@@ -1318,7 +1560,7 @@ function mergeDiscarded(existing, incoming) {
  * task says something new about it.
  */
 function withCorrections(proposals, contested, turn) {
-  if (!contested.length) return proposals;
+  if (!contested?.length) return proposals;
   const next = [...proposals];
 
   for (const row of contested) {
@@ -1329,6 +1571,12 @@ function withCorrections(proposals, contested, turn) {
       value: row.value,
       was: row.was,
       kind: "correction",
+      // Which disagreement this is, so the panel can say the right sentence:
+      // a `task` correction is long-term going stale against the work in hand,
+      // a `declared` one is the conversation arguing with something the user
+      // wrote down on purpose. The second deserves more deference than the
+      // first, and neither is resolved without them.
+      reason: row.reason ?? "task",
       status: "pending",
       turn,
       createdAt: new Date().toISOString(),
@@ -1339,11 +1587,16 @@ function withCorrections(proposals, contested, turn) {
 }
 
 /** One human line for the per-turn counter. */
-function describe({ set, deleted, promoted, discarded }) {
+function describe({ set, deleted, promoted, discarded, contested = [] }) {
   const parts = [];
   if (set.length) parts.push(`${set.length} key${set.length === 1 ? "" : "s"} set`);
   if (deleted.length) parts.push(`${deleted.length} forgotten`);
   if (promoted.length) parts.push(`${promoted.length} promoted`);
+  // A refused write onto a declared entry is not nothing happening, and it is
+  // not a malformed op either. Left out of this line it reads as a turn where
+  // the extractor found nothing.
+  const declared = contested.filter((row) => row.reason === "declared").length;
+  if (declared) parts.push(`${declared} held back by what you declared`);
   const unknown = discarded.filter((row) => row.reason === "unknown namespace");
   if (unknown.length) parts.push(`${unknown.length} proposed, not stored`);
   else if (discarded.length) parts.push(`${discarded.length} malformed op${discarded.length === 1 ? "" : "s"} discarded`);
@@ -1448,16 +1701,17 @@ export function visibleProfile(profile, promotedAt = {}, turns = Infinity) {
 function snapshot(profile) {
   const entries = {};
   for (const [key, entry] of Object.entries(profile?.entries ?? {})) {
-    // `source` rides along so the panel can say which rows a human approved
-    // and which the extractor routed there on its own. Long-term never
-    // expires, so "who decided this about me?" is a question worth being able
-    // to answer months later.
+    // `source` rides along so the panel can say which rows the user wrote and
+    // which the extractor put there on its own. Long-term never expires, so
+    // "who decided this about me?" is a question worth being able to answer
+    // months later — and it is the field that decides whether a model is
+    // allowed to overwrite the row at all.
     entries[key] = {
       id: entry.id,
       key,
       value: entry.value,
       updatedAt: entry.updatedAt,
-      source: entry.source ?? null,
+      source: entry.source === "declared" ? "declared" : "learned",
     };
   }
   return entries;
@@ -1483,6 +1737,7 @@ export function normaliseState(state) {
     discarded: [],
     promotedAt: {},
     profileSeen: {},
+    profileUser: null,
     attribution: [],
     usage: emptySpend(),
   };
@@ -1509,7 +1764,7 @@ export function normaliseState(state) {
       key,
       value,
       updatedAt: typeof entry.updatedAt === "string" ? entry.updatedAt : null,
-      source: typeof entry.source === "string" ? entry.source : null,
+      source: entry.source === "declared" ? "declared" : "learned",
     };
   }
 
@@ -1524,6 +1779,7 @@ export function normaliseState(state) {
     working,
     profileSeen,
     promotedAt,
+    profileUser: typeof source.profileUser === "string" ? source.profileUser : null,
     digest: typeof source.digest === "string" && source.digest.trim() ? source.digest : null,
     digestThrough: Number.isInteger(source.digestThrough) ? source.digestThrough : 0,
     digestUpdatedAt: typeof source.digestUpdatedAt === "string" ? source.digestUpdatedAt : null,

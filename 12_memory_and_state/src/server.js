@@ -13,7 +13,7 @@ import { isValidSessionId } from "./store/conversationStore.js";
 import { memoryRoutes } from "./memoryRoutes.js";
 import { JsonFileStore } from "./store/jsonFileStore.js";
 import { MemoryStore } from "./store/memoryStore.js";
-import { defaultProfileStore } from "./store/profileStore.js";
+import { DEFAULT_USER, defaultProfileStore, isValidUser } from "./store/profileStore.js";
 
 const PORT = Number(process.env.PORT) || 3000;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -112,8 +112,61 @@ app.get("/strategies", (_req, res) => {
   res.json({ strategies: strategyCatalog(), default: DEFAULT_STRATEGY });
 });
 
+/**
+ * Which profiles exist — the topbar picker, built from the store.
+ *
+ * Same discipline as `/strategies`: the list comes from the thing that owns
+ * it, never from a second list in the UI that can quietly disagree. A profile
+ * id that has never been written has no file and is not listed, which is
+ * correct — it comes into existence the moment something is declared in it.
+ */
+app.get("/profiles", async (_req, res) => {
+  try {
+    const profiles = await profileStore.list();
+    // The default is always offered, even before anything has been written to
+    // it: a picker whose first entry appears only after you have used it is a
+    // picker you cannot use.
+    if (!profiles.some((profile) => profile.id === DEFAULT_USER)) {
+      profiles.unshift({ id: DEFAULT_USER, entryCount: 0, updatedAt: null });
+    }
+    res.json({ profiles, default: DEFAULT_USER });
+  } catch (err) {
+    console.error("[/profiles]", err);
+    res.status(500).json({ error: "Could not list profiles." });
+  }
+});
+
+/**
+ * One profile, as it stands in the store right now.
+ *
+ * The panel's profile section is *what was sent on the last turn of this
+ * branch* — a snapshot, stamped, and deliberately branch-local. The editor
+ * needs the other thing: what the store actually holds for the profile you
+ * have selected, right now, whether or not this conversation has ever used it.
+ * Seeding a form from the snapshot would mean editing a copy of something that
+ * may be a fork and several turns old.
+ */
+app.get("/profiles/:id", async (req, res) => {
+  const { id } = req.params;
+  if (!isValidUser(id)) return res.status(400).json({ error: "Not a valid profile id." });
+
+  try {
+    const profile = await profileStore.load(id.toLowerCase());
+    res.json({
+      id: profile.user,
+      updatedAt: profile.updatedAt,
+      entries: Object.values(profile.entries)
+        .map((entry) => ({ key: entry.key, value: entry.value, source: entry.source, updatedAt: entry.updatedAt }))
+        .sort((a, b) => a.key.localeCompare(b.key)),
+    });
+  } catch (err) {
+    console.error("[/profiles/:id]", err);
+    res.status(500).json({ error: "Could not read that profile." });
+  }
+});
+
 app.post("/chat", async (req, res) => {
-  const { message, sessionId, contextMessages, maxTokens, strategy, branchId } = req.body ?? {};
+  const { message, sessionId, contextMessages, maxTokens, strategy, branchId, profile } = req.body ?? {};
 
   if (typeof message !== "string" || !message.trim()) {
     return res.status(400).json({ error: "A non-empty 'message' is required." });
@@ -140,6 +193,10 @@ app.post("/chat", async (req, res) => {
     return res.status(400).json({ error: `'strategy' must be one of: ${STRATEGY_IDS.join(", ")}.` });
   }
 
+  if (profile !== undefined && !isValidUser(profile)) {
+    return res.status(400).json({ error: "'profile' must be lowercase letters, digits, dash or underscore." });
+  }
+
   try {
     const agent = await agentFor(sessionId);
     const branch = branchId ?? agent.activeBranchId;
@@ -153,6 +210,11 @@ app.post("/chat", async (req, res) => {
     // silently switch strategy too.
     agent.contextMessages = window;
     agent.maxTokens = ceiling;
+    // Whose long-term memory this turn reads and writes. A live control like
+    // the other two: the topbar can switch profiles between two turns of the
+    // same conversation, which is what makes "ask the same thing as someone
+    // else" a thing you can do rather than a thing you have to rebuild for.
+    agent.profileUser = profile ? String(profile).trim().toLowerCase() : DEFAULT_USER;
     agent.strategy = strategy ?? agent.branchStrategy(branch);
 
     const { text, meta } = await agent.run(message, { branchId: branch });

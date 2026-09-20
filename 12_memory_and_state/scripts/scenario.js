@@ -227,13 +227,20 @@ function printComparison(runs) {
   }
 
   for (const run of runs) {
-    const parts = Object.entries(run.split ?? {}).filter(([, bill]) => bill?.calls);
+    // Not every bucket is a call. The profile block is input tokens in the
+    // turn's own request, counted per turn, and a filter that only knows about
+    // calls would drop the one figure that is paid on every single turn.
+    const parts = Object.entries(run.split ?? {}).filter(([, bill]) => bill?.calls || bill?.turns);
     if (parts.length < 2) continue;
     console.log(
       dim(
         `  ${run.label}: ` +
           parts
-            .map(([name, bill]) => `${name.replace("overhead", "").toLowerCase()} ${bill.calls} calls / ${formatTokens(bill.inputTokens + bill.outputTokens)} tokens / ${money(bill.costUsd)}`)
+            .map(([name, bill]) => {
+              const unit = bill.calls ? `${bill.calls} calls` : `${bill.turns} turns`;
+              const tokens = formatTokens(bill.inputTokens + bill.outputTokens);
+              return `${name.replace("overhead", "").toLowerCase()} ${unit} / ${tokens} tokens${bill.estimated ? " (est)" : ""} / ${money(bill.costUsd)}`;
+            })
             .join(" · ")
       )
     );

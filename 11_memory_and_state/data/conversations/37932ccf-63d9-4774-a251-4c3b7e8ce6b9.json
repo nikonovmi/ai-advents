@@ -1,0 +1,284 @@
+{
+  "id": "37932ccf-63d9-4774-a251-4c3b7e8ce6b9",
+  "title": "I'm learning German. I know some basics…",
+  "createdAt": "2026-09-20T00:41:12.875Z",
+  "updatedAt": "2026-09-20T00:43:05.545Z",
+  "usage": {
+    "totalInputTokens": 1501,
+    "totalOutputTokens": 538,
+    "totalCostUsd": 0.004191,
+    "turnCount": 4,
+    "overheadInputTokens": 7452,
+    "overheadOutputTokens": 148,
+    "overheadCostUsd": 0.008192,
+    "overheadCalls": 5
+  },
+  "branches": {
+    "main": {
+      "id": "main",
+      "name": "main",
+      "headId": "m8",
+      "forkedFromMessageId": null,
+      "parentBranchId": null,
+      "strategy": "memory",
+      "strategyState": {
+        "memory": {
+          "working": {},
+          "digest": "## Facts about the user\n- Learning German\n- Knows some basics\n- Located in Berlin\n- Interested in improving day-to-day conversational speech\n\n## Decisions made\n- Focusing on the word \"Alltag\" (everyday life) as a learning anchor\n\n## Preferences and constraints\n- Wants practical, conversational improvement rather than formal study\n\n## Open questions\n- none\n\n## Discarded / superseded\n- none",
+          "digestThrough": 4,
+          "digestUpdatedAt": "2026-09-20T00:43:02.983Z",
+          "pastTasks": [],
+          "proposals": [],
+          "discarded": [],
+          "promotedAt": {},
+          "profileSeen": {
+            "profile.location": {
+              "id": "e3",
+              "key": "profile.location",
+              "value": "Berlin",
+              "updatedAt": "2026-09-19T22:53:25.356Z",
+              "source": "extracted"
+            },
+            "profile.role": {
+              "id": "e4",
+              "key": "profile.role",
+              "value": "Hiring manager or interviewer for Senior Android Developer role",
+              "updatedAt": "2026-09-19T22:56:22.918Z",
+              "source": "extracted"
+            },
+            "profile.hiring": {
+              "id": "e6",
+              "key": "profile.hiring",
+              "value": "Willing to move forward with candidates who demonstrate strong conceptual understanding but need support on implementation details, particularly when other screening sections are solid.",
+              "updatedAt": "2026-09-19T23:07:15.092Z",
+              "source": "promoted"
+            },
+            "profile.learning": {
+              "id": "e7",
+              "key": "profile.learning",
+              "value": "German; focusing on improving day-to-day speech beyond basics",
+              "updatedAt": "2026-09-20T00:41:08.291Z",
+              "source": "extracted"
+            }
+          },
+          "attribution": [
+            {
+              "turn": 1,
+              "profile": 509,
+              "working": 0,
+              "digest": 0
+            },
+            {
+              "turn": 2,
+              "profile": 509,
+              "working": 0,
+              "digest": 0
+            },
+            {
+              "turn": 3,
+              "profile": 509,
+              "working": 0,
+              "digest": 0
+            },
+            {
+              "turn": 4,
+              "profile": 509,
+              "working": 0,
+              "digest": 522
+            }
+          ],
+          "usage": {
+            "overheadWorking": {
+              "calls": 4,
+              "inputTokens": 6668,
+              "outputTokens": 49,
+              "costUsd": 0.006913
+            },
+            "overheadSummary": {
+              "calls": 1,
+              "inputTokens": 784,
+              "outputTokens": 99,
+              "costUsd": 0.001279
+            }
+          }
+        }
+      }
+    }
+  },
+  "activeBranchId": "main",
+  "messages": [
+    {
+      "role": "user",
+      "content": "I'm learning German. I know some basics, I want to focus on improving my day to day speach.",
+      "id": "m1",
+      "tokens": {
+        "request": 30
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Great! Here are practical ways to improve conversational German:\n\n**Immersion in daily life:**\n- Listen to German podcasts or YouTube channels about topics you care about\n- Watch German shows/films with subtitles (start with German subs, not English)\n- Change your phone/computer language to German\n\n**Speaking practice:**\n- Language exchange partners (Tandem app, local meetups in Berlin)\n- Talk to yourself—narrate what you're doing in German\n- Join a conversation club or Stammtisch (regular meetup)\n\n**Focused learning:**\n- Learn phrases and idioms, not just isolated words\n- Focus on common verbs and their patterns\n- Practice the cases (der/die/das) as you go—they matter for natural speech\n\n**Quick wins:**\n- German radio or podcasts during commutes\n- Follow German social media accounts in your interests\n- Read news sites like DW (Deutsche Welle) in \"easy German\"\n\nSince you're in Berlin, you have a huge advantage—you can practice everywhere. The hardest part is usually getting locals to speak German with you (they often switch to English), so being intentional about it helps.\n\nWhat topics interest you most? I can suggest specific resources if that helps.",
+      "id": "m2",
+      "parentId": "m1",
+      "tokens": {
+        "request": 30,
+        "sent": 172,
+        "input": 172,
+        "output": 277,
+        "total": 449
+      },
+      "cost": {
+        "input": 0.000172,
+        "output": 0.001385,
+        "total": 0.001557
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 5709,
+      "stopReason": "end_turn",
+      "strategy": {
+        "id": "memory",
+        "label": "Layered memory",
+        "overheadTokens": 1605,
+        "overheadCost": 0.001753,
+        "overheadMs": 1125,
+        "overheadCalls": 1,
+        "blockTokens": 103,
+        "note": "1 key set",
+        "droppedMessages": 0,
+        "changedKeys": [
+          "profile.learning"
+        ],
+        "degraded": false
+      }
+    },
+    {
+      "role": "user",
+      "content": "Idk, pick one word",
+      "id": "m3",
+      "parentId": "m2",
+      "tokens": {
+        "request": 14
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "**Alltag** (everyday life)\n\nIt's the word Germans use constantly, and learning to talk *about* your everyday routines naturally is the fastest path to conversational fluency. Plus it's a useful anchor word—you'll hear it everywhere.",
+      "id": "m4",
+      "parentId": "m3",
+      "tokens": {
+        "request": 14,
+        "sent": 459,
+        "input": 459,
+        "output": 57,
+        "total": 516
+      },
+      "cost": {
+        "input": 0.000459,
+        "output": 0.000285,
+        "total": 0.000744
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 2403,
+      "stopReason": "end_turn",
+      "strategy": {
+        "id": "memory",
+        "label": "Layered memory",
+        "overheadTokens": 1852,
+        "overheadCost": 0.001868,
+        "overheadMs": 690,
+        "overheadCalls": 1,
+        "blockTokens": 103,
+        "note": "nothing new established",
+        "droppedMessages": 0,
+        "changedKeys": [],
+        "degraded": false
+      }
+    },
+    {
+      "role": "user",
+      "content": "use it in a sentance",
+      "id": "m5",
+      "parentId": "m4",
+      "tokens": {
+        "request": 13
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "**Im Alltag spreche ich viel Englisch, aber ich möchte mehr Deutsch üben.**\n\n(In everyday life I speak a lot of English, but I want to practice more German.)",
+      "id": "m6",
+      "parentId": "m5",
+      "tokens": {
+        "request": 13,
+        "sent": 525,
+        "input": 525,
+        "output": 48,
+        "total": 573
+      },
+      "cost": {
+        "input": 0.000525,
+        "output": 0.00024,
+        "total": 0.000765
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 1894,
+      "stopReason": "end_turn",
+      "strategy": {
+        "id": "memory",
+        "label": "Layered memory",
+        "overheadTokens": 1631,
+        "overheadCost": 0.001647,
+        "overheadMs": 660,
+        "overheadCalls": 1,
+        "blockTokens": 103,
+        "note": "nothing new established",
+        "droppedMessages": 0,
+        "changedKeys": [],
+        "degraded": false
+      }
+    },
+    {
+      "role": "user",
+      "content": "so Alltag is mostly used like \"im Alltag",
+      "id": "m7",
+      "parentId": "m6",
+      "tokens": {
+        "request": 20
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Good question. Not *only* \"im Alltag,\" but that's definitely the most common way you'll hear it.\n\nOther natural uses:\n\n- **im Alltag** — \"in everyday life\" (most common)\n- **der Alltag** — \"everyday life\" as a standalone noun (\"Der Alltag ist stressig\" = Everyday life is stressful)\n- **Alltags-** — as a prefix (\"Alltagssprache\" = everyday language, \"Alltagsgespräche\" = everyday conversations)\n\nBut yeah, \"im Alltag\" is the phrase you'll actually hear most often in real conversation. Good instinct to notice the pattern.",
+      "id": "m8",
+      "parentId": "m7",
+      "tokens": {
+        "request": 20,
+        "sent": 345,
+        "input": 345,
+        "output": 156,
+        "total": 501
+      },
+      "cost": {
+        "input": 0.000345,
+        "output": 0.00078,
+        "total": 0.001125
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 6690,
+      "stopReason": "end_turn",
+      "strategy": {
+        "id": "memory",
+        "label": "Layered memory",
+        "overheadTokens": 2512,
+        "overheadCost": 0.002924,
+        "overheadMs": 4127,
+        "overheadCalls": 2,
+        "blockTokens": 229,
+        "note": "nothing new established · folded 2 exchanges into the digest",
+        "droppedMessages": 4,
+        "changedKeys": [],
+        "degraded": false
+      }
+    }
+  ]
+}
