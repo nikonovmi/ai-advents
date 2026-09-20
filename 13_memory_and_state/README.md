@@ -7,6 +7,10 @@ model is told and what it is allowed to change.
 This README describes the architecture: where state lives, how it moves, and
 **exactly what each stage is passed**.
 
+
+https://github.com/user-attachments/assets/254e0ee4-0793-47af-ace8-2cbe4c3ab3c5
+
+
 ```bash
 npm install
 npm test                              # 92 tests, stubs, no key, no network
