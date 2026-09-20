@@ -5,7 +5,8 @@ a provider-neutral LLM abstraction. Real tokens and cost per turn, and context
 management as a **pluggable strategy**: five of them, switchable per
 conversation, measured against each other by a scripted scenario.
 
-https://github.com/user-attachments/assets/05e4377a-8bc9-4be9-ae9a-6f88532a3163
+
+https://github.com/user-attachments/assets/ae0361be-d8e7-4ac0-85e0-8beb4d24b556
 
 
 ## Run
