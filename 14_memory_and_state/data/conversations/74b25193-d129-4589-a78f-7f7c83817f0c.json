@@ -1,0 +1,205 @@
+{
+  "id": "74b25193-d129-4589-a78f-7f7c83817f0c",
+  "title": "I need to add invariants to the coding…",
+  "createdAt": "2026-09-20T16:27:01.844Z",
+  "updatedAt": "2026-09-20T16:28:16.392Z",
+  "usage": {
+    "totalInputTokens": 1027,
+    "totalOutputTokens": 483,
+    "totalCostUsd": 0.0034419999999999997,
+    "turnCount": 2,
+    "overheadInputTokens": 4642,
+    "overheadOutputTokens": 133,
+    "overheadCostUsd": 0.005307000000000001,
+    "overheadCalls": 2
+  },
+  "branches": {
+    "main": {
+      "id": "main",
+      "name": "main",
+      "headId": "m4",
+      "forkedFromMessageId": null,
+      "parentBranchId": null,
+      "strategy": "memory",
+      "strategyState": {
+        "memory": {
+          "working": {
+            "goal": {
+              "value": "Set up coding agent with invariants that it must not violate",
+              "updatedAt": "2026-09-20T16:26:56.941Z",
+              "turn": 1,
+              "previous": []
+            },
+            "open.validation_pattern": {
+              "value": "Should the agent call LLM after each exchange to validate against invariants?",
+              "updatedAt": "2026-09-20T16:26:56.941Z",
+              "turn": 1,
+              "previous": []
+            }
+          },
+          "task": {
+            "id": "to7j5nt",
+            "previous": null,
+            "startedAt": "2026-09-20T16:26:55.311Z",
+            "updatedAt": "2026-09-20T16:28:13.216Z",
+            "transitions": [],
+            "step": "designing prompts that enforce invariants",
+            "expectedAction": {
+              "actor": "user",
+              "what": "provide the invariants to encode in the system prompt"
+            },
+            "stepTurn": 2,
+            "expectedTurn": 2,
+            "suggestion": null,
+            "refused": []
+          },
+          "digest": null,
+          "digestThrough": 0,
+          "digestUpdatedAt": null,
+          "pastTasks": [],
+          "proposals": [],
+          "discarded": [
+            {
+              "key": "open.validation_pattern",
+              "op": "delete",
+              "value": "",
+              "reason": "an answered question must be replaced, not just removed",
+              "at": "2026-09-20T16:28:13.216Z",
+              "turn": 2
+            }
+          ],
+          "promotedAt": {},
+          "profileSeen": {},
+          "profileUser": "test",
+          "attribution": [
+            {
+              "turn": 1,
+              "profile": 167,
+              "working": 968,
+              "digest": 0
+            },
+            {
+              "turn": 2,
+              "profile": 0,
+              "working": 983,
+              "digest": 0
+            }
+          ],
+          "usage": {
+            "overheadWorking": {
+              "calls": 2,
+              "inputTokens": 4642,
+              "outputTokens": 133,
+              "costUsd": 0.005307000000000001
+            },
+            "overheadSummary": {
+              "calls": 0,
+              "inputTokens": 0,
+              "outputTokens": 0,
+              "costUsd": 0
+            },
+            "overheadProfile": {
+              "calls": 0,
+              "turns": 2,
+              "inputTokens": 42,
+              "outputTokens": 0,
+              "costUsd": 0.000042,
+              "estimated": true
+            }
+          }
+        }
+      }
+    }
+  },
+  "activeBranchId": "main",
+  "messages": [
+    {
+      "role": "user",
+      "content": "I need to add invariants to the coding assistant that it must not violate. I'm setting up my coding agent from scratch. I'm wondering if I should call llm after each exchange and ask it to validate agains the invariants. Is this the way it usually works?",
+      "id": "m1",
+      "tokens": {
+        "request": 65
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "No, that's not the typical approach—and it would be expensive and slow.\n\n**Common patterns instead:**\n\n1. **Bake invariants into the system prompt.** State them clearly as hard rules the agent must follow. Most capable models respect well-stated constraints without needing separate validation.\n\n2. **Validate outputs programmatically.** After the agent produces code or a plan, check it against your invariants with code (linting, type checking, static analysis). This is fast and deterministic.\n\n3. **Validate selectively with LLM.** Only call the LLM to check outputs you can't verify programmatically—e.g., \"does this follow our naming convention?\" But do this sparingly, not after every exchange.\n\nCalling the LLM after each turn just to validate doubles your latency and cost for uncertain gain. The model is already trying to follow your rules if you stated them clearly.\n\n**What I need to know to help you set this up right:**\n\n- What *are* the invariants? (e.g., \"no unsafe Kotlin,\" \"must use dependency injection,\" \"code must be testable\")\n- Which ones can you check with code, and which ones really need human or LLM judgment?\n\nThat'll tell us whether you need validation at all, or just a solid system prompt.",
+      "id": "m2",
+      "parentId": "m1",
+      "tokens": {
+        "request": 65,
+        "sent": 371,
+        "input": 371,
+        "output": 294,
+        "total": 665
+      },
+      "cost": {
+        "input": 0.000371,
+        "output": 0.00147,
+        "total": 0.001841
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 6533,
+      "stopReason": "end_turn",
+      "strategy": {
+        "id": "memory",
+        "label": "Layered memory",
+        "overheadTokens": 2246,
+        "overheadCost": 0.0025340000000000002,
+        "overheadMs": 1626,
+        "overheadCalls": 1,
+        "blockTokens": 267,
+        "note": "2 keys set",
+        "droppedMessages": 0,
+        "changedKeys": [
+          "goal",
+          "open.validation_pattern"
+        ],
+        "degraded": false
+      }
+    },
+    {
+      "role": "user",
+      "content": "I guess I'll go for the prompt based approach. Then I'll need to to design prompts that enforce the invariants I set up.",
+      "id": "m3",
+      "parentId": "m2",
+      "tokens": {
+        "request": 36
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Exactly right. That's the efficient path.\n\n**Before we design those prompts, I need the invariants from you.** What rules must the coding agent follow?\n\nExamples of the kind of thing:\n- \"Never use deprecated APIs\"\n- \"All functions must have unit tests\"\n- \"No hardcoded secrets or credentials\"\n- \"Code must follow [language] style guide X\"\n- \"Must handle errors explicitly, no silent failures\"\n- \"Database queries must use parameterized statements\"\n\nOnce you list them, I can help you:\n1. **Identify which ones are hard to state clearly** (those might need programmatic checks after all)\n2. **Phrase them in the system prompt** so the model actually follows them consistently\n3. **Test the prompt** with a few examples to catch gaps\n\nWhat are your invariants?",
+      "id": "m4",
+      "parentId": "m3",
+      "tokens": {
+        "request": 36,
+        "sent": 656,
+        "input": 656,
+        "output": 189,
+        "total": 845
+      },
+      "cost": {
+        "input": 0.000656,
+        "output": 0.0009450000000000001,
+        "total": 0.001601
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 4637,
+      "stopReason": "end_turn",
+      "strategy": {
+        "id": "memory",
+        "label": "Layered memory",
+        "overheadTokens": 2529,
+        "overheadCost": 0.0027730000000000003,
+        "overheadMs": 1460,
+        "overheadCalls": 1,
+        "blockTokens": 226,
+        "note": "1 malformed op discarded",
+        "droppedMessages": 0,
+        "changedKeys": [],
+        "degraded": false
+      }
+    }
+  ]
+}

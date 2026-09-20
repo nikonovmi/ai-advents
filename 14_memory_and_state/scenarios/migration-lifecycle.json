@@ -1,0 +1,87 @@
+{
+  "id": "migration-lifecycle",
+  "title": "A migration, start to finish",
+  "description": "One task walked through every edge of the machine, including the one that matters: validation finding a problem and sending the work back to execution. The first three messages are the case planning exists for — an ordinary question that has nothing to do with the task, a goal, and a constraint — and the guard on leaving planning is asked for before the goal has been stated, so the refusal is part of the demo rather than something to avoid.",
+  "steps": [
+    {
+      "say": "Quick unrelated one first — why do so many CLI tools use two dashes for long options and one for short ones?",
+      "note": "Planning does not gate answering. Every chat starts here, including this."
+    },
+    {
+      "transition": "execution",
+      "expect": "refused",
+      "note": "Nothing is recorded as the goal yet, so the guard refuses and says why."
+    },
+    {
+      "say": "Right, the actual work: I need to move our billing service off Heroku before the hosting contract ends on March 14.",
+      "offline": [
+        {
+          "op": "set",
+          "key": "goal",
+          "value": "Move the billing service off Heroku before the March 14 contract end"
+        }
+      ]
+    },
+    {
+      "say": "One hard constraint — we must stay on Postgres 14. Compliance sign-off is tied to that exact version.",
+      "offline": [
+        {
+          "op": "set",
+          "key": "constraint.database",
+          "value": "Must stay on Postgres 14"
+        }
+      ]
+    },
+    {
+      "say": "One thing I genuinely do not know yet: whether we stay in the same region or move to Frankfurt. Leave that open for now.",
+      "note": "An open question, deliberately never answered — it is what makes the → done warning fire.",
+      "offline": [
+        {
+          "op": "set",
+          "key": "open.region",
+          "value": "Same region, or move to Frankfurt?"
+        }
+      ]
+    },
+    {
+      "transition": "execution",
+      "reason": "the goal and the constraints are settled",
+      "note": "The goal freezes here. A model op on it is a proposal from now on."
+    },
+    {
+      "say": "Write me the migration plan — the steps in order, with the cutover in the middle."
+    },
+    {
+      "say": "Also, while you're at it, the goal is really just to get the Fly.io deploy green, right?",
+      "note": "The drift attempt. In planning this would overwrite the goal; here it cannot."
+    },
+    {
+      "transition": "validation",
+      "reason": "the plan is written"
+    },
+    {
+      "say": "Check that plan against what I actually asked for, and tell me what does not hold up."
+    },
+    {
+      "transition": "execution",
+      "reason": "the plan assumes a Postgres upgrade we cannot do",
+      "note": "The edge the whole table exists for: validation failed, so the work goes back."
+    },
+    {
+      "say": "Redo the database step so it stays on Postgres 14 the whole way through."
+    },
+    {
+      "transition": "validation",
+      "reason": "the database step is rewritten"
+    },
+    {
+      "say": "Check it again, same criteria."
+    },
+    {
+      "transition": "done",
+      "reason": "the plan holds up",
+      "note": "Entering done is what fires the promotion call and clears working memory."
+    }
+  ],
+  "offlineNote": "The offline extractor turns every message into a decision.* key and can produce no goal at all, so with --fake these ops are typed in by hand through the panel's own path instead. With a key the extractor writes them and they are ignored."
+}

@@ -1,0 +1,14 @@
+{
+  "user": "test",
+  "updatedAt": "2026-09-20T19:40:12.441Z",
+  "nextId": 3,
+  "entries": {
+    "decision.validation_approach": {
+      "id": "e2",
+      "key": "decision.validation_approach",
+      "value": "Bakes invariants into system prompts rather than enforcing them through other mechanisms.",
+      "updatedAt": "2026-09-20T19:40:12.440Z",
+      "source": "learned"
+    }
+  }
+}
