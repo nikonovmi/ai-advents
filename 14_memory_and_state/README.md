@@ -1,5 +1,9 @@
 # Invariants — the rules a project does not break
 
+
+https://github.com/user-attachments/assets/8f1564c9-a899-43d3-9e2f-2eb5053edec6
+
+
 Everything else this app remembers is a claim about what is **true**: what the
 user is like, what the work is, what was said. An invariant is a claim about
 what is **allowed**, and the two behave differently in every direction that
