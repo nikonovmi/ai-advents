@@ -1,0 +1,30 @@
+{
+  "project": "postgres-only",
+  "updatedAt": null,
+  "nextId": 3,
+  "entries": {
+    "invariant.database": {
+      "id": "i1",
+      "key": "invariant.database",
+      "subject": "database",
+      "text": "Stays on Postgres.",
+      "check": "any proposal introducing another database engine, or a managed service that is not Postgres",
+      "supersedes": null,
+      "updatedAt": null,
+      "turn": 0,
+      "previous": []
+    },
+    "invariant.orm": {
+      "id": "i2",
+      "key": "invariant.orm",
+      "subject": "orm",
+      "text": "No ORM; SQL is written by hand.",
+      "check": "any proposal importing an ORM, or generating queries from model classes",
+      "supersedes": null,
+      "updatedAt": null,
+      "turn": 0,
+      "previous": []
+    }
+  },
+  "retired": []
+}

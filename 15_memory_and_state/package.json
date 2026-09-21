@@ -1,0 +1,21 @@
+{
+  "name": "first-agent",
+  "version": "1.0.0",
+  "description": "A minimal chat app built around a reusable Agent class and a provider-neutral LLM abstraction.",
+  "type": "module",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test src/",
+    "scenario": "node scripts/scenario.js",
+    "compare": "node scripts/compare.js",
+    "lifecycle": "node scripts/lifecycle.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  }
+}

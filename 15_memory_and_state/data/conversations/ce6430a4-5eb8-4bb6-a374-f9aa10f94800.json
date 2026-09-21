@@ -1,0 +1,683 @@
+{
+  "id": "ce6430a4-5eb8-4bb6-a374-f9aa10f94800",
+  "title": "I need to add invariants to the coding…",
+  "createdAt": "2026-09-20T16:34:02.327Z",
+  "updatedAt": "2026-09-20T19:44:25.063Z",
+  "usage": {
+    "totalInputTokens": 7447,
+    "totalOutputTokens": 2218,
+    "totalCostUsd": 0.018536999999999998,
+    "turnCount": 8,
+    "overheadInputTokens": 23113,
+    "overheadOutputTokens": 887,
+    "overheadCostUsd": 0.027548,
+    "overheadCalls": 10
+  },
+  "branches": {
+    "main": {
+      "id": "main",
+      "name": "main",
+      "headId": "m16",
+      "forkedFromMessageId": null,
+      "parentBranchId": null,
+      "strategy": "memory",
+      "strategyState": {
+        "memory": {
+          "working": {},
+          "task": {
+            "id": "tdrzge7",
+            "previous": "thm572r",
+            "startedAt": "2026-09-20T19:44:25.063Z",
+            "updatedAt": "2026-09-20T19:44:25.063Z",
+            "transitions": [],
+            "step": "working out what the task is",
+            "expectedAction": {
+              "actor": "user",
+              "what": "say what the task is, and answer the open questions"
+            },
+            "stepTurn": 0,
+            "expectedTurn": 0,
+            "suggestion": null,
+            "refused": []
+          },
+          "brief": null,
+          "digest": "## Facts about the user\n- Setting up a coding assistant/agent from scratch\n- Wants to add invariants that the assistant must not violate\n\n## Decisions made\n- Will use prompt-based approach to enforce invariants (rather than calling LLM after each exchange to validate)\n- Three invariants identified and finalized\n\n## Preferences and constraints\n- Always document public interfaces\n- Follow the project code style and architecture\n- Use Kotlin unless it violates engineering principles or has significant drawbacks\n\n## Open questions\n- none\n\n## Discarded / superseded\n- Validation approach of calling LLM after each exchange to validate against invariants (user chose prompt-based instead)",
+          "digestThrough": 8,
+          "digestUpdatedAt": "2026-09-20T19:39:30.470Z",
+          "pastTasks": [
+            {
+              "closedAt": "2026-09-20T19:40:01.276Z",
+              "turn": 7,
+              "promoted": 1,
+              "entries": [
+                {
+                  "key": "goal",
+                  "value": "Add invariants to coding assistant that it must not violate, and design prompts to enforce them"
+                },
+                {
+                  "key": "finding.invariants",
+                  "value": "Always document public interfaces; follow project code style and architecture; use Kotlin unless it violates engineering principles or has significant drawbacks"
+                },
+                {
+                  "key": "decision.validation_approach",
+                  "value": "Bake invariants into the system prompt"
+                }
+              ],
+              "taskId": "thm572r",
+              "stage": "done",
+              "transitions": [
+                {
+                  "from": "planning",
+                  "to": "execution",
+                  "at": "2026-09-20T19:38:37.575Z",
+                  "by": "user",
+                  "turn": 4,
+                  "reason": "brief accepted"
+                },
+                {
+                  "from": "execution",
+                  "to": "validation",
+                  "at": "2026-09-20T19:39:41.522Z",
+                  "by": "user",
+                  "turn": 6,
+                  "reason": null
+                },
+                {
+                  "from": "validation",
+                  "to": "done",
+                  "at": "2026-09-20T19:40:00.268Z",
+                  "by": "user",
+                  "turn": 7,
+                  "reason": null
+                }
+              ],
+              "brief": "The task — Design and write a system prompt for a coding assistant that enforces three invariants: always document public interfaces; follow the project code style and architecture; use Kotlin unless it violates engineering principles or has significant drawbacks. The prompt should make these invariants non-negotiable constraints on the assistant's behavior while remaining realistic enough that the assistant trusts and applies them. Done means the prompt is written and ready to be baked into the system.\n\nConstraints — The invariants must be stated exactly as established: \"Always document public interfaces\"; \"Follow the project code style and architecture\"; \"Use Kotlin unless it violates engineering principles or has significant drawbacks.\"\n\nDecided — The approach is to bake invariants into the system prompt rather than validate them separately. The definition of \"not possible\" for Kotlin is: when using it would violate engineering principles or create significant drawbacks.\n\nEstablished — The three invariants are: (1) Always document public interfaces; (2) Follow the project code style and architecture; (3) Use Kotlin unless it violates engineering principles or has significant drawbacks. The assistant doing the work has the full context of why each invariant matters and what judgment calls look like (e.g., configuration files, build scripts, shell scripts, external API calls may legitimately require other languages).\n\nStill open — Nothing. The planning established everything needed to write the prompt."
+            }
+          ],
+          "proposals": [
+            {
+              "id": "p7-1-voxcy",
+              "key": "decision.validation_approach",
+              "value": "Bakes invariants into system prompts rather than enforcing them through other mechanisms.",
+              "kind": "promotion",
+              "status": "approved",
+              "turn": 7,
+              "createdAt": "2026-09-20T19:40:01.276Z"
+            }
+          ],
+          "discarded": [
+            {
+              "key": "step",
+              "op": "set",
+              "reason": "unknown namespace",
+              "at": "2026-09-20T19:36:44.165Z",
+              "turn": 3
+            },
+            {
+              "key": "finding.prompt_validation",
+              "op": "finding",
+              "reason": "operation not allowed here",
+              "at": "2026-09-20T19:39:50.861Z",
+              "turn": 7
+            }
+          ],
+          "promotedAt": {
+            "e2": 7
+          },
+          "profileSeen": {
+            "decision.validation_approach": {
+              "id": "e2",
+              "key": "decision.validation_approach",
+              "value": "Bakes invariants into system prompts rather than enforcing them through other mechanisms.",
+              "updatedAt": "2026-09-20T19:40:12.440Z",
+              "source": "learned"
+            }
+          },
+          "profileUser": "test",
+          "attribution": [
+            {
+              "turn": 1,
+              "profile": 0,
+              "working": 1083,
+              "digest": 0
+            },
+            {
+              "turn": 2,
+              "profile": 0,
+              "working": 1051,
+              "digest": 0
+            },
+            {
+              "turn": 3,
+              "profile": 0,
+              "working": 1729,
+              "brief": 0,
+              "digest": 0
+            },
+            {
+              "turn": 4,
+              "profile": 0,
+              "working": 1809,
+              "brief": 0,
+              "digest": 682
+            },
+            {
+              "turn": 5,
+              "profile": 0,
+              "working": 874,
+              "brief": 1742,
+              "digest": 682
+            },
+            {
+              "turn": 6,
+              "profile": 0,
+              "working": 872,
+              "brief": 1742,
+              "digest": 819
+            },
+            {
+              "turn": 7,
+              "profile": 0,
+              "working": 905,
+              "brief": 1742,
+              "digest": 819
+            }
+          ],
+          "usage": {
+            "overheadWorking": {
+              "calls": 9,
+              "inputTokens": 19916,
+              "outputTokens": 864,
+              "costUsd": 0.024235999999999997
+            },
+            "overheadSummary": {
+              "calls": 2,
+              "inputTokens": 1879,
+              "outputTokens": 278,
+              "costUsd": 0.003269
+            },
+            "overheadProfile": {
+              "calls": 0,
+              "turns": 7,
+              "inputTokens": 0,
+              "outputTokens": 0,
+              "costUsd": 0,
+              "estimated": true
+            }
+          }
+        }
+      }
+    },
+    "b2": {
+      "id": "b2",
+      "name": "test-execution",
+      "headId": "m6",
+      "forkedFromMessageId": "m4",
+      "parentBranchId": "main",
+      "strategy": "memory",
+      "strategyState": {
+        "memory": {
+          "working": {
+            "goal": {
+              "value": "Add invariants to coding assistant that it must not violate, and design prompts to enforce them",
+              "updatedAt": "2026-09-20T16:34:36.835Z",
+              "turn": 2,
+              "previous": [
+                "Add invariants to coding assistant that it must not violate"
+              ]
+            },
+            "decision.validation_approach": {
+              "value": "Bake invariants into the system prompt",
+              "updatedAt": "2026-09-20T16:34:36.835Z",
+              "turn": 2,
+              "previous": []
+            },
+            "finding.invariants": {
+              "value": "Always document public interfaces; follow project code style and architecture; always use Kotlin if possible",
+              "updatedAt": "2026-09-20T16:40:47.881Z",
+              "turn": 3,
+              "previous": []
+            }
+          },
+          "task": {
+            "id": "thm572r",
+            "previous": null,
+            "startedAt": "2026-09-20T16:33:55.526Z",
+            "updatedAt": "2026-09-20T16:33:55.526Z",
+            "transitions": [],
+            "step": "working out what the task is",
+            "expectedAction": {
+              "actor": "user",
+              "what": "say what the task is, and answer the open questions"
+            },
+            "stepTurn": 0,
+            "expectedTurn": 0,
+            "suggestion": null,
+            "refused": []
+          },
+          "digest": null,
+          "digestThrough": 0,
+          "digestUpdatedAt": null,
+          "pastTasks": [],
+          "proposals": [],
+          "discarded": [
+            {
+              "key": "step",
+              "op": "set",
+              "reason": "unknown namespace",
+              "at": "2026-09-20T16:40:47.881Z",
+              "turn": 3
+            }
+          ],
+          "promotedAt": {},
+          "profileSeen": {},
+          "profileUser": "test",
+          "attribution": [
+            {
+              "turn": 1,
+              "profile": 0,
+              "working": 1083,
+              "digest": 0
+            },
+            {
+              "turn": 2,
+              "profile": 0,
+              "working": 1051,
+              "digest": 0
+            },
+            {
+              "turn": 3,
+              "profile": 0,
+              "working": 1098,
+              "digest": 0
+            }
+          ],
+          "usage": {
+            "overheadWorking": {
+              "calls": 3,
+              "inputTokens": 7800,
+              "outputTokens": 266,
+              "costUsd": 0.00913
+            },
+            "overheadSummary": {
+              "calls": 0,
+              "inputTokens": 0,
+              "outputTokens": 0,
+              "costUsd": 0
+            },
+            "overheadProfile": {
+              "calls": 0,
+              "turns": 3,
+              "inputTokens": 0,
+              "outputTokens": 0,
+              "costUsd": 0,
+              "estimated": true
+            }
+          }
+        }
+      }
+    }
+  },
+  "activeBranchId": "main",
+  "messages": [
+    {
+      "role": "user",
+      "content": "I need to add invariants to the coding assistant that it must not violate. I'm setting up my coding agent from scratch. I'm wondering if I should call llm after each exchange and ask it to validate agains the invariants. Is this the way it usually works?",
+      "id": "m1",
+      "tokens": {
+        "request": 65
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Good question. Let me answer both parts:\n\n**On the invariants themselves:** You haven't told me what they are yet. Before we go further, what specific rules must the assistant never break? (Examples: \"never suggest deleting production data\", \"always include error handling\", \"never use deprecated APIs\"—whatever matters for your use case.)\n\n**On validation approach:** Calling an LLM after each exchange to validate is *possible* but usually overkill and expensive. More common approaches:\n\n1. **Bake invariants into the system prompt** — simplest, works well for clear rules\n2. **Guard rails at execution time** — catch violations before they happen (e.g., block certain function calls, check outputs against a pattern)\n3. **Spot-check with validation calls** — only validate on certain steps or when uncertain, not every exchange\n4. **Structured output + schema validation** — force the assistant to output in a format you can validate with code (no LLM needed)\n\nThe best choice depends on:\n- How critical the invariants are (safety-critical → more validation; style guide → less)\n- How easy they are to check with code vs. needing judgment\n\n**What I need from you:** What are the actual invariants? Once I know, I can suggest which approach fits best.",
+      "id": "m2",
+      "parentId": "m1",
+      "tokens": {
+        "request": 65,
+        "sent": 355,
+        "input": 355,
+        "output": 290,
+        "total": 645
+      },
+      "cost": {
+        "input": 0.000355,
+        "output": 0.00145,
+        "total": 0.001805
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 6800,
+      "stopReason": "end_turn",
+      "strategy": {
+        "id": "memory",
+        "label": "Layered memory",
+        "overheadTokens": 2501,
+        "overheadCost": 0.002885,
+        "overheadMs": 1789,
+        "overheadCalls": 1,
+        "blockTokens": 251,
+        "note": "3 keys set",
+        "droppedMessages": 0,
+        "changedKeys": [
+          "goal",
+          "open.invariants",
+          "open.validation_approach"
+        ],
+        "degraded": false
+      }
+    },
+    {
+      "role": "user",
+      "content": "I guess I'll go for the prompt based approach. Then I'll need to to design prompts that enforce the invariants I set up.",
+      "id": "m3",
+      "parentId": "m2",
+      "tokens": {
+        "request": 36
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Good choice—prompt-based is practical and usually sufficient. Before you start writing, clarify this:\n\n**What are the invariants?** You still haven't named them. I need to know what the assistant must *never* do, so I can help you design prompts that actually enforce them rather than just stating them.\n\nExamples of things that matter:\n- Code quality (e.g., \"always include error handling\", \"no hardcoded secrets\")\n- Safety (e.g., \"never suggest destructive operations without confirmation\")\n- Style (e.g., \"follow PEP 8\", \"use TypeScript strict mode\")\n- Scope (e.g., \"only answer questions about Python\", \"refuse requests outside this domain\")\n\nOnce you tell me what they are, I can help you:\n- Phrase them clearly in the system prompt so the model actually respects them\n- Design follow-up prompts that reinforce them\n- Spot the ones that are hard to enforce via prompt alone (and might need code-level guards instead)\n\nWhat rules do you need?",
+      "id": "m4",
+      "parentId": "m3",
+      "tokens": {
+        "request": 36,
+        "sent": 671,
+        "input": 671,
+        "output": 237,
+        "total": 908
+      },
+      "cost": {
+        "input": 0.000671,
+        "output": 0.0011849999999999999,
+        "total": 0.001856
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 4945,
+      "stopReason": "end_turn",
+      "strategy": {
+        "id": "memory",
+        "label": "Layered memory",
+        "overheadTokens": 2813,
+        "overheadCost": 0.003161,
+        "overheadMs": 1284,
+        "overheadCalls": 1,
+        "blockTokens": 245,
+        "note": "2 keys set, 1 forgotten",
+        "droppedMessages": 0,
+        "changedKeys": [
+          "decision.validation_approach",
+          "goal",
+          "open.validation_approach"
+        ],
+        "degraded": false
+      }
+    },
+    {
+      "role": "user",
+      "content": "Let's keep it simple for now: \"always document public interfaces\", \"follow the project code style and architecture\", \"Always use Kotlin if possible\"",
+      "id": "m5",
+      "parentId": "m4",
+      "tokens": {
+        "request": 38
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Perfect. Those are solid invariants. Here's how I'd structure the system prompt to enforce them:\n\n**Core invariant section:**\n```\nYou must follow these non-negotiable rules:\n1. Always document public interfaces with clear descriptions of parameters, return types, and purpose\n2. Follow the project's existing code style and architecture patterns without exception\n3. Prefer Kotlin for all new code; only use other languages if technically impossible\n```\n\n**Then add teeth with specifics:**\n- For documentation: \"Before suggesting any public function, method, or class, write its documentation first\"\n- For style: \"Study the provided codebase examples before writing code. Match indentation, naming conventions, and patterns exactly\"\n- For Kotlin: \"When asked to write code, default to Kotlin. If you suggest a non-Kotlin solution, explain why Kotlin cannot work\"\n\n**In follow-up prompts, reinforce by:**\n- Asking \"Does this follow our style?\" before accepting code suggestions\n- Requesting \"Show me the documentation for this interface\" as a checkpoint\n- Saying \"Rewrite this in Kotlin\" if it's in another language\n\n**One question:** Do you have a style guide or architecture doc you can feed into the prompt? (Or code examples?) That makes enforcement much stronger than abstract rules—the model can see *what* you actually want rather than guessing.",
+      "id": "m6",
+      "parentId": "m5",
+      "tokens": {
+        "request": 38,
+        "sent": 947,
+        "input": 947,
+        "output": 305,
+        "total": 1252
+      },
+      "cost": {
+        "input": 0.000947,
+        "output": 0.0015249999999999999,
+        "total": 0.002472
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 6145,
+      "stopReason": "end_turn",
+      "strategy": {
+        "id": "memory",
+        "label": "Layered memory",
+        "overheadTokens": 2752,
+        "overheadCost": 0.003084,
+        "overheadMs": 1621,
+        "overheadCalls": 1,
+        "blockTokens": 250,
+        "note": "1 key set, 1 forgotten, 1 proposed, not stored",
+        "droppedMessages": 0,
+        "changedKeys": [
+          "finding.invariants",
+          "open.invariants"
+        ],
+        "degraded": false
+      }
+    },
+    {
+      "role": "user",
+      "content": "Let's keep it simple for now: \"always document public interfaces\", \"follow the project code style and architecture\", \"Always use Kotlin if possible\"",
+      "id": "m7",
+      "parentId": "m4",
+      "tokens": {
+        "request": 38
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Got it. Those are clear. One quick clarification before we move to design:\n\n**When you say \"always use Kotlin if possible\"** — what counts as \"not possible\"? For example:\n- Configuration files (JSON, YAML)?\n- Build scripts (Gradle)?\n- Shell scripts for deployment?\n- Calls to external APIs that only have Java libraries?\n\nThis matters because the prompt needs to know when to break the rule, or it'll sound unrealistic and the model won't trust it.\n\nAssuming you answer that, I have everything I need. The other two invariants are straightforward enough to enforce in a system prompt.",
+      "id": "m8",
+      "parentId": "m7",
+      "tokens": {
+        "request": 38,
+        "sent": 1094,
+        "input": 1094,
+        "output": 142,
+        "total": 1236
+      },
+      "cost": {
+        "input": 0.001094,
+        "output": 0.00071,
+        "total": 0.001804
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 4629,
+      "stopReason": "end_turn",
+      "strategy": {
+        "id": "memory",
+        "label": "Layered memory",
+        "overheadTokens": 2752,
+        "overheadCost": 0.003084,
+        "overheadMs": 1808,
+        "overheadCalls": 1,
+        "blockTokens": 397,
+        "note": "1 key set, 1 forgotten, 1 proposed, not stored",
+        "droppedMessages": 0,
+        "changedKeys": [
+          "finding.invariants",
+          "open.invariants"
+        ],
+        "degraded": false
+      }
+    },
+    {
+      "role": "user",
+      "content": "Not possible = this goes agains engeneering principles or there are significant drawbacks of sticking to a particular technology",
+      "id": "m9",
+      "parentId": "m8",
+      "tokens": {
+        "request": 31
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Perfect. So the rule is: **Use Kotlin unless it violates engineering principles or has significant drawbacks.**\n\nThat's workable — it gives the assistant room to make judgment calls while staying true to the intent.\n\nI now have all three invariants:\n\n1. Always document public interfaces\n2. Follow the project code style and architecture\n3. Use Kotlin unless it violates engineering principles or has significant drawbacks\n\nEverything's clear — we can switch to execution now. Or add more details if you want to refine it first.",
+      "id": "m10",
+      "parentId": "m9",
+      "tokens": {
+        "request": 31,
+        "sent": 809,
+        "input": 809,
+        "output": 116,
+        "total": 925
+      },
+      "cost": {
+        "input": 0.000809,
+        "output": 0.00058,
+        "total": 0.001389
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 4541,
+      "stopReason": "end_turn",
+      "strategy": {
+        "id": "memory",
+        "label": "Layered memory",
+        "overheadTokens": 3807,
+        "overheadCost": 0.0046110000000000005,
+        "overheadMs": 2784,
+        "overheadCalls": 2,
+        "blockTokens": 563,
+        "note": "1 key set · folded 2 exchanges into the digest",
+        "droppedMessages": 4,
+        "changedKeys": [
+          "finding.invariants"
+        ],
+        "degraded": false
+      }
+    },
+    {
+      "role": "user",
+      "content": "do the work inside the recorded goal and constraints",
+      "id": "m11",
+      "parentId": "m10",
+      "tokens": {
+        "request": 16
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "# System Prompt for Coding Assistant\n\nYou are a coding assistant. Your work is guided by three non-negotiable invariants:\n\n## Invariant 1: Always document public interfaces\nEvery public function, class, method, property, or API you write must include clear documentation. Document what it does, what arguments it takes, what it returns, and any side effects or exceptions. Use the documentation style of the project (JavaDoc, KDoc, docstrings, etc.). If you write code without documenting its public interface, you have violated this invariant.\n\n## Invariant 2: Follow the project code style and architecture\nMatch the existing code style, naming conventions, structure, and architectural patterns in the project. If the project uses dependency injection, use it. If it has a layered architecture, respect it. If it has formatting rules, follow them. Do not introduce new patterns or styles that diverge from the project without explicit reason. When in doubt, ask.\n\n## Invariant 3: Use Kotlin unless it violates engineering principles or has significant drawbacks\nWrite new code in Kotlin by default. However, use another language when:\n- Kotlin would violate sound engineering principles (e.g., type safety, maintainability, performance requirements)\n- Another language has significant, concrete drawbacks that outweigh Kotlin's benefits for that specific task\n- The context demands it: configuration files, build scripts, shell scripts, external API integrations, or other domains where a different language is the established tool\n\nWhen you choose not to use Kotlin, name the reason explicitly.\n\n---\n\n**How to apply these invariants:**\n- Treat them as constraints on every piece of work, not guidelines.\n- If a request would require you to violate one, flag it and explain the conflict before proceeding.\n- If you are unsure whether something violates an invariant, ask rather than guess.",
+      "id": "m12",
+      "parentId": "m11",
+      "tokens": {
+        "request": 16,
+        "sent": 752,
+        "input": 752,
+        "output": 412,
+        "total": 1164
+      },
+      "cost": {
+        "input": 0.000752,
+        "output": 0.0020599999999999998,
+        "total": 0.002812
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 6558,
+      "stopReason": "end_turn",
+      "strategy": {
+        "id": "memory",
+        "label": "Layered memory",
+        "overheadTokens": 2588,
+        "overheadCost": 0.002784,
+        "overheadMs": 1418,
+        "overheadCalls": 1,
+        "blockTokens": 697,
+        "note": "nothing new established",
+        "droppedMessages": 8,
+        "changedKeys": [],
+        "degraded": false
+      }
+    },
+    {
+      "role": "user",
+      "content": "draft system prompt with invariants baked in",
+      "id": "m13",
+      "parentId": "m12",
+      "tokens": {
+        "request": 16
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "# System Prompt for Coding Assistant\n\nYou are a coding assistant built to work within a codebase with three core invariants. These are not preferences—they are requirements that shape every decision you make.\n\n---\n\n## Your Three Invariants\n\n**1. Always document public interfaces**\n\nEvery public function, class, method, or property you write must have clear documentation before the code is complete. Document what it does, its parameters, return value, and any exceptions or side effects. Use the project's documentation style (KDoc, JavaDoc, docstrings, etc.). If you write public code without documentation, the work is not done.\n\n**2. Follow the project code style and architecture**\n\nWrite code that matches the existing project in style, naming, structure, and design patterns. If the project uses dependency injection, layered architecture, or specific conventions, use them. Do not introduce new patterns or diverge from established style without explicit justification. When you are unsure, ask before writing.\n\n**3. Use Kotlin unless it violates engineering principles or has significant drawbacks**\n\nWrite new code in Kotlin. Use another language only when:\n- Kotlin would compromise type safety, maintainability, performance, or other sound engineering principles\n- Another language creates significant, concrete drawbacks for that specific task\n- The context demands it (build scripts, configuration files, shell scripts, external integrations, or established tooling)\n\nWhen you choose not to use Kotlin, state your reason clearly.\n\n---\n\n## How You Work\n\n- Treat these three invariants as hard constraints on your behavior.\n- Before you write code that might violate one, flag the conflict and explain it.\n- If you are uncertain whether something violates an invariant, ask rather than proceed.\n- Every piece of work you deliver must satisfy all three invariants.",
+      "id": "m14",
+      "parentId": "m13",
+      "tokens": {
+        "request": 16,
+        "sent": 1201,
+        "input": 1201,
+        "output": 395,
+        "total": 1596
+      },
+      "cost": {
+        "input": 0.001201,
+        "output": 0.001975,
+        "total": 0.003176
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 7569,
+      "stopReason": "end_turn",
+      "strategy": {
+        "id": "memory",
+        "label": "Layered memory",
+        "overheadTokens": 3879,
+        "overheadCost": 0.004675,
+        "overheadMs": 2565,
+        "overheadCalls": 2,
+        "blockTokens": 722,
+        "note": "suggests → validation, waiting for a click · folded 2 exchanges into the digest",
+        "droppedMessages": 8,
+        "changedKeys": [],
+        "degraded": false
+      }
+    },
+    {
+      "role": "user",
+      "content": "check the work against the goal and report what fails",
+      "id": "m15",
+      "parentId": "m14",
+      "tokens": {
+        "request": 17
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "# Validation Report\n\n## Checking against goal: \"Design and write a system prompt for a coding assistant that enforces three invariants\"\n\n| Check | Result | Notes |\n|-------|--------|-------|\n| **Invariant 1 stated exactly as established** | ✓ PASS | \"Always document public interfaces\" — stated verbatim in the prompt |\n| **Invariant 2 stated exactly as established** | ✓ PASS | \"Follow the project code style and architecture\" — stated verbatim in the prompt |\n| **Invariant 3 stated exactly as established** | ✓ PASS | \"Use Kotlin unless it violates engineering principles or has significant drawbacks\" — stated verbatim in the prompt |\n| **Invariants are non-negotiable constraints** | ✓ PASS | Prompt frames them as \"not preferences—they are requirements\" and \"hard constraints on your behavior\" |\n| **Prompt is realistic and trustworthy** | ✓ PASS | Includes concrete judgment calls (build scripts, config files, shell scripts, external APIs) and permission to ask when uncertain |\n| **Ready to bake into system** | ✓ PASS | Prompt is self-contained, clear, and in standard system prompt format |\n\n## Result\n\n**All checks pass.** The work meets the goal and constraints. The prompt is complete and ready to use.",
+      "id": "m16",
+      "parentId": "m15",
+      "tokens": {
+        "request": 17,
+        "sent": 1618,
+        "input": 1618,
+        "output": 321,
+        "total": 1939
+      },
+      "cost": {
+        "input": 0.001618,
+        "output": 0.001605,
+        "total": 0.003223
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 5446,
+      "stopReason": "end_turn",
+      "strategy": {
+        "id": "memory",
+        "label": "Layered memory",
+        "overheadTokens": 2908,
+        "overheadCost": 0.003264,
+        "overheadMs": 1790,
+        "overheadCalls": 1,
+        "blockTokens": 731,
+        "note": "1 refused — operation not allowed here, suggests → done, waiting for a click",
+        "droppedMessages": 8,
+        "changedKeys": [],
+        "degraded": false
+      }
+    }
+  ]
+}

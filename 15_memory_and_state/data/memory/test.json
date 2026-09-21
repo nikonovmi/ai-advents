@@ -1,0 +1,14 @@
+{
+  "user": "test",
+  "updatedAt": "2026-09-20T21:51:15.070Z",
+  "nextId": 4,
+  "entries": {
+    "preference.style": {
+      "id": "e3",
+      "key": "preference.style",
+      "value": "Assume I know the basics.",
+      "updatedAt": "2026-09-20T21:51:15.069Z",
+      "source": "declared"
+    }
+  }
+}

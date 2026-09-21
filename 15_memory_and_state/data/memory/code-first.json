@@ -1,0 +1,49 @@
+{
+  "user": "code-first",
+  "updatedAt": null,
+  "nextId": 7,
+  "entries": {
+    "profile.role": {
+      "id": "e1",
+      "key": "profile.role",
+      "value": "Staff backend engineer, fifteen years in, currently on distributed systems.",
+      "updatedAt": null,
+      "source": "declared"
+    },
+    "profile.stack": {
+      "id": "e2",
+      "key": "profile.stack",
+      "value": "Go and Rust on Linux, Postgres, gRPC. Reads assembly when it matters.",
+      "updatedAt": null,
+      "source": "declared"
+    },
+    "preference.style": {
+      "id": "e3",
+      "key": "preference.style",
+      "value": "Dense and technical. Assume expert. Lead with the mechanism, name the trade-off, skip the motivation.",
+      "updatedAt": null,
+      "source": "declared"
+    },
+    "preference.format": {
+      "id": "e4",
+      "key": "preference.format",
+      "value": "Code first, prose after. Open with a runnable snippet, then at most two lines explaining it.",
+      "updatedAt": null,
+      "source": "declared"
+    },
+    "rule.no-preamble": {
+      "id": "e5",
+      "key": "rule.no-preamble",
+      "value": "Never open with a summary of the question, an analogy, or a caveat about complexity.",
+      "updatedAt": null,
+      "source": "declared"
+    },
+    "rule.no-hedging": {
+      "id": "e6",
+      "key": "rule.no-hedging",
+      "value": "Never suggest consulting the docs or a professional. Give the answer.",
+      "updatedAt": null,
+      "source": "declared"
+    }
+  }
+}

@@ -1,0 +1,278 @@
+{
+  "id": "fd42f219-78ae-41c3-9b01-a72a11fd57ea",
+  "title": "Help me plan my budget. Let's say I hav…",
+  "createdAt": "2026-09-20T01:03:39.533Z",
+  "updatedAt": "2026-09-20T01:05:17.533Z",
+  "usage": {
+    "totalInputTokens": 1758,
+    "totalOutputTokens": 879,
+    "totalCostUsd": 0.0061530000000000005,
+    "turnCount": 3,
+    "overheadInputTokens": 6299,
+    "overheadOutputTokens": 147,
+    "overheadCostUsd": 0.007034,
+    "overheadCalls": 3
+  },
+  "branches": {
+    "main": {
+      "id": "main",
+      "name": "main",
+      "headId": "m6",
+      "forkedFromMessageId": null,
+      "parentBranchId": null,
+      "strategy": "memory",
+      "strategyState": {
+        "memory": {
+          "working": {
+            "goal": {
+              "value": "Plan budget allocation for $1000 discretionary income",
+              "updatedAt": "2026-09-20T01:03:35.803Z",
+              "turn": 1,
+              "previous": []
+            },
+            "constraint.budget": {
+              "value": "$1000 after taxes and rent",
+              "updatedAt": "2026-09-20T01:03:35.803Z",
+              "turn": 1,
+              "previous": []
+            },
+            "finding.savings_baseline": {
+              "value": "User considering $100-150/month savings allocation; needs 3-month emergency fund per 'Your Money or Your Life'",
+              "updatedAt": "2026-09-20T01:05:13.855Z",
+              "turn": 3,
+              "previous": []
+            }
+          },
+          "digest": null,
+          "digestThrough": 0,
+          "digestUpdatedAt": null,
+          "pastTasks": [],
+          "proposals": [],
+          "discarded": [],
+          "promotedAt": {
+            "e6": 1
+          },
+          "profileSeen": {
+            "profile.location": {
+              "id": "e1",
+              "key": "profile.location",
+              "value": "Italy",
+              "updatedAt": "2026-09-20T00:51:59.295Z",
+              "source": "learned"
+            },
+            "profile.role": {
+              "id": "e2",
+              "key": "profile.role",
+              "value": "Professional pizza chef",
+              "updatedAt": "2026-09-20T00:51:59.295Z",
+              "source": "learned"
+            },
+            "preference.style": {
+              "id": "e3",
+              "key": "preference.style",
+              "value": "Sort replies.",
+              "updatedAt": "2026-09-20T00:54:20.213Z",
+              "source": "declared"
+            },
+            "preference.format": {
+              "id": "e4",
+              "key": "preference.format",
+              "value": "Always replies in Russian.",
+              "updatedAt": "2026-09-20T00:56:12.826Z",
+              "source": "declared"
+            },
+            "rule.always-add-references-to-som": {
+              "id": "e6",
+              "key": "rule.always-add-references-to-som",
+              "value": "Always add references to some researches or wise books.",
+              "updatedAt": "2026-09-20T01:04:31.477Z",
+              "source": "declared"
+            }
+          },
+          "profileUser": "pizza-maker",
+          "attribution": [
+            {
+              "turn": 1,
+              "profile": 551,
+              "working": 238,
+              "digest": 0
+            },
+            {
+              "turn": 2,
+              "profile": 554,
+              "working": 338,
+              "digest": 0
+            },
+            {
+              "turn": 3,
+              "profile": 554,
+              "working": 375,
+              "digest": 0
+            }
+          ],
+          "usage": {
+            "overheadWorking": {
+              "calls": 3,
+              "inputTokens": 6299,
+              "outputTokens": 147,
+              "costUsd": 0.007034
+            },
+            "overheadSummary": {
+              "calls": 0,
+              "inputTokens": 0,
+              "outputTokens": 0,
+              "costUsd": 0
+            },
+            "overheadProfile": {
+              "calls": 0,
+              "turns": 3,
+              "inputTokens": 414,
+              "outputTokens": 0,
+              "costUsd": 0.000414,
+              "estimated": true
+            }
+          }
+        }
+      }
+    }
+  },
+  "activeBranchId": "main",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Help me plan my budget. Let's say I have 1000$ left after taxes, rent, etc. How should I spend the rest?",
+      "id": "m1",
+      "tokens": {
+        "request": 37
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Привет! Вот структурированный план для твоих $1000:\n\n```python\nbudget = {\n    \"savings\": 300,           # 30% — подушка безопасности\n    \"food_groceries\": 200,    # 20% — продукты\n    \"transport\": 100,         # 10% — транспорт\n    \"hobbies_pizza\": 150,     # 15% — твоё хобби/развитие\n    \"social_dining\": 150,     # 15% — рестораны, встречи\n    \"misc_health\": 100        # 10% — здоровье, непредвиденное\n}\n```\n\n**Почему такой порядок:**\n1. Сначала сбережения — на случай чего\n2. Питание — базовая потребность\n3. Транспорт — необходимость в Италии\n4. Хобби — для удовольствия (может быть связано с пиццей?)\n5. Социум — качество жизни\n6. Резерв — на всякий случай\n\nХочешь изменить пропорции? Скажи, что для тебя важнее всего.",
+      "id": "m2",
+      "parentId": "m1",
+      "tokens": {
+        "request": 37,
+        "sent": 276,
+        "input": 276,
+        "output": 311,
+        "total": 587
+      },
+      "cost": {
+        "input": 0.000276,
+        "output": 0.0015550000000000002,
+        "total": 0.0018310000000000002
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 5160,
+      "stopReason": "end_turn",
+      "strategy": {
+        "id": "memory",
+        "label": "Layered memory",
+        "overheadTokens": 1960,
+        "overheadCost": 0.00216,
+        "overheadMs": 1429,
+        "overheadCalls": 1,
+        "blockTokens": 200,
+        "note": "2 keys set",
+        "droppedMessages": 0,
+        "changedKeys": [
+          "goal",
+          "constraint.budget"
+        ],
+        "degraded": false
+      }
+    },
+    {
+      "role": "user",
+      "content": "No savings?",
+      "id": "m3",
+      "parentId": "m2",
+      "tokens": {
+        "request": 10
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Отличный вопрос! Я предложил **$300 в сбережения** (30%) — это в строке \"savings\".\n\nНо твоя точка зрения может быть правильнее. По книге \"Your Money or Your Life\" Вики Робин, минимум — это 3 месяца расходов на подушку безопасности.\n\n**Вариант без сбережений:**\n```\nfood: $250\ntransport: $150\nhobbies: $250\nsocial: $200\nmisc: $150\n```\n\nОднако исследования показывают, что люди без резерва часше попадают в долги при первой же проблеме.\n\n**Вопрос к тебе:** Есть ли у тебя уже сбережения? Если да — можно пропустить. Если нет — даже $100-150 в месяц создадут подушку за год.\n\nЧто ты думаешь?",
+      "id": "m4",
+      "parentId": "m3",
+      "tokens": {
+        "request": 10,
+        "sent": 604,
+        "input": 604,
+        "output": 249,
+        "total": 853
+      },
+      "cost": {
+        "input": 0.000604,
+        "output": 0.001245,
+        "total": 0.001849
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 4810,
+      "stopReason": "end_turn",
+      "strategy": {
+        "id": "memory",
+        "label": "Layered memory",
+        "overheadTokens": 2252,
+        "overheadCost": 0.002396,
+        "overheadMs": 1129,
+        "overheadCalls": 1,
+        "blockTokens": 211,
+        "note": "1 key set",
+        "droppedMessages": 0,
+        "changedKeys": [
+          "open.savings_priority"
+        ],
+        "degraded": false
+      }
+    },
+    {
+      "role": "user",
+      "content": "would that be enough?",
+      "id": "m5",
+      "parentId": "m4",
+      "tokens": {
+        "request": 12
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Нет, $100-150/месяц — это **недостаточно быстро** для 3-месячной подушки.\n\n**Расчёт:**\n- Твои месячные расходы: ~$1000\n- 3-месячный резерв нужен: $3000\n- При $100/месяц: 30 месяцев (2.5 года!)\n- При $150/месяц: 20 месяцев (~1.7 года)\n\n**Рекомендация по \"Your Money or Your Life\":**\nНачни с **$250-300/месяц** (25-30% бюджета) — это даст тебе подушку за 10-12 месяцев. После этого можешь снизить до поддержания.\n\n**Более реалистичный план:**\n```\nsavings: $250      (первые 12 месяцев)\nfood: $200\ntransport: $100\nhobbies: $200\nsocial: $150\nmisc: $100\n```\n\nЗвучит жёстко? Да. Но потом будешь спать спокойнее.\n\nГотов ли ты к такому темпу, или нужно найти компромисс?",
+      "id": "m6",
+      "parentId": "m5",
+      "tokens": {
+        "request": 12,
+        "sent": 878,
+        "input": 878,
+        "output": 319,
+        "total": 1197
+      },
+      "cost": {
+        "input": 0.000878,
+        "output": 0.001595,
+        "total": 0.002473
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 5013,
+      "stopReason": "end_turn",
+      "strategy": {
+        "id": "memory",
+        "label": "Layered memory",
+        "overheadTokens": 2234,
+        "overheadCost": 0.002478,
+        "overheadMs": 1334,
+        "overheadCalls": 1,
+        "blockTokens": 228,
+        "note": "1 key set, 1 forgotten",
+        "droppedMessages": 0,
+        "changedKeys": [
+          "finding.savings_baseline",
+          "open.savings_priority"
+        ],
+        "degraded": false
+      }
+    }
+  ]
+}
