@@ -4,12 +4,7 @@ A chat app whose interesting part is what goes on the wire. Five kinds of state
 with five lifetimes, and a task with an explicit lifecycle that decides what the
 model is told and what it is allowed to change.
 
-This README is about **state**: where it lives, who may write it, how it moves,
-and exactly what each stage is passed. The rules a project does not break have a
-document of their own — [INVARIANTS.md](INVARIANTS.md).
-
-
-https://github.com/user-attachments/assets/254e0ee4-0793-47af-ace8-2cbe4c3ab3c5
+https://github.com/user-attachments/assets/6303e98c-aa60-4465-b229-8be517446cd1
 
 
 ```bash
