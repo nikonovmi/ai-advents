@@ -118,6 +118,13 @@ export class Agent {
      * profile is, only that the strategy might.
      */
     this.profileUser = strategyOptions.user ?? null;
+    /**
+     * Which project's invariants the next turn is subject to, or null for the
+     * strategy's own default. A live control like the profile and the window:
+     * the Agent does not know what an invariant is, only that the strategy
+     * might, and the record is what remembers the answer between sessions.
+     */
+    this.project = strategyOptions.project ?? null;
     this.strategy = strategy;
   }
 
@@ -171,6 +178,9 @@ export class Agent {
       };
     }
     if (conversation?.usage) agent.#usage = { ...agent.#usage, ...conversation.usage };
+    // The record remembers which project this conversation belongs to, so
+    // reopening it does not silently put it under another set of rules.
+    if (conversation?.project) agent.project = conversation.project;
     return agent;
   }
 
@@ -202,6 +212,7 @@ export class Agent {
     // inherit a no-op for this one. Requiring it would make "has a profile"
     // part of what it means to be a strategy at all.
     strategy.useProfile?.(this.profileUser);
+    strategy.useProject?.(this.project);
 
     const userMessage = appendMessage(this.#record, branchId, { role: "user", content: text });
     const history = getBranchHistory(this.#record, branchId);
@@ -393,11 +404,18 @@ export class Agent {
   }
 
   /** The strategy's own view of its state on a branch, for the right column. */
-  panel(branchId = this.#record.activeBranchId) {
+  /**
+   * @param {string} [branchId]
+   * @param {object} [context] - Anything the strategy's panel wants that only
+   *   the caller could have read — the profile and the project's rules, for
+   *   instance. Opaque here, exactly like `strategyState`: the Agent does not
+   *   know what is in it, only that the strategy might.
+   */
+  panel(branchId = this.#record.activeBranchId, context = {}) {
     const branch = this.#record.branches[branchId];
     const id = branch?.strategy ?? this.#strategy.id;
     const state = branch?.strategyState?.[id];
-    return createStrategy(id).panel(state ?? {}, { turns: this.#turnsOn(branchId) });
+    return createStrategy(id).panel(state ?? {}, { turns: this.#turnsOn(branchId), ...context });
   }
 
   /** How many exchanges a branch holds — the only thing a panel needs from us. */
@@ -482,6 +500,7 @@ export class Agent {
       await this.#store.save(this.sessionId, this.#record.messages, this.#usage, {
         branches: this.#record.branches,
         activeBranchId: this.#record.activeBranchId,
+        project: this.project,
       });
     } catch (err) {
       // A store that is down is a degraded agent, not a lost reply.

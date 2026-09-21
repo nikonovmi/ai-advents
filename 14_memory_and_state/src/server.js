@@ -5,7 +5,7 @@ import "dotenv/config";
 import express from "express";
 
 import { Agent, personas } from "./agent.js";
-import { DEFAULT_STRATEGY, isStrategyId, strategyCatalog, STRATEGY_IDS } from "./context/index.js";
+import { DEFAULT_STRATEGY, isStrategyId, panelFor, strategyCatalog, STRATEGY_IDS } from "./context/index.js";
 import { AnthropicProvider, FakeProvider } from "./llm/anthropic.js";
 import { estimateCost } from "./llm/pricing.js";
 import { getBranchHistory } from "./store/branches.js";
@@ -13,6 +13,7 @@ import { isValidSessionId } from "./store/conversationStore.js";
 import { memoryRoutes } from "./memoryRoutes.js";
 import { JsonFileStore } from "./store/jsonFileStore.js";
 import { MemoryStore } from "./store/memoryStore.js";
+import { DEFAULT_PROJECT, defaultInvariantStore, isValidProject } from "./store/invariantStore.js";
 import { DEFAULT_USER, defaultProfileStore, isValidUser } from "./store/profileStore.js";
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -31,6 +32,9 @@ const store = await createStore();
 // And one profile store: long-term memory belongs to the user, not to any one
 // conversation, so there is exactly one of it for the whole process.
 const profileStore = defaultProfileStore();
+// And one invariant store. Long-term memory belongs to the user; the rules
+// belong to the codebase, which is why they are two stores and not one.
+const invariantStore = defaultInvariantStore();
 
 // A cache in front of the store, not the source of truth: a miss is a load,
 // not a blank slate. That is what lets a conversation survive a restart.
@@ -81,6 +85,10 @@ async function agentFor(sessionId) {
       sessionId,
       name: "Assistant",
       systemPrompt: personas.helpful,
+      // The two stores that outlive a conversation, handed to whichever
+      // strategy turns out to want them. The Agent itself never touches
+      // either.
+      strategyOptions: { profileStore, invariantStore },
     });
     sessions.set(sessionId, agent);
   }
@@ -104,7 +112,7 @@ app.get("/pricing.js", (_req, res) => {
 // None of it is a turn, so none of it belongs on /chat. Dropping the cached
 // agent is what stops the next turn writing stale memory back over it.
 app.use(
-  memoryRoutes({ store, provider, profileStore, invalidate: (id) => sessions.delete(id) })
+  memoryRoutes({ store, provider, profileStore, invariantStore, invalidate: (id) => sessions.delete(id) })
 );
 
 /** The selector is built from the registry, not from a second list in the UI. */
@@ -137,6 +145,27 @@ app.get("/profiles", async (_req, res) => {
 });
 
 /**
+ * Which projects have rules — the topbar's other picker.
+ *
+ * Same discipline as `/profiles`: the list comes from the store that owns it.
+ * The default is always offered even before anything has been written to it,
+ * because a picker whose first entry appears only after you have used it is a
+ * picker you cannot use.
+ */
+app.get("/projects", async (_req, res) => {
+  try {
+    const projects = await invariantStore.list();
+    if (!projects.some((project) => project.id === DEFAULT_PROJECT)) {
+      projects.unshift({ id: DEFAULT_PROJECT, entryCount: 0, updatedAt: null });
+    }
+    res.json({ projects, default: DEFAULT_PROJECT });
+  } catch (err) {
+    console.error("[/projects]", err);
+    res.status(500).json({ error: "Could not list projects." });
+  }
+});
+
+/**
  * One profile, as it stands in the store right now.
  *
  * The panel's profile section is *what was sent on the last turn of this
@@ -165,8 +194,31 @@ app.get("/profiles/:id", async (req, res) => {
   }
 });
 
+
+/**
+ * What the memory panel should draw, read here because a panel is built
+ * synchronously and these live in stores.
+ *
+ * The ids come from the request because the pickers are in the topbar rather
+ * than in the conversation: the panel answers *what would the next turn be
+ * sent*, and the next turn is sent whatever the pickers currently say. Without
+ * them a conversation nobody has spoken in yet draws an empty rule set and an
+ * empty profile, which reads as "there are no rules and nothing is known about
+ * you" when the truth is "nothing has been sent yet".
+ */
+async function panelContext(req, agent) {
+  const user = isValidUser(req.query?.profile) ? String(req.query.profile).toLowerCase() : (agent.profileUser ?? DEFAULT_USER);
+  const project = isValidProject(req.query?.project) ? String(req.query.project).toLowerCase() : (agent.project ?? DEFAULT_PROJECT);
+  const [invariants, profile] = await Promise.all([
+    invariantStore.load(project).catch(() => null),
+    profileStore.load(user).catch(() => null),
+  ]);
+  return { invariants, profile, user, project };
+}
+
 app.post("/chat", async (req, res) => {
-  const { message, sessionId, contextMessages, maxTokens, strategy, branchId, profile } = req.body ?? {};
+  const { message, sessionId, contextMessages, maxTokens, strategy, branchId, profile, project } =
+    req.body ?? {};
 
   if (typeof message !== "string" || !message.trim()) {
     return res.status(400).json({ error: "A non-empty 'message' is required." });
@@ -197,6 +249,10 @@ app.post("/chat", async (req, res) => {
     return res.status(400).json({ error: "'profile' must be lowercase letters, digits, dash or underscore." });
   }
 
+  if (project !== undefined && !isValidProject(project)) {
+    return res.status(400).json({ error: "'project' must be lowercase letters, digits, dash or underscore." });
+  }
+
   try {
     const agent = await agentFor(sessionId);
     const branch = branchId ?? agent.activeBranchId;
@@ -215,6 +271,12 @@ app.post("/chat", async (req, res) => {
     // same conversation, which is what makes "ask the same thing as someone
     // else" a thing you can do rather than a thing you have to rebuild for.
     agent.profileUser = profile ? String(profile).trim().toLowerCase() : DEFAULT_USER;
+    // Whose rules this turn is subject to. Unlike the profile there is no
+    // falling back to a default when the request is silent: the record
+    // remembers which project the conversation belongs to, and resetting that
+    // to `default` because one request forgot to say would quietly drop every
+    // rule the project has for the length of a turn.
+    if (project) agent.project = String(project).trim().toLowerCase();
     agent.strategy = strategy ?? agent.branchStrategy(branch);
 
     const { text, meta } = await agent.run(message, { branchId: branch });
@@ -265,23 +327,36 @@ app.get("/conversations/:id", async (req, res) => {
       return res.status(404).json({ error: "No such branch." });
     }
 
+    // A conversation nobody has spoken in yet is a real state here too — the
+    // same call the memory routes make, for the same reason. It used to 404,
+    // which meant the page fell back to a blank panel and an empty chat could
+    // not show you the rules it is about to be sent or the profile it is
+    // about to be answered as.
     const messages = agent.history(branchId);
-    if (!messages.length && !agent.branches.some((b) => b.messageCount)) {
-      const stored = await store.load(id);
-      if (!stored) return res.status(404).json({ error: "No such conversation." });
-    }
 
     // The strategy's panel rides along with the transcript: the right-hand
     // column has to be right immediately on a reload, not one turn later. It is
     // built by the strategy that owns the state, so the route never reads a
     // field belonging to one particular strategy.
+    // **"Which strategy was this last spoken to with" has no answer before it
+    // has been spoken to.** A fresh branch carries the registry's default, and
+    // reporting that as a remembered choice would snap the selector away from
+    // whatever the person had picked, on every new conversation. So it is
+    // `null`, the page keeps its own selection — and the panel previews *that*
+    // strategy, because that is the one the next turn will use.
+    const spoken = messages.length > 0 || agent.branches.some((branch) => branch.messageCount);
+    const wanted = isStrategyId(req.query?.strategy) ? req.query.strategy : null;
+    const context = await panelContext(req, agent);
+
     res.json({
       messages,
       branchId,
       branches: agent.branches,
       activeBranchId: agent.activeBranchId,
-      strategy: agent.branchStrategy(branchId),
-      panel: agent.panel(branchId),
+      strategy: spoken ? agent.branchStrategy(branchId) : null,
+      panel: spoken || !wanted
+        ? agent.panel(branchId, context)
+        : panelFor(wanted, {}, { turns: 0, ...context }),
     });
   } catch (err) {
     console.error("[/conversations/:id]", err);
@@ -343,7 +418,7 @@ app.post("/conversations/:id/branches/:branchId/activate", async (req, res) => {
       activeBranchId: agent.activeBranchId,
       messages: agent.history(branchId),
       strategy: agent.branchStrategy(branchId),
-      panel: agent.panel(branchId),
+      panel: agent.panel(branchId, await panelContext(req, agent)),
     });
   } catch (err) {
     console.error("[POST /activate]", err);

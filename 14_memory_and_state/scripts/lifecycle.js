@@ -37,7 +37,11 @@ import { STAGES } from "../src/context/taskState.js";
 import { AnthropicProvider, FakeProvider } from "../src/llm/anthropic.js";
 import { getBranchHistory } from "../src/store/branches.js";
 import { MemoryStore } from "../src/store/memoryStore.js";
+import { MemoryInvariantStore } from "../src/store/invariantStore.js";
 import { MemoryProfileStore } from "../src/store/profileStore.js";
+import { Briefer, MemoryExtractor, Promoter } from "../src/context/memory.js";
+import { InvariantProposer } from "../src/context/invariants.js";
+import { Summarizer } from "../src/summarizer.js";
 
 const COLOUR = process.stdout.isTTY && !process.env.NO_COLOR;
 const ESC = String.fromCharCode(27);
@@ -61,6 +65,60 @@ const store = new MemoryStore();
 // Long-term memory outlives a conversation, so the demo gets its own rather
 // than promoting this run's decisions into the profile you actually use.
 const profileStore = new MemoryProfileStore();
+// The project's rules get their own store for the same reason, and a project
+// id of their own so the demo cannot write into the one you actually use.
+const invariantStore = new MemoryInvariantStore();
+const PROJECT = "lifecycle-demo";
+
+/**
+ * **Offline, the scenario's `offline` patches are the extractor's output.**
+ *
+ * The fake provider turns every message into a `decision.*` key and can
+ * produce no `goal` at all, so with `--fake` there would otherwise be nothing
+ * for the freeze to refuse and nothing to record a refusal with. Handing the
+ * scripted patch to a stand-in extractor puts it through the *real* path —
+ * `splitTaskOps`, `applyTaskOps`, `applyOps`, every write policy — rather than
+ * typing the result in by hand past the machinery being demonstrated.
+ *
+ * The other three helpers are injected alongside it only because the strategy
+ * rebuilds all of them together the first time it needs one; they are the real
+ * classes, speaking to the fake provider, exactly as they would be anyway.
+ */
+class ScriptedExtractor {
+  #script;
+  #turn = 0;
+
+  constructor(script) {
+    this.#script = script;
+  }
+
+  async extract() {
+    const ops = this.#script[this.#turn++] ?? [];
+    return { ops, usage: { inputTokens: 0, outputTokens: 0 }, model: "scripted", ms: 0 };
+  }
+}
+
+/** One entry per `say` step, in order — the turn is the index. */
+const offlineScript = scenario.steps.filter((step) => typeof step.say === "string").map((step) => step.offline ?? []);
+
+const scripted = options.fake
+  ? {
+      extractor: new ScriptedExtractor(offlineScript),
+      promoter: new Promoter({ provider, model: provider.model }),
+      briefer: new Briefer({ provider, model: provider.model }),
+      proposer: new InvariantProposer({ provider, model: provider.model }),
+      summarizer: new Summarizer({ provider, model: provider.model }),
+    }
+  : {};
+
+function strategyOptions() {
+  return { profileStore, invariantStore, project: PROJECT, ...scripted };
+}
+
+/** The strategy the routes build: no conversation, both long-lived stores. */
+function strategyFor() {
+  return createStrategy("memory", { profileStore, invariantStore, project: PROJECT });
+}
 
 console.log(`\n${bold(scenario.title)} — ${scenario.steps.length} steps`);
 console.log(
@@ -81,6 +139,7 @@ for (const [index, step] of scenario.steps.entries()) {
   if (step.note) console.log(`\n${dim("· " + step.note)}`);
 
   if (typeof step.say === "string") await said(number, step);
+  else if (step.invariant) await authored(number, step);
   else await pressed(number, step);
 }
 
@@ -119,38 +178,98 @@ async function said(number, step) {
   }
   if (options.blocks) printBlock(await workingBlockOf());
 
-  // The offline extractor turns every message into a `decision.*` key and can
-  // produce no `goal` at all, so with `--fake` the scenario types the keys in
-  // by hand — through `applyPanelOps`, which is the path the panel's own
-  // buttons take and is marked as person-originated. Nothing is pretended: it
-  // is printed, and with a key it never runs.
-  if (options.fake && step.offline?.length) await typedIn(step.offline);
+  // **The refusal, checked.** The model was asked for something a rule
+  // forbids: it must have said so, must have offered something inside the
+  // rule, and must have written nothing on that subject.
+  if (step.expect === "refusal") await checkRefusal(number, step, meta.strategy.panel);
 }
 
-/** What a person typing into the panel does, as the route does it. */
-async function typedIn(ops) {
-  const strategy = createStrategy("memory", { profileStore });
+/**
+ * The answer-time refusal, asserted: the op was emitted, it carries an exit,
+ * and nothing about the forbidden subject reached working memory.
+ */
+async function checkRefusal(number, step, panel) {
+  const rows = [
+    ...(panel?.invariants ?? []).flatMap((rule) => rule.refusals ?? []),
+    ...(panel?.orphanRefusals ?? []),
+  ];
+  const refusal = rows.find((row) => row.invariant === step.invariant);
+
+  if (!refusal) {
+    broken.push(`step ${number}: nothing was recorded as refused under invariant.${step.invariant}`);
+    console.log(dim(`    no refusal op — the reply may still have refused in prose, but nothing recorded it`));
+  } else {
+    console.log(dim(`    refused under invariant.${step.invariant}: “${refusal.request}”`));
+    // A dead end is a bad refusal, so its absence is reported rather than
+    // passed over — it is the failure mode that gets a rule routed around.
+    console.log(
+      dim(
+        refusal.alternative
+          ? `    offered instead: ${refusal.alternative}`
+          : `    nothing was offered in its place — a refusal with no exit`
+      )
+    );
+    if (!refusal.alternative) broken.push(`step ${number}: the refusal offered no alternative`);
+  }
+
+  // ...and nothing was written. A refusal that quietly recorded the request as
+  // a decision would be the whole mechanism failing while looking like it
+  // worked.
   const record = await store.load(SESSION);
-  const branch = record.branches[BRANCH];
-  const history = getBranchHistory(record, BRANCH);
+  const working = record?.branches?.[BRANCH]?.strategyState?.memory?.working ?? {};
+  const landed = Object.keys(working).filter((key) => key.split(".").slice(1).join(".") === step.invariant);
+  if (landed.length) broken.push(`step ${number}: ${landed.join(", ")} was written on a subject a rule owns`);
+  else console.log(dim(`    nothing written on \`${step.invariant}\` — the subject is owned by a rule`));
+}
+
+/**
+ * **Authoring a rule, as the review box does it.**
+ *
+ * Through `/memory/ops` with `origin: 'person'` — the accept *is* the write,
+ * and it is the only door into the namespace. The model's part (turning typed
+ * prose into this row) is the one new call the feature adds and it is skipped
+ * here: what the demo is showing is where the row lands, not how it was
+ * phrased.
+ */
+async function authored(number, step) {
+  const strategy = strategyFor();
+  const record = await store.load(SESSION);
+  const branch = record?.branches?.[BRANCH];
+  const history = record ? getBranchHistory(record, BRANCH) : [];
+  const state = branch?.strategyState?.memory ?? strategy.emptyState();
+
   const applied = await strategy.applyPanelOps({
-    state: branch.strategyState?.memory ?? strategy.emptyState(),
-    ops,
+    state,
+    ops: [{ op: "set", key: step.invariant.key, value: step.invariant.text, check: step.invariant.check }],
     turns: history.filter((message) => message.role === "user").length,
   });
 
-  branch.strategy = "memory";
-  branch.strategyState = { ...branch.strategyState, memory: applied.state };
-  await store.save(SESSION, record.messages, record.usage, {
-    branches: record.branches,
-    activeBranchId: record.activeBranchId,
-  });
-  console.log(dim(`    offline: typed in by hand — ${ops.map((op) => op.key).join(", ")}`));
+  console.log(`\n${bold(number + "  rule")} ${step.invariant.key}`);
+  console.log(dim(`    ${step.invariant.text}`));
+  console.log(dim(`    check: ${step.invariant.check}`));
+  console.log(dim(`    ${applied.note}`));
+
+  if (record) {
+    branch.strategy = "memory";
+    branch.strategyState = { ...branch.strategyState, memory: applied.state };
+    await store.save(SESSION, record.messages, record.usage, {
+      branches: record.branches,
+      activeBranchId: record.activeBranchId,
+    });
+  }
+
+  const panel = strategy.panel(applied.state, { turns: Infinity });
+  if (!panel.invariants.some((row) => row.key === step.invariant.key)) {
+    broken.push(`step ${number}: ${step.invariant.key} was not stored`);
+  }
+  for (const swept of panel.proposals.filter((p) => p.kind === "collision" && p.status === "pending")) {
+    console.log(dim(`    sweep: ${swept.key} is on the same subject — “${swept.value}”, waiting for you`));
+  }
 }
 
 /** A click: one edge of the machine, through the path the route takes. */
 async function pressed(number, step) {
-  const strategy = createStrategy("memory", { profileStore });
+  const strategy = strategyFor();
   const record = await store.load(SESSION);
   const branch = record?.branches?.[BRANCH];
   const state = branch?.strategyState?.memory ?? strategy.emptyState();
@@ -226,7 +345,7 @@ async function pressed(number, step) {
 // ---- the end -----------------------------------------------------------------
 
 async function report() {
-  const strategy = createStrategy("memory", { profileStore });
+  const strategy = strategyFor();
   const record = await store.load(SESSION);
   const state = record.branches[BRANCH].strategyState.memory;
   const panel = strategy.panel(state, { turns: Infinity });
@@ -266,16 +385,17 @@ async function report() {
   if (promotionCalls !== 1) broken.push(`the promotion call fired ${promotionCalls} times, not once`);
   if (Object.keys(state.working).length) broken.push("working memory was not cleared on the way into done");
 
-  // The one thing an offline run cannot show. The freeze is a rule about ops
-  // the *extractor* emits, and the fake extractor emits a `decision.*` for
-  // every message and never a `goal` — so there is nothing for the freeze to
-  // refuse. Saying so is better than a run that looks complete and quietly is
-  // not; the unit tests cover it, and a keyed run shows it at step 8.
+  // What an offline run can and cannot show, said rather than implied. The
+  // scripted patches go through the real extraction path, so the freeze and
+  // the refusal op behave exactly as they do with a key — what is missing is
+  // the only thing that matters about them, which is whether a model would
+  // have produced those ops on its own.
   if (provider instanceof FakeProvider) {
     console.log(
       dim(
-        "\noffline: the freeze is not exercised above. It refuses `goal` ops from the extractor," +
-          " and the fake one never proposes a `goal`. Run with a key to see step 8 held back."
+        "\noffline: the freeze and the refusal above were driven by the scenario's own patches," +
+          " handed to the strategy as the extractor's output. The machinery around them is real;" +
+          " whether a model reaches for those ops unprompted is what a keyed run tells you."
       )
     );
   }
@@ -339,7 +459,7 @@ function load() {
     maxTokens: options.maxTokens,
     temperature: 0,
     strategy: "memory",
-    strategyOptions: { profileStore },
+    strategyOptions: strategyOptions(),
   });
 }
 

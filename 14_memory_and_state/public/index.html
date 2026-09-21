@@ -488,7 +488,10 @@
   }
   .chart > summary::before { content: "▾ "; }
   .chart:not([open]) > summary::before { content: "▸ "; }
-  .chart svg { display: block; width: 100%; height: 120px; margin-top: 8px; }
+  .chart svg { display: block; width: 100%; height: 120px; margin-top: 10px; }
+  /* The controls sit above the chart they are the bill for, with a rule
+     between so the row does not read as one long strip of inputs. */
+  .chart .window-banner { padding-bottom: 10px; border-bottom: 1px solid var(--line); }
   .chart .note {
     font-size: 12px;
     color: var(--muted);
@@ -504,8 +507,7 @@
     gap: 14px;
     align-items: flex-start;
     flex-wrap: wrap;
-    padding: 12px 24px;
-    border-top: 1px solid var(--line);
+    padding: 10px 0 0;
     background: var(--bg);
     font-size: 13px;
     line-height: 1.5;
@@ -912,6 +914,109 @@
   .memory .none { color: var(--muted); font-style: italic; }
   .memory .digest { margin-top: 4px; }
 
+  /* ---- invariants ---------------------------------------------------------
+     Drawn first, because that is where they are on the wire and because they
+     outrank everything under them. The left rule is the only ornament: it is
+     the one section whose rows are not a claim about what is true but a claim
+     about what is allowed. */
+  .memory .layer.rules { border-left: 2px solid var(--accent); padding-left: 7px; }
+  .memory .rule-row { padding: 4px 0; border-bottom: 1px dashed var(--line); }
+  .memory .rule-row:last-of-type { border-bottom: 0; }
+  .memory .rule-row .k {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px;
+    color: var(--muted);
+  }
+  .memory .rule-row .v { margin-top: 1px; }
+  .memory .rule-row .check {
+    display: block;
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 10px;
+  }
+  /* A refusal is the visible artefact of the whole feature, so it is drawn on
+     the rule that caused it rather than in a list somewhere else. */
+  .memory .refusal {
+    margin-top: 4px;
+    padding: 4px 6px;
+    border-left: 2px solid color-mix(in srgb, var(--accent) 60%, var(--line));
+    background: color-mix(in srgb, var(--accent) 6%, transparent);
+    border-radius: 0 5px 5px 0;
+    font-size: 10.5px;
+  }
+  .memory .refusal .alt { display: block; margin-top: 2px; color: var(--muted); }
+  .memory .refusal .dead { display: block; margin-top: 2px; color: var(--accent); }
+  .memory .rules textarea {
+    width: 100%;
+    margin-top: 4px;
+    padding: 4px 5px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: var(--bg);
+    color: var(--ink);
+    font: inherit;
+    font-size: 11px;
+    resize: vertical;
+  }
+  .memory .draft { margin: 6px 0; }
+  .memory .draft .row-key {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px;
+  }
+  .memory .draft .tag {
+    display: inline-block;
+    margin-right: 4px;
+    padding: 0 5px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .memory .draft .tag.amend { border-color: var(--accent); color: var(--accent); }
+  .memory .draft .tag.reject { opacity: 0.7; }
+  .stage-strip .brief .open { margin-top: 6px; }
+  .stage-strip .brief .open .head {
+    color: var(--muted);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .stage-strip .brief .open .pair {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    padding: 2px 0;
+    font-size: 11px;
+  }
+  .stage-strip .brief .open .pair span { flex: 1; }
+  .stage-strip .brief .open .pair em { color: var(--accent); font-style: normal; font-size: 10px; }
+  .stage-strip .brief .open .pair button {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    cursor: pointer;
+  }
+  .stage-strip .brief .open .pair button:hover { color: var(--accent); border-color: var(--accent); }
+
+  .memory .draft input {
+    width: 100%;
+    margin-top: 3px;
+    padding: 4px 5px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: var(--bg);
+    color: var(--ink);
+    font: inherit;
+    font-size: 11px;
+  }
+
   /* ---- the profile picker, the editor and the comparison ------------------ */
 
   /* The picker sits in the topbar rather than in the panel because it is not a
@@ -1124,11 +1229,38 @@
     <label class="picker" for="profile">Profile
       <select id="profile" title="Whose long-term memory this conversation reads and writes."></select>
     </label>
+    <label class="picker" for="project">Project
+      <select id="project" title="Whose invariants this conversation is subject to. The rules belong to the codebase, not to you."></select>
+    </label>
     <button id="new-conversation" type="button">New conversation</button>
   </div>
 
-  <details class="chart" id="chart-panel">
-    <summary>Cost growth</summary>
+  <!-- **What goes on the wire, and what it costs, in one place.** The
+       controls decide the payload and the chart is the bill for it, so they
+       are one collapsible row rather than one above the transcript and one
+       below it. Open by default: the strategy selector is the control the
+       right-hand panel is drawn from, and a control nobody can find is a
+       control nobody uses. -->
+  <details class="chart" id="chart-panel" open>
+    <summary>Strategy &amp; cost</summary>
+    <div class="window-banner">
+      <div class="controls">
+        <label for="strategy">Strategy
+          <select id="strategy"></select>
+        </label>
+        <label title="How many exchanges are kept verbatim. What that means is the strategy's business.">Window (exchanges)
+          <input id="context-messages" type="number" min="2" max="100" step="1" value="10">
+        </label>
+        <label>Max tokens
+          <select id="max-tokens">
+            <option value="30">30</option>
+            <option value="300">300</option>
+            <option value="1024" selected>1024</option>
+          </select>
+        </label>
+      </div>
+      <p class="strategy-note" id="strategy-note"></p>
+    </div>
     <svg id="chart" viewBox="0 0 600 140" preserveAspectRatio="none" role="img"
          aria-label="Cumulative cost by turn"></svg>
     <p class="note" id="chart-note"></p>
@@ -1144,25 +1276,6 @@
   </div>
 
   <div id="messages" aria-live="polite"></div>
-
-  <div class="window-banner">
-    <div class="controls">
-      <label for="strategy">Strategy
-        <select id="strategy"></select>
-      </label>
-      <label title="How many exchanges are kept verbatim. What that means is the strategy's business.">Window (exchanges)
-        <input id="context-messages" type="number" min="2" max="100" step="1" value="10">
-      </label>
-      <label>Max tokens
-        <select id="max-tokens">
-          <option value="30">30</option>
-          <option value="300">300</option>
-          <option value="1024" selected>1024</option>
-        </select>
-      </label>
-    </div>
-    <p class="strategy-note" id="strategy-note"></p>
-  </div>
 
   <!-- Above the composer and outside it: the answer to "whose turn is it"
        belongs where you look before typing, not in the panel you may have
@@ -1211,11 +1324,21 @@
 
   const SESSION_KEY = "first-agent.sessionId";
   const PANEL_OPEN_KEY = "first-agent.panelOpen";
+  // The merged strategy-and-cost row remembers whether you closed it, for the
+  // same reason the right-hand panel does: a thing you collapsed once and have
+  // to collapse again on every reload is a thing you stop collapsing.
+  const CONTROLS_OPEN_KEY = "first-agent.controlsOpen";
   // Which profile the topbar is pointing at. It lives beside the session id
   // rather than in the conversation because it is not a property of the
   // conversation: the same chat can be continued as someone else, and that is
   // the whole point of the picker.
   const PROFILE_KEY = "first-agent.profile";
+  // The project is remembered the same way and for a different reason: which
+  // codebase you are working in is not a property of any one chat either, and
+  // opening a new conversation in the same repository should not mean losing
+  // its rules until you remember to pick them again. The conversation record
+  // holds the answer too, and it wins when the two disagree.
+  const PROJECT_KEY = "first-agent.project";
   /** The value the picker uses for "make one that does not exist yet". */
   const NEW_PROFILE = "\u0000new";
   // How long the panel stays lit after the strategy changed something. Long
@@ -1259,7 +1382,9 @@
   const panelStats = document.getElementById("panel-stats");
   const panelBadge = document.getElementById("panel-badge");
   const panelBody = document.getElementById("panel-body");
+  const chartPanel = document.getElementById("chart-panel");
   const profileSelect = document.getElementById("profile");
+  const projectSelect = document.getElementById("project");
   const stageStrip = document.getElementById("stage-strip");
   const compareDialog = document.getElementById("compare-dialog");
   const compareMessage = document.getElementById("compare-message");
@@ -1313,6 +1438,29 @@
   let profileEntries = [];
   /** Which arms the comparison dialog will run, across openings. */
   let compareWith = new Set();
+  /** Every project with a rule set, for the picker. */
+  let projects = [];
+  /** Which project's invariants this conversation is subject to. */
+  let projectId = storedProject();
+  /**
+   * The rows the last *Propose* call came back with, and the prose that
+   * produced them.
+   *
+   * They live in the page and nowhere else, which is the point: a proposal is
+   * not memory, and until a row is accepted there is nothing on the server
+   * that knows it was ever drafted. A failed call leaves the typed text
+   * exactly where it was.
+   */
+  let invariantRows = [];
+  let invariantDraft = "";
+
+  function storedProject() {
+    try {
+      return localStorage.getItem(PROJECT_KEY) || "default";
+    } catch (err) {
+      return "default";
+    }
+  }
 
   function storedProfile() {
     try {
@@ -1323,8 +1471,34 @@
   }
 
   /** `?branchId=…`, or nothing at all until we know which branch that is. */
+  /**
+   * The branch, and which pickers the page is on.
+   *
+   * The two ids ride along because the panel answers *what would the next turn
+   * be sent* — and the next turn is sent whatever the topbar currently says,
+   * not whatever the last one happened to use. Without them a conversation
+   * nobody has spoken in yet has no snapshot to draw from and comes back with
+   * an empty rule set and an empty profile.
+   */
   function branchQuery() {
-    return branchId ? "?branchId=" + encodeURIComponent(branchId) : "";
+    const params = new URLSearchParams();
+    if (branchId) params.set("branchId", branchId);
+    if (profileId) params.set("profile", profileId);
+    if (projectId) params.set("project", projectId);
+    // Which panel to preview for a conversation nobody has spoken in yet. A
+    // branch with history answers this for itself and the server ignores it.
+    if (strategySelect.value) params.set("strategy", strategySelect.value);
+    const query = params.toString();
+    return query ? "?" + query : "";
+  }
+
+  /** Just the pickers, for the routes that do not take a branch in the query. */
+  function pickerQuery() {
+    const params = new URLSearchParams();
+    if (profileId) params.set("profile", profileId);
+    if (projectId) params.set("project", projectId);
+    const query = params.toString();
+    return query ? "?" + query : "";
   }
 
   function showEmptyState() {
@@ -1591,16 +1765,22 @@
     strategyNote.textContent = chosen?.description ?? "";
   }
 
-  strategySelect.addEventListener("change", () => {
+  strategySelect.addEventListener("change", async () => {
     strategyId = strategySelect.value;
     syncStrategySelect();
     // Switching is not a reset: the old strategy's state stays on the branch
-    // and comes back untouched if you switch back. Nothing is *refetched*
-    // until the next turn, which is when the change actually takes effect —
-    // but the panel is redrawn now, because what it offers differs per
-    // strategy and picking `memory` is how you reach the profile editor.
+    // and comes back untouched if you switch back. On a branch with history
+    // nothing changes until the next turn, which is when the switch actually
+    // takes effect.
     renderPanel();
     renderWindowBanner();
+    // **But a conversation nobody has spoken in has no state to come back
+    // to**, and the panel for it is a preview of what the next turn will
+    // carry — which is a different preview for every strategy. Picking
+    // `memory` there has to go and ask, or the page draws the placeholder
+    // below and calls it an answer: an empty rule set and an empty profile
+    // for a project and a person that have plenty of both.
+    await refreshPanel();
   });
 
   // ---- the right-hand column -----------------------------------------------
@@ -1768,6 +1948,77 @@
     await loadProfileEntries();
     renderPanel();
     renderWindowBanner();
+    // The panel's rows are whose profile the *next* turn will use, so they
+    // follow the picker rather than waiting for a turn to prove it.
+    await refreshPanel();
+  });
+
+  /**
+   * Which projects have rules — the second picker, built from the store.
+   *
+   * Same discipline as the profile list: it comes from the thing that owns it,
+   * never from a second list here that can quietly disagree.
+   */
+  async function loadProjects() {
+    try {
+      const res = await fetch("/projects");
+      if (res.ok) projects = (await res.json()).projects ?? [];
+    } catch (err) {
+      // A picker we cannot fill still has the project we are already on.
+    }
+    if (!projects.some((project) => project.id === projectId)) {
+      projects = [...projects, { id: projectId, entryCount: 0, updatedAt: null }];
+    }
+    renderProjectSelect();
+  }
+
+  function renderProjectSelect() {
+    projectSelect.innerHTML = "";
+    for (const project of projects) {
+      const option = document.createElement("option");
+      option.value = project.id;
+      option.textContent = project.id + (project.entryCount ? ` (${project.entryCount})` : "");
+      projectSelect.appendChild(option);
+    }
+    const create = document.createElement("option");
+    create.value = NEW_PROFILE;
+    create.textContent = "New project\u2026";
+    projectSelect.appendChild(create);
+    projectSelect.value = projectId;
+  }
+
+  projectSelect.addEventListener("change", async () => {
+    if (projectSelect.value === NEW_PROFILE) {
+      const name = String(window.prompt("A name for the new project", "") ?? "").trim().toLowerCase();
+      if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(name)) {
+        projectSelect.value = projectId;
+        if (name) memoryNote("A project name is lowercase letters, digits, dash or underscore.");
+        return;
+      }
+      // No file until a rule is written into it. An empty project is a
+      // codebase nobody has stated a rule about yet, which is a real state.
+      if (!projects.some((project) => project.id === name)) {
+        projects = [...projects, { id: name, entryCount: 0, updatedAt: null }];
+      }
+      projectId = name;
+    } else {
+      projectId = projectSelect.value;
+    }
+
+    try {
+      localStorage.setItem(PROJECT_KEY, projectId);
+    } catch (err) {
+      // A browser that will not remember it still uses it for this session.
+    }
+    // A draft belongs to the project it was typed against, so switching throws
+    // it away rather than letting you accept a rule into the wrong codebase.
+    invariantRows = [];
+    renderProjectSelect();
+    renderPanel();
+    // The rules below belong to the project, so they change when the picker
+    // does. Re-reading is what makes that true rather than leaving last
+    // turn's snapshot on screen under a new project's name.
+    await refreshPanel();
   });
 
   /**
@@ -1787,6 +2038,18 @@
     target.innerHTML = "";
     const root = document.createElement("div");
     root.className = "memory";
+
+    // **First, because that is where it is on the wire and because it outranks
+    // everything under it.** The panel's job is to make the payload legible,
+    // and a section drawn below the profile would say the opposite of what the
+    // precedence line in the block says.
+    //
+    // The caption copy drawn inside the transcript leaves it out when there
+    // are no rules: the panel's empty state is an invitation to write one, and
+    // an invitation in a caption is a button you cannot press.
+    if (interactive || panel.invariants?.length) {
+      root.appendChild(memoryInvariants(panel, interactive));
+    }
 
     const profileLayer = memoryLayer({
       title: "Profile",
@@ -1845,6 +2108,22 @@
       // visible without opening this panel.
       lead: panel.lifecycle ? stageSummary(panel.lifecycle) : null,
     });
+    // **Why the reply you just read is not in here yet.**
+    //
+    // Memory is extracted before the model answers, over the exchange ending
+    // with the message you sent — which is what makes a preference stated now
+    // shape the answer now, and what leaves anything the *assistant* says one
+    // turn behind. The case that reads as a bug is planning: it asks six
+    // questions and the task shows nothing open until you say something else.
+    // There is no second call to close that with, so it is said out loud.
+    if (interactive && panel.lifecycle?.stage === "planning" && panel.reads?.pending) {
+      const lag = document.createElement("div");
+      lag.className = "none";
+      lag.textContent =
+        "The reply above has not been read into memory yet — that happens on your next message. " +
+        "Anything it asked shows up here then, as open.* questions.";
+      task.appendChild(lag);
+    }
     root.appendChild(task);
 
     if (panel.lifecycle?.brief?.status === "accepted") root.appendChild(memoryBrief(panel.lifecycle.brief));
@@ -1855,6 +2134,334 @@
     if (panel.usage) root.appendChild(memorySpend(panel.usage));
 
     target.appendChild(root);
+  }
+
+
+  /**
+   * **The rules, the box you type them in, and what was refused under them.**
+   *
+   * Three things in one section because they are one loop: you read what the
+   * project already has, you type what else is true, and you see what the
+   * assistant turned down because of it. Splitting them would mean the rules
+   * you already have are somewhere other than the box where you would retype
+   * them, which is how people end up with four rows saying the same thing.
+   */
+  function memoryInvariants(panel, interactive) {
+    const rows = panel.invariants ?? [];
+    const section = document.createElement("div");
+    section.className = "layer rules";
+
+    const heading = document.createElement("h3");
+    heading.textContent = `Invariants (${rows.length})`;
+    const life = document.createElement("span");
+    life.className = "lifetime";
+    life.textContent = interactive
+      ? `the project's, not yours · ${panel.project ?? projectId}`
+      : "the project's, not yours";
+    heading.appendChild(life);
+    section.appendChild(heading);
+
+    if (!rows.length) {
+      const none = document.createElement("div");
+      none.className = "none";
+      none.textContent = interactive
+        ? "No rules yet. Anything you write here is sent on every turn, in every stage, above everything else in memory."
+        : "No rules for this project.";
+      section.appendChild(none);
+    }
+
+    for (const row of rows) {
+      const entry = document.createElement("div");
+      entry.className = "rule-row";
+
+      const key = document.createElement("div");
+      key.className = "k";
+      key.textContent = row.subject || row.key;
+      if (row.amended) {
+        const flag = document.createElement("span");
+        flag.className = "origin";
+        flag.textContent = " · amended";
+        flag.title =
+          "This rule has been changed. Every sentence it has had is kept below — an " +
+          "invariant that changed without a trace is worse than not having one.";
+        key.appendChild(flag);
+      }
+
+      const value = document.createElement("div");
+      value.className = "v";
+      value.textContent = row.text;
+
+      const check = document.createElement("span");
+      check.className = "check";
+      check.textContent = "check: " + row.check;
+
+      entry.append(key, value, check);
+
+      // What it used to say. This is the amendment path made visible: the value
+      // of the mechanism is that it is stable, so every change stays readable.
+      for (const old of row.previous ?? []) {
+        const was = document.createElement("span");
+        was.className = "was";
+        was.textContent = "was: " + old.text;
+        entry.appendChild(was);
+      }
+
+      // **The refusals, on the rule that caused them.** This is the artefact
+      // the whole feature exists to produce: "what happens when a request
+      // conflicts" becomes a line you can point at rather than a paragraph
+      // somebody has to go and find in the transcript.
+      for (const refusal of row.refusals ?? []) {
+        entry.appendChild(refusalRow(refusal));
+      }
+
+      if (interactive) {
+        const acts = document.createElement("div");
+        acts.className = "acts";
+        acts.appendChild(
+          actButton("forget", () => {
+            if (!confirm(`Withdraw "${row.text}"?\n\nIt stops being sent from the next turn. The wording is kept.`)) return;
+            memoryOps([{ op: "delete", key: row.key }]);
+          })
+        );
+        entry.appendChild(acts);
+      }
+      section.appendChild(entry);
+    }
+
+    // Refusals citing a rule this project no longer has. Kept rather than
+    // dropped: "we turned that down under a rule we have since changed" is
+    // exactly the thing worth being able to find afterwards.
+    for (const refusal of panel.orphanRefusals ?? []) {
+      const orphan = refusalRow(refusal);
+      orphan.append(document.createTextNode(" "));
+      const gone = document.createElement("span");
+      gone.className = "alt";
+      gone.textContent = `— ${refusal.invariant} is no longer a rule of this project`;
+      orphan.appendChild(gone);
+      section.appendChild(orphan);
+    }
+
+    if (interactive) section.appendChild(invariantAuthor());
+    return section;
+  }
+
+  function refusalRow(refusal) {
+    const box = document.createElement("div");
+    box.className = "refusal";
+    const lead = document.createElement("b");
+    lead.textContent = "refused: ";
+    box.append(lead, refusal.request);
+
+    if (refusal.alternative) {
+      const alt = document.createElement("span");
+      alt.className = "alt";
+      alt.textContent = "offered instead: " + refusal.alternative;
+      box.appendChild(alt);
+    } else {
+      // **A dead end is a bad refusal.** Saying nothing here would hide the
+      // one thing worth noticing: the rule was applied and nothing was offered
+      // in its place, which is the shape of refusal people route around.
+      const dead = document.createElement("span");
+      dead.className = "dead";
+      dead.textContent = "nothing was offered in its place — the rule can be amended above";
+      box.appendChild(dead);
+    }
+    return box;
+  }
+
+  /**
+   * **Typed prose in, structured proposals out.**
+   *
+   * The button is the whole design. This costs a model call, and a cost you
+   * did not press is a cost you press four times by accident — so nothing here
+   * rides on a turn, and the draft it produces is a proposal that writes
+   * nothing until a row is accepted. That accept is what keeps the namespace
+   * person-only: the model drafts, you decide, and your click is the write.
+   */
+  function invariantAuthor() {
+    const box = document.createElement("details");
+    box.className = "editor";
+    box.open = invariantRows.length > 0;
+    const label = document.createElement("summary");
+    label.textContent = "Write a rule";
+    box.appendChild(label);
+
+    const field = document.createElement("textarea");
+    field.rows = 3;
+    field.value = invariantDraft;
+    field.placeholder = "we're never moving off Postgres, no ORM, deploys go through CI only";
+    field.addEventListener("input", () => { invariantDraft = field.value; });
+    box.appendChild(field);
+    hint(
+      box,
+      "One sentence per rule is enough — three rules in one sentence comes back as three rows. " +
+        "Nothing is written until you accept a row."
+    );
+
+    const propose = document.createElement("button");
+    propose.type = "button";
+    propose.className = "finish";
+    propose.textContent = "Propose";
+    propose.disabled = pending;
+    propose.title = "One model call. It drafts; nothing is written until you accept a row.";
+    propose.addEventListener("click", () => {
+      if (pending) return;
+      invariantDraft = field.value;
+      proposeInvariants(field.value);
+    });
+    box.appendChild(propose);
+
+    for (const row of invariantRows) box.appendChild(invariantDraftRow(row));
+    return box;
+  }
+
+  /**
+   * One drafted row, fully editable before it is accepted.
+   *
+   * Key, text and check are all inputs, because the model is guessing at all
+   * three and this is the last moment anybody will look. Accept and reject are
+   * per row rather than all-or-nothing: three rules came out of one sentence,
+   * and two of them being right is the common case.
+   */
+  function invariantDraftRow(row) {
+    const box = document.createElement("div");
+    box.className = "proposal draft";
+
+    const head = document.createElement("div");
+    head.className = "row-key";
+    const tag = document.createElement("span");
+    tag.className = "tag " + row.action;
+    tag.textContent = row.action;
+    tag.title =
+      row.action === "amend"
+        ? "This subject already has a rule. Accepting replaces it and keeps the old wording."
+        : row.action === "reject"
+          ? "No usable check could be written for this, so it is not an invariant."
+          : "Nothing is stored for this subject yet.";
+    head.append(tag, row.key);
+    box.appendChild(head);
+
+    // **A rejection is a row, not a silence.** It says why, and it offers the
+    // place the thing does belong — otherwise the only signal is a rule that
+    // quietly did not appear.
+    if (row.action === "reject") {
+      const why = document.createElement("div");
+      why.className = "was";
+      why.textContent = row.reason || "this is a preference, not an invariant";
+      box.appendChild(why);
+
+      if (row.suggest) {
+        const suggestion = document.createElement("div");
+        suggestion.className = "v";
+        suggestion.textContent = `${row.suggest.key}: ${row.suggest.value}`;
+        box.appendChild(suggestion);
+
+        const acts = document.createElement("div");
+        acts.className = "acts";
+        acts.append(
+          actButton("keep it as that", () => {
+            drop(row);
+            memoryOps([{ op: "set", key: row.suggest.key, value: row.suggest.value }], { declared: true });
+          }),
+          actButton("discard", () => { drop(row); renderPanel(); })
+        );
+        box.appendChild(acts);
+      } else {
+        const acts = document.createElement("div");
+        acts.className = "acts";
+        acts.appendChild(actButton("discard", () => { drop(row); renderPanel(); }));
+        box.appendChild(acts);
+      }
+      return box;
+    }
+
+    // An amendment shows what it replaces, so the box can be read as a diff
+    // rather than as a rule appearing from nowhere on top of another one.
+    if (row.current) {
+      const was = document.createElement("div");
+      was.className = "was";
+      was.textContent = "replaces: " + row.current;
+      box.appendChild(was);
+    }
+
+    const keyInput = ruleField(box, row.key, "invariant.database");
+    const textInput = ruleField(box, row.text, "Stays on Postgres.");
+    const checkInput = ruleField(box, row.check, "any proposal introducing another engine");
+
+    // **Collisions are reported, never resolved.** These are the entries
+    // already in memory on this subject. Nothing here decides between them —
+    // accepting the rule sweeps them into proposals of their own, and you
+    // answer those one at a time.
+    for (const collision of row.collisions ?? []) {
+      const clash = document.createElement("div");
+      clash.className = "was";
+      clash.textContent = `already on this subject — ${collision.key}: ${collision.value}`;
+      box.appendChild(clash);
+    }
+
+    const acts = document.createElement("div");
+    acts.className = "acts";
+    acts.append(
+      actButton(row.action === "amend" ? "amend it" : "accept", () => {
+        const key = keyInput.value.trim().toLowerCase();
+        const text = textInput.value.trim();
+        const check = checkInput.value.trim();
+        if (!key || !text || !check) return memoryNote("A rule needs a key, a sentence and a check.");
+        drop(row);
+        // The accept is the write, and it goes through `/memory/ops` like
+        // everything else — one write path, marked as coming from a person.
+        memoryOps([{ op: "set", key, value: text, check, supersedes: row.supersedes ?? undefined }]);
+      }),
+      actButton("discard", () => { drop(row); renderPanel(); })
+    );
+    box.appendChild(acts);
+    return box;
+  }
+
+  function ruleField(parent, value, placeholder) {
+    const field = document.createElement("input");
+    field.value = value ?? "";
+    field.placeholder = placeholder;
+    parent.appendChild(field);
+    return field;
+  }
+
+  /** Answering a row takes it out of the box. Unanswered ones stay. */
+  function drop(row) {
+    invariantRows = invariantRows.filter((other) => other !== row);
+  }
+
+  /**
+   * The one new model call in the whole feature, and it fires here.
+   *
+   * A failure leaves the typed text where it is and writes nothing — there is
+   * no partial result to half-apply, because nothing is applied until a row is
+   * accepted.
+   */
+  async function proposeInvariants(text) {
+    if (!text.trim()) return memoryNote("Type the rules first — one sentence each is enough.");
+    setPending(true);
+    try {
+      const res = await fetch(`/conversations/${sessionId}/memory/invariants/propose`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ branchId, profile: profileId, project: projectId, text }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        memoryNote(data.error || `Could not draft the rules (${res.status}).`);
+        return;
+      }
+      invariantRows = data.rows ?? [];
+      panelState = data.panel ?? panelState;
+      renderPanel();
+      if (data.note) memoryNote(data.note);
+      flashPanel();
+    } catch (err) {
+      memoryNote("Could not reach the server.");
+    } finally {
+      setPending(false);
+    }
   }
 
   /**
@@ -2180,6 +2787,20 @@
               : "the task says: ") + row.proposal.value;
         body.appendChild(waiting);
       }
+      if (row.governedBy) {
+        // **A rule owns this subject.** The row is written — working memory
+        // takes these rather than asking about each one — but it is outranked,
+        // and saying so is what keeps the collision visible without turning it
+        // into a question. Most of the time this is the task agreeing with the
+        // rule; when it is not, both sentences are on screen together.
+        const owned = document.createElement("span");
+        owned.className = "origin";
+        owned.textContent = " · " + row.governedBy + " outranks this";
+        owned.title =
+          "A project invariant owns this subject. It is sent above this row and outranks it; " +
+          "if the two disagree, the agent is told to say so rather than quietly pick one.";
+        key.appendChild(owned);
+      }
       if (row.frozen) {
         // The task has been committed to, so this key is no longer freely
         // writable by a model. Marking it is the difference between "the
@@ -2308,9 +2929,29 @@
       key.className = "k";
       key.textContent =
         proposal.key +
-        (proposal.kind === "correction" ? " · correction" : "") +
+        (proposal.kind === "correction" ? " · correction" : proposal.kind === "collision" ? " · collision" : "") +
         (proposal.status === "pending" ? "" : " · " + proposal.status);
       box.appendChild(key);
+
+      // **Which rule refused this, what it says, and how you would know it had
+      // been broken.** All three on the row, because a refusal whose reason
+      // you cannot read is one you answer by clicking whichever button is
+      // nearer — and one of these two buttons forgets something.
+      if (proposal.invariant) {
+        const rule = document.createElement("div");
+        rule.className = "was";
+        rule.textContent =
+          (proposal.kind === "collision"
+            ? `${proposal.invariant} now owns this subject: `
+            : `${proposal.invariant} says: `) + (proposal.rule ?? "");
+        box.appendChild(rule);
+        if (proposal.check) {
+          const check = document.createElement("div");
+          check.className = "was";
+          check.textContent = "check: " + proposal.check;
+          box.appendChild(check);
+        }
+      }
 
       if (proposal.was) {
         const stale = document.createElement("div");
@@ -2334,21 +2975,44 @@
       }
 
       // Editable, because the rephrasing is the part most likely to be wrong
-      // and this is the last moment anyone will look at it.
+      // and this is the last moment anyone will look at it. A collision row is
+      // the exception: it is not proposing new words, it is asking about words
+      // that are already stored, so editing them would be a third thing the
+      // two buttons might mean.
       const field = document.createElement("textarea");
       field.rows = 3;
       field.value = proposal.value;
+      if (proposal.kind === "collision") field.readOnly = true;
 
       const acts = document.createElement("div");
       acts.className = "acts";
+      // **A collision asks the opposite question**, so its buttons say the
+      // opposite words. A correction asks *should this say the new thing?* and
+      // approving writes it. A collision asks *a rule owns this subject now;
+      // does this entry still belong?* and approving forgets it. One pair of
+      // labels for both would be two meanings behind one word.
+      const yes =
+        proposal.kind === "collision"
+          ? "forget it"
+          : proposal.kind === "correction"
+            ? proposal.reason === "invariant"
+              ? "write it anyway"
+              : "update it"
+            : "keep it";
+      const no =
+        proposal.kind === "collision"
+          ? "keep it"
+          : proposal.kind === "correction"
+            ? "leave it"
+            : "discard";
       acts.append(
-        actButton(proposal.kind === "correction" ? "update it" : "keep it", () =>
+        actButton(yes, () =>
           memoryRequest(`proposals/${encodeURIComponent(proposal.id)}`, {
             action: "approve",
             value: field.value,
           })
         ),
-        actButton(proposal.kind === "correction" ? "leave it" : "discard", () =>
+        actButton(no, () =>
           memoryRequest(`proposals/${encodeURIComponent(proposal.id)}`, { action: "reject" })
         )
       );
@@ -2475,7 +3139,10 @@
       const line = document.createElement("div");
       line.className = "discarded";
       const code = document.createElement("code");
-      code.textContent = row.key;
+      // A row with no key has an op and nothing else, and that op is the whole
+      // of what went wrong — printing "(no key)" and stopping described every
+      // malformed patch identically.
+      code.textContent = row.key === "(no key)" && row.op ? `op: ${row.op}` : row.key;
       line.append(code, ` — ${row.reason}`);
       // What it would have stored. A refusal you cannot read is one you cannot
       // judge: the whole point of showing this list is that you can tell a key
@@ -2686,8 +3353,8 @@
   document.getElementById("compare-close").addEventListener("click", () => compareDialog.close());
 
   /** `forget`, `promote` and the editor's Save — all of it as one patch. */
-  function memoryOps(ops, { declared = false } = {}) {
-    return memoryRequest("ops", { ops, declared });
+  function memoryOps(ops, { declared = false, acknowledged = [] } = {}) {
+    return memoryRequest("ops", { ops, declared, acknowledged });
   }
 
   /**
@@ -2702,7 +3369,7 @@
       const res = await fetch(`/conversations/${sessionId}/memory/${path}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ branchId, profile: profileId, ...body }),
+        body: JSON.stringify({ branchId, profile: profileId, project: projectId, ...body }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -2753,7 +3420,9 @@
       const profile = panelState.profile?.length ?? 0;
       const task = panelState.task?.length ?? 0;
       const waiting = (panelState.proposals ?? []).filter((p) => p.status === "pending").length;
+      const rules = panelState.invariants?.length ?? 0;
       const parts = [
+        rules ? `${rules} invariant${rules === 1 ? "" : "s"}` : null,
         `${profile} in profile`,
         `${task} in this task`,
         panelState.digest?.text ? "digest" : null,
@@ -2794,6 +3463,17 @@
    * has been sent; the editor and the picker are not, because they are about
    * the store rather than about this turn.
    */
+  /**
+   * The panel to draw, and the placeholder for when there is not one yet.
+   *
+   * The fallback below is a **placeholder, not an answer**: it is what the
+   * strip and the panel need in order to draw something true about a branch
+   * the server has not described yet — the stage, and the one legal edge out
+   * of it, both of which are knowable without asking. Its empty layers are
+   * *unknown*, not *none*, which is why everything that changes what the
+   * server would say — the strategy, the profile, the project — refetches
+   * rather than settling for this.
+   */
   function panelView() {
     if (panelState.kind === "memory") return panelState;
     if (strategySelect.value !== "memory") return panelState;
@@ -2801,6 +3481,9 @@
       kind: "memory",
       title: "Memory",
       user: null,
+      project: null,
+      invariants: [],
+      orphanRefusals: [],
       // A conversation with no state is already in `planning` — there is no
       // null/no-task state, so the strip has something true to draw before a
       // word has been said. The one legal edge out is blocked, and the guard's
@@ -3030,6 +3713,65 @@
     field.value = life.brief.text;
     box.appendChild(field);
 
+    /**
+     * **What planning did not answer, about to become keys.**
+     *
+     * The brief has been saying this in prose all along, and prose is read
+     * once and then gone: nothing downstream could see it, so the task held no
+     * record of it and the edges that warn about unanswered questions had
+     * nothing to read. These are the same questions in the form the machine
+     * can keep, and accepting the brief is what writes them.
+     *
+     * Every one is droppable, because the box above is editable and you may
+     * have just answered one in it.
+     */
+    const dropped = new Set();
+    const questions = life.brief.open ?? [];
+    if (questions.length) {
+      const list = document.createElement("div");
+      list.className = "open";
+      const raised = questions.filter((row) => !row.recorded).length;
+      const lead = document.createElement("div");
+      lead.className = "head";
+      lead.textContent =
+        `${questions.length} question${questions.length === 1 ? "" : "s"} nobody answered — recorded with the task when you start` +
+        (raised ? ` · ${raised} the brief is raising, not quoting` : "");
+      list.appendChild(lead);
+
+      for (const row of questions) {
+        const item = document.createElement("div");
+        item.className = "pair";
+        const label = document.createElement("span");
+        label.textContent = row.question;
+        if (!row.recorded) {
+          // **Planning did not write this one down.** A `Still open` heading
+          // is a box, and a model asked to fill one will write the sensible
+          // questions it *would* ask rather than the ones anybody did. Code
+          // cannot tell those apart, so it says which ones were recorded and
+          // leaves the judgement — and the × — to you.
+          const flag = document.createElement("em");
+          flag.textContent = " · not asked during planning";
+          flag.title =
+            "Planning recorded no open question matching this. The brief may be raising it " +
+            "on its own — drop it unless it is something that genuinely went unanswered.";
+          label.appendChild(flag);
+        }
+        const drop = document.createElement("button");
+        drop.type = "button";
+        drop.title = "Answered already, or not worth keeping — leave it out.";
+        drop.textContent = "×";
+        drop.addEventListener("click", () => {
+          const off = dropped.has(row.key);
+          off ? dropped.delete(row.key) : dropped.add(row.key);
+          item.style.opacity = off ? "1" : "0.4";
+          label.style.textDecoration = off ? "none" : "line-through";
+        });
+        item.append(label, drop);
+        list.appendChild(item);
+      }
+      box.appendChild(list);
+    }
+
     const acts = document.createElement("div");
     acts.className = "acts";
 
@@ -3041,7 +3783,18 @@
     start.title = "Accept this brief, leave planning, and stop sending the conversation above it.";
     start.addEventListener("click", () => {
       if (pending) return;
-      memoryRequest("brief", { action: "accept", text: field.value });
+      const keep = questions.filter((row) => !dropped.has(row.key));
+      // **The last cheap moment.** Leaving planning freezes the goal and drops
+      // the conversation off the wire, and these stop being things the agent
+      // asks about. Saying so here is the whole reason the handoff waits for a
+      // person rather than moving on the click.
+      if (keep.length) {
+        const list = keep.map((row) => "· " + row.question).join("\n");
+        if (!confirm(`${keep.length} question${keep.length === 1 ? " is" : "s are"} still unanswered:\n\n${list}\n\nStart execution anyway? They will be recorded with the task.`)) return;
+      }
+      // Only what you pressed × on. Sending what to *keep* meant any mismatch
+      // between this list and the server's silently recorded nothing.
+      memoryRequest("brief", { action: "accept", text: field.value, drop: [...dropped] });
     });
 
     const back = document.createElement("button");
@@ -3247,7 +4000,7 @@
 
   async function switchBranch(id) {
     try {
-      const res = await fetch(`/conversations/${sessionId}/branches/${id}/activate`, {
+      const res = await fetch(`/conversations/${sessionId}/branches/${id}/activate` + pickerQuery(), {
         method: "POST",
       });
       const data = await res.json().catch(() => ({}));
@@ -3706,6 +4459,7 @@
           branchId,
           strategy: strategySelect.value,
           profile: profileId,
+          project: projectId,
           contextMessages: Number(contextInput.value),
           maxTokens: Number(maxTokensSelect.value),
         }),
@@ -3780,7 +4534,7 @@
     renderWindowBanner();
   });
 
-  newButton.addEventListener("click", () => {
+  newButton.addEventListener("click", async () => {
     // A new conversation is just a new id — the old one stays on the server,
     // reachable from the sidebar. Nothing is reset.
     switchTo(crypto.randomUUID());
@@ -3791,6 +4545,12 @@
     refreshConversations();
     refreshUsage();
     input.focus();
+    // **A new conversation still has a panel**, and it is the one thing here
+    // that is not empty: the project's rules and the profile are what the very
+    // first turn will be sent. Resetting to the placeholder and stopping drew
+    // "no rules, nothing known" over a project and a person with plenty of
+    // both — the placeholder means *unknown*, and this is what asks.
+    await refreshPanel();
   });
 
   function resetPanel() {
@@ -3823,6 +4583,26 @@
       if (seconds >= unitSize) { label = unitLabel; size = unitSize; }
     }
     return Math.floor(seconds / size) + label + " ago";
+  }
+
+  /**
+   * The panel, re-read, without repainting the transcript.
+   *
+   * What the panel draws depends on the pickers — the rules come from the
+   * project and the rows from the profile — so switching either has to ask the
+   * server again rather than redraw the answer to the previous question.
+   */
+  async function refreshPanel() {
+    try {
+      const res = await fetch("/conversations/" + sessionId + branchQuery());
+      if (!res.ok) return;
+      const record = await res.json();
+      panelState = record.panel ?? panelState;
+      renderPanel();
+      renderWindowBanner();
+    } catch (err) {
+      // A panel we could not refresh is the panel we already had.
+    }
   }
 
   async function paintTranscript(id) {
@@ -3964,8 +4744,25 @@
     // No stored preference is the same as not having expressed one.
   }
   setPanelOpen(openByDefault);
+
+  // Open unless you said otherwise. The strategy selector decides what goes on
+  // the wire and the right-hand panel is drawn from it, so it starts visible.
+  try {
+    chartPanel.open = localStorage.getItem(CONTROLS_OPEN_KEY) !== "0";
+  } catch (err) {
+    // A browser that will not remember it still opens by default.
+  }
+  chartPanel.addEventListener("toggle", () => {
+    try {
+      localStorage.setItem(CONTROLS_OPEN_KEY, chartPanel.open ? "1" : "0");
+    } catch (err) {
+      // Not remembering the preference does not break using it.
+    }
+  });
+
   await loadCatalog();
   await loadProfiles();
+  await loadProjects();
   renderPanel();
   renderWindowBanner();
   await paintTranscript(sessionId);

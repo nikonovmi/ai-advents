@@ -28,6 +28,7 @@ import { personas } from "../src/agent.js";
 import { compareProfiles } from "../src/context/comparison.js";
 import { AnthropicProvider, FakeProvider } from "../src/llm/anthropic.js";
 import { formatTokens } from "../src/llm/pricing.js";
+import { defaultInvariantStore } from "../src/store/invariantStore.js";
 import { defaultProfileStore } from "../src/store/profileStore.js";
 
 const COLOUR = process.stdout.isTTY && !process.env.NO_COLOR;
@@ -45,6 +46,7 @@ if (options.help) {
 }
 
 const profileStore = defaultProfileStore();
+const invariantStore = defaultInvariantStore();
 const provider = createProvider(options);
 const available = (await profileStore.list()).map((profile) => profile.id);
 const wanted = options.profiles.length ? options.profiles : available.slice(0, 4);
@@ -54,12 +56,34 @@ if (missing.length) {
   console.error(`No such profile: ${missing.join(", ")}. Available: ${available.join(", ") || "(none)"}.`);
   process.exit(1);
 }
-if (wanted.length < 2) {
-  console.error("A comparison needs at least two profiles. Seeded ones live in data/memory/.");
+
+// **Two dimensions, one at a time.** Naming two or more projects makes the
+// rule set the thing that varies and holds the profile still; that is the eval
+// the README asks for — the same message under `--invariants=none` and under
+// `--invariants=postgres-only`, and if the two answers do not differ visibly
+// then the block is decoration and this run should be what says so.
+const byProject = options.invariants.length >= 2;
+const projectsAvailable = (await invariantStore.list()).map((project) => project.id);
+const missingProjects = options.invariants.filter((id) => !projectsAvailable.includes(id));
+if (missingProjects.length) {
+  console.error(
+    `No such project: ${missingProjects.join(", ")}. Available: ${projectsAvailable.join(", ") || "(none)"}.\n` +
+      "Seeded ones live in data/invariants/."
+  );
+  process.exit(1);
+}
+if (!byProject && wanted.length < 2) {
+  console.error(
+    "A comparison needs at least two profiles, or two projects. Seeded ones live in\n" +
+      "data/memory/ and data/invariants/."
+  );
   process.exit(1);
 }
 
-console.log(`\n${bold("Same question, " + wanted.length + " profiles")} — ${options.samples} samples each`);
+console.log(
+  `\n${bold(byProject ? "Same question, " + options.invariants.length + " rule sets" : "Same question, " + wanted.length + " profiles")}` +
+    ` — ${options.samples} samples each`
+);
 console.log(dim(`provider: ${provider.model}${provider instanceof FakeProvider ? " (offline — reflects context, does not reason)" : ""}`));
 console.log(`\n${bold("Q")} ${options.message}\n`);
 
@@ -69,16 +93,19 @@ const comparison = await compareProfiles({
   provider,
   profileStore,
   profiles: wanted,
+  invariantStore,
+  projects: options.invariants,
   samples: options.samples,
   maxTokens: options.maxTokens,
 });
 
 for (const arm of comparison.arms) {
   console.log(
-    bold(arm.user) +
+    bold(arm.label) +
       dim(
-        ` — ${arm.entryCount} long-term entr${arm.entryCount === 1 ? "y" : "ies"}` +
-          `, ${arm.declaredCount} declared` +
+        (comparison.varying === "invariants"
+          ? ` — ${arm.invariantCount} invariant${arm.invariantCount === 1 ? "" : "s"}, as ${arm.user}`
+          : ` — ${arm.entryCount} long-term entr${arm.entryCount === 1 ? "y" : "ies"}, ${arm.declaredCount} declared`) +
           ` · ${formatTokens(arm.usage.inputTokens)} in / ${formatTokens(arm.usage.outputTokens)} out` +
           ` · ${money(arm.usage.costUsd)}`
       )
@@ -86,8 +113,10 @@ for (const arm of comparison.arms) {
 
   // What went in, before what came out. The evidence is structural: nothing
   // here asks a model which preferences it used, because it would confabulate.
-  if (options.blocks && arm.runs[0]?.profileBlock) {
-    console.log(dim(indent(arm.runs[0].profileBlock, "  │ ")));
+  const block =
+    comparison.varying === "invariants" ? arm.runs[0]?.invariantsBlock : arm.runs[0]?.profileBlock;
+  if (options.blocks && block) {
+    console.log(dim(indent(block, "  │ ")));
   }
 
   for (const run of arm.runs) {
@@ -127,6 +156,7 @@ function parseArgs(argv) {
   const parsed = {
     message: DEFAULT_MESSAGE,
     profiles: [],
+    invariants: [],
     samples: 3,
     maxTokens: 1024,
     blocks: false,
@@ -143,6 +173,9 @@ function parseArgs(argv) {
         break;
       case "profiles":
         parsed.profiles = value.split(",").map((id) => id.trim().toLowerCase()).filter(Boolean);
+        break;
+      case "invariants":
+        parsed.invariants = value.split(",").map((id) => id.trim().toLowerCase()).filter(Boolean);
         break;
       case "samples":
         parsed.samples = Math.max(1, Math.min(5, Number(value) || 3));
@@ -176,6 +209,11 @@ Usage: npm run compare -- [options]
 
   --message=<text>    The one question every profile is asked
   --profiles=a,b      Profile ids from data/memory/  (default: the first four)
+  --invariants=a,b    Project ids from data/invariants/. Two or more of them
+                      makes the RULE SET the thing that varies and holds the
+                      profile still:
+                        npm run compare -- --invariants=none,postgres-only
+                      One of them pins that rule set for every profile arm.
   --samples=<n>       Runs per profile, 1–5                       (default: 3)
   --max-tokens=<n>    Reply ceiling                             (default: 1024)
   --blocks            Also print the <profile> block each arm was sent

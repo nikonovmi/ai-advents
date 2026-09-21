@@ -7,7 +7,9 @@ import {
   normaliseRecord,
   normaliseUsage,
   titleFrom,
+  UNTITLED,
 } from "./conversationStore.js";
+import { projectOf } from "./invariantStore.js";
 
 /**
  * The same contract, backed by a Map. Tests get persistence semantics with no
@@ -33,11 +35,17 @@ export class MemoryStore extends ConversationStore {
 
     const record = {
       id: sessionId,
-      title: existing?.title ?? titleFrom(turns),
+      // Derived once and preserved afterwards — a conversation that keeps
+      // renaming itself is disorienting. But the **placeholder is not a
+      // title**, and a record saved before its first message carries one, so
+      // it is re-derived until there is something real to derive it from.
+      // That also heals any conversation already stuck with the placeholder.
+      title: existing?.title && existing.title !== UNTITLED ? existing.title : titleFrom(turns),
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
       usage: usage ? normaliseUsage(usage) : (existing?.usage ?? emptyUsage()),
       ...(graph ?? pickGraph(existing)),
+      project: projectOf(graph?.project ?? existing?.project),
       messages: turns,
     };
 

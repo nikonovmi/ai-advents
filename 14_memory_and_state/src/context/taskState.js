@@ -1,3 +1,5 @@
+import { readPatch } from "./patch.js";
+
 /**
  * **The task lifecycle, as data.**
  *
@@ -70,6 +72,22 @@ export const STAGE_PROMPTS = {
     "STAGE — execution. Work inside the goal and the constraints recorded above and add nothing to them. If something outside them turns out to be needed, name it and say it is outside the agreed scope; do not quietly widen the work to cover it.",
   validation:
     "STAGE — validation. Check what has been produced against the recorded goal and constraints, one at a time, and report what fails, what is unverified and what passes. Do not silently fix anything you find: a fix is a return to execution, and that is the user's call, not yours.",
+  /**
+   * The invariants' row in validation, added to the stage line only when there
+   * are any.
+   *
+   * Validation is the **last** place to catch a violation, not the first — the
+   * block has been on the wire since planning and the refusal happens in
+   * execution. What it adds is the enumeration: one row per rule, checked
+   * deliberately rather than remembered in passing.
+   *
+   * `unverified` is a first-class verdict and the whole reason this line
+   * exists. From inside a chat it is the honest answer far more often than
+   * people expect — nothing here ran the code — and a model with only two
+   * boxes to tick will tick `pass`.
+   */
+  validationInvariants:
+    " Then enumerate the rules in <invariants>, one row each, in the form `<subject>: pass | fail | unverified — why`. **Measure the work against the rule's own text and check, as they are written in that block, and against nothing else** — not against what was agreed in the conversation, and not against a rule anyone said was lifted, and not against a goal or constraint that says the opposite of one. If it is in the block it is in force, and work that does the thing a rule names is a `fail` — however that came about, and however the rest of memory describes the task. **`unverified` is a real verdict and the right one whenever you have not actually seen the thing the check looks at**; never report it as a pass, and never report a pass you inferred from the absence of evidence.",
   done: "STAGE — done. This task is closed. Nothing further is worked on under it; if the user wants more, that is a new task.",
 };
 
@@ -99,6 +117,8 @@ const DEFAULT_EXPECTED = {
 /** How much of the log and of the refusal list is worth keeping. */
 const MAX_LOG = 60;
 const MAX_REFUSED = 8;
+/** How many invariant refusals one task keeps. */
+const MAX_REFUSALS = 12;
 const MAX_LINE = 160;
 
 /**
@@ -129,10 +149,27 @@ export function emptyTask({ previous = null, at = new Date().toISOString() } = {
     // fork. See `taskAsOf`.
     stepTurn: 0,
     expectedTurn: 0,
+    /**
+     * Who last wrote `expectedAction`.
+     *
+     * Every stage has a default and `planning`'s is `actor: "user"`, so
+     * "waiting on the user" is the resting state of the machine and means
+     * nothing on its own. It means something only when the **model** wrote it
+     * after reading a turn — that is the model saying *I asked for something
+     * and did not get it*, which is exactly what the warning below is for.
+     */
+    expectedBy: "system",
     /** What the model thinks the next edge is. A suggestion, never a state. */
     suggestion: null,
     /** Edges that were asked for and refused, so the panel can say so. */
     refused: [],
+    /**
+     * Requests refused because they would have broken a project invariant —
+     * `{ invariant, request, alternative }`, written by the model through the
+     * `refused` op. Distinct from `refused` above, which is about *edges of
+     * this machine* rather than about the work.
+     */
+    refusals: [],
   };
 }
 
@@ -206,18 +243,49 @@ export function guardFor(from, to, working = {}) {
  *
  * @returns {string | null}
  */
-export function warningFor(from, to, working = {}) {
+export function warningFor(from, to, working = {}, task = null) {
   const relevant = to === "done" || (from === "planning" && to === "execution");
   if (!relevant) return null;
 
-  const open = Object.keys(working ?? {}).filter((key) => key === "open" || key.startsWith("open."));
-  if (!open.length) return null;
+  const parts = [];
 
-  const count = `${open.length} question${open.length === 1 ? " is" : "s are"} still unanswered`;
-  return to === "done"
-    ? `${count} — the task finishes with ${open.length === 1 ? "it" : "them"} still open: ${open.join(", ")}.`
-    : `${count}: ${open.join(", ")}. Leaving planning freezes the goal, and these stop being ` +
-      `things the agent asks about.`;
+  const open = Object.keys(working ?? {}).filter((key) => key === "open" || key.startsWith("open."));
+  if (open.length) {
+    const count = `${open.length} question${open.length === 1 ? " is" : "s are"} still unanswered`;
+    parts.push(
+      to === "done"
+        ? `${count} — the task finishes with ${open.length === 1 ? "it" : "them"} still open: ${open.join(", ")}.`
+        : `${count}: ${open.join(", ")}. Leaving planning freezes the goal, and these stop being ` +
+          `things the agent asks about.`
+    );
+  }
+
+  // **The second source, and the one that does not depend on a prompt landing.**
+  //
+  // The `open.*` rule above is the right representation and the extractor is
+  // told to keep it — but it is one rule in a long prompt, and the turn where
+  // it matters most is the busy one: the assistant asked four questions, the
+  // user answered none of them, and the patch that turn was about something
+  // else entirely. Miss it and this edge goes through in silence, which is
+  // exactly the case the warning exists for.
+  //
+  // `awaiting` is a second thing the model already writes, on the same call,
+  // saying the same fact in different words: *the work cannot go further
+  // until the user says something*. Reading it costs nothing and needs no new
+  // op. It counts only when a **model** wrote it — every stage has a default
+  // and planning's is `actor: "user"`, so the resting state of the machine
+  // would otherwise warn on every single transition and mean nothing.
+  if (task?.expectedBy === "model" && task?.expectedAction?.actor === "user") {
+    const what = String(task.expectedAction.what ?? "").trim();
+    parts.push(
+      `The agent says it is still waiting on you${what ? ` — ${what}` : ""}. ` +
+        (to === "done"
+          ? "The task finishes without it."
+          : "Nothing recorded it as an open question, so nothing will ask again.")
+    );
+  }
+
+  return parts.length ? parts.join(" ") : null;
 }
 
 /**
@@ -235,7 +303,7 @@ export function edgesFrom(task, working = {}) {
       to,
       allowed: guard === true,
       reason: guard === true ? null : guard,
-      warning: guard === true ? warningFor(from, to, working) : null,
+      warning: guard === true ? warningFor(from, to, working, task) : null,
     };
   });
 }
@@ -291,7 +359,7 @@ export function transition(state, event = {}) {
     };
   }
 
-  const warning = warningFor(from, to, working);
+  const warning = warningFor(from, to, working, task);
   const entry = { from, to, at, by, turn, reason: line(event.reason) || null };
 
   return {
@@ -306,6 +374,9 @@ export function transition(state, event = {}) {
       expectedAction: { ...DEFAULT_EXPECTED[to] },
       stepTurn: turn,
       expectedTurn: turn,
+      // Reset to the stage's own default, which is nobody's statement about
+      // anything. Only a model op makes this `model` again.
+      expectedBy: "system",
       // The suggestion has either just been taken or just been overtaken.
       suggestion: null,
       updatedAt: at,
@@ -322,24 +393,16 @@ export function transition(state, event = {}) {
 // ---- what the model may say about the task ---------------------------------
 
 /**
- * Split an extractor patch into the ops about *memory* and the ops about the
- * *task*.
+ * Split a patch into the ops about *memory* and the ops about the *task*.
  *
- * They travel together because they come out of one call — paying for a second
- * model round trip per turn to ask "and what stage are we in?" would be
- * absurd, and asking that question at all is exactly what section 6 forbids.
- * They are separated here, before either mutation path sees the other's ops,
- * so `applyOps` keeps refusing everything that is not a routable key and
- * `transition` keeps being the only way a stage changes.
+ * Kept as a name because it is what the split is called everywhere else, but
+ * the work — the op vocabulary, the coercion, and the list of what was neither
+ * — belongs to `readPatch` in `patch.js`. Two readers of the same format were
+ * two places for it to drift, and the drift is what threw three turns of
+ * memory away.
  */
 export function splitTaskOps(ops) {
-  const taskOps = [];
-  const memoryOps = [];
-  for (const op of Array.isArray(ops) ? ops : []) {
-    const action = typeof op?.op === "string" ? op.op.trim().toLowerCase() : "";
-    if (action === "stage" || action === "step" || action === "awaiting") taskOps.push({ ...op, op: action });
-    else memoryOps.push(op);
-  }
+  const { taskOps, memoryOps } = readPatch(ops);
   return { taskOps, memoryOps };
 }
 
@@ -358,17 +421,37 @@ export function splitTaskOps(ops) {
  * the difference is the difference between a state machine and a model's
  * running guess at one.
  *
- * @returns {{ task: object, suggested: string | null, wrote: string[] }}
+ * **Nothing is dropped in silence here either.** Every op that cannot be used
+ * comes back in `rejected`, in the shape `applyOps` uses, so the caller can
+ * put it in the same list the panel already draws. A `step` with no text and a
+ * `refused` naming no rule used to `continue` and vanish, which is how a model
+ * getting a field name wrong looked exactly like a model saying nothing.
+ *
+ * @returns {{ task: object, suggested: string | null, wrote: string[], rejected: object[] }}
  */
 export function applyTaskOps(state, ops, { turn = 0, at = new Date().toISOString() } = {}) {
   let task = normaliseTask(state);
   const wrote = [];
+  const rejected = [];
   let suggested = null;
+  const drop = (op, reason, value = "") =>
+    rejected.push({
+      key: "(no key)",
+      op,
+      value: String(value ?? "").replace(/\s+/g, " ").trim().slice(0, MAX_LINE),
+      reason,
+      turn,
+      at,
+    });
 
   for (const op of Array.isArray(ops) ? ops : []) {
     if (op.op === "step") {
       const value = line(op.value);
-      if (!value || value === task.step) continue;
+      if (!value) {
+        drop("step", "a step with nothing in it", op.value);
+        continue;
+      }
+      if (value === task.step) continue;
       task = { ...task, step: value, stepTurn: turn, updatedAt: at };
       wrote.push("step");
       continue;
@@ -377,11 +460,54 @@ export function applyTaskOps(state, ops, { turn = 0, at = new Date().toISOString
     if (op.op === "awaiting") {
       const actor = op.actor === "agent" ? "agent" : op.actor === "user" ? "user" : null;
       const what = line(op.what ?? op.value);
-      if (!actor && !what) continue;
+      if (!actor && !what) {
+        drop("awaiting", "an awaiting with neither an actor nor a sentence");
+        continue;
+      }
       const next = { actor: actor ?? task.expectedAction.actor, what: what || task.expectedAction.what };
       if (next.actor === task.expectedAction.actor && next.what === task.expectedAction.what) continue;
-      task = { ...task, expectedAction: next, expectedTurn: turn, updatedAt: at };
+      task = { ...task, expectedAction: next, expectedTurn: turn, expectedBy: "model", updatedAt: at };
       wrote.push("awaiting");
+      continue;
+    }
+
+    // **`refused`. Written, not gating — like `step` and `awaiting`.**
+    //
+    // Nothing reaches `applyOps` when the model suggests an ORM in a
+    // paragraph, so code cannot be what catches it; the prompt is. This op is
+    // the model saying, in the same patch it reports its progress in, *I was
+    // asked for X, rule Y forbids it, here is what I offered instead* — and it
+    // is the visible artefact of the whole feature. "What happens when a
+    // request conflicts" becomes a line under the rule on screen rather than a
+    // paragraph in a transcript somebody has to go and read.
+    //
+    // It gates nothing, and it must not: the refusal already happened, in
+    // prose, in the reply. This is the record of it.
+    if (op.op === "refused") {
+      const invariant = line(op.invariant).toLowerCase().replace(/\s+/g, "");
+      const request = line(op.request ?? op.value);
+      if (!invariant || !request) {
+        drop(
+          "refused",
+          invariant ? `a refusal under \`${invariant}\` with no request` : "a refusal naming no invariant",
+          request
+        );
+        continue;
+      }
+      const entry = {
+        invariant,
+        request,
+        // **A refusal must always carry an exit.** A dead end is a bad
+        // refusal: it gets routed around by dropping the constraint from the
+        // conversation entirely. So the alternative is recorded beside it, and
+        // its absence is visible rather than invisible.
+        alternative: line(op.alternative) || null,
+        turn,
+        at,
+      };
+      if (task.refusals.some((row) => row.invariant === entry.invariant && row.request === entry.request)) continue;
+      task = { ...task, refusals: [...task.refusals, entry].slice(-MAX_REFUSALS), updatedAt: at };
+      wrote.push("refused");
       continue;
     }
 
@@ -390,12 +516,16 @@ export function applyTaskOps(state, ops, { turn = 0, at = new Date().toISOString
     // finished while the table says we are in planning" is information about
     // the conversation, and the guard will say why the button is grey.
     const to = typeof op.to === "string" ? op.to.trim().toLowerCase() : line(op.value).toLowerCase();
-    if (!STAGES.includes(to) || to === stageOf(task)) continue;
+    if (to === stageOf(task)) continue;
+    if (!STAGES.includes(to)) {
+      drop("stage", `\`${to || "(nothing)"}\` is not a stage`, op.reason);
+      continue;
+    }
     suggested = to;
     task = { ...task, suggestion: { to, reason: line(op.reason) || null, turn, at } };
   }
 
-  return { task, suggested, wrote };
+  return { task, suggested, wrote, rejected };
 }
 
 // ---- what the task contributes to the prompt -------------------------------
@@ -409,14 +539,21 @@ export function applyTaskOps(state, ops, { turn = 0, at = new Date().toISOString
  * about the work* — and a fourth block would be a fourth thing the model has
  * to be told how to read.
  */
-export function taskLines(task) {
+export function taskLines(task, { invariants = 0 } = {}) {
   const current = normaliseTask(task);
   const stage = stageOf(current);
   const lines = [`stage: ${stage}`];
   if (current.step) lines.push(`step: ${current.step}`);
   const { actor, what } = current.expectedAction;
   lines.push(`awaiting: ${actor === "agent" ? "you, the assistant" : "the user"}${what ? ` — ${what}` : ""}`);
-  lines.push(STAGE_PROMPTS[stage]);
+  // The enumeration rides on the instruction the stage already carries rather
+  // than arriving as a block of its own, and only when there is something to
+  // enumerate — nothing pays for a layer it is not using.
+  lines.push(
+    stage === "validation" && invariants > 0
+      ? STAGE_PROMPTS.validation + STAGE_PROMPTS.validationInvariants
+      : STAGE_PROMPTS[stage]
+  );
   return lines;
 }
 
@@ -463,6 +600,7 @@ export function taskAsOf(task, turns) {
   if (transitions.length === current.transitions.length &&
       current.stepTurn <= turns &&
       current.expectedTurn <= turns &&
+      current.refusals.every((row) => (row.turn ?? 0) <= turns) &&
       (!current.suggestion || current.suggestion.turn <= turns)) {
     return current;
   }
@@ -476,10 +614,14 @@ export function taskAsOf(task, turns) {
     transitions,
     step: current.stepTurn <= turns ? current.step : DEFAULT_STEP[stage],
     expectedAction: current.expectedTurn <= turns ? current.expectedAction : { ...DEFAULT_EXPECTED[stage] },
+    expectedBy: current.expectedTurn <= turns ? current.expectedBy : "system",
     stepTurn: Math.min(current.stepTurn, turns),
     expectedTurn: Math.min(current.expectedTurn, turns),
     suggestion: current.suggestion && current.suggestion.turn <= turns ? current.suggestion : null,
     refused: current.refused.filter((row) => (row.turn ?? 0) <= turns),
+    // A refusal a parent branch's turn produced is not something this branch
+    // ever said, for exactly the reason its working keys are not.
+    refusals: current.refusals.filter((row) => (row.turn ?? 0) <= turns),
   };
 }
 
@@ -527,6 +669,7 @@ export function normaliseTask(task) {
     },
     stepTurn: Number.isInteger(source.stepTurn) ? source.stepTurn : 0,
     expectedTurn: Number.isInteger(source.expectedTurn) ? source.expectedTurn : 0,
+    expectedBy: source.expectedBy === "model" ? "model" : "system",
     suggestion:
       source.suggestion && STAGES.includes(source.suggestion.to)
         ? {
@@ -539,5 +682,15 @@ export function normaliseTask(task) {
     refused: (Array.isArray(source.refused) ? source.refused : [])
       .filter((row) => typeof row?.reason === "string")
       .slice(-MAX_REFUSED),
+    refusals: (Array.isArray(source.refusals) ? source.refusals : [])
+      .filter((row) => typeof row?.invariant === "string" && row.invariant && typeof row?.request === "string")
+      .map((row) => ({
+        invariant: line(row.invariant).toLowerCase(),
+        request: line(row.request),
+        alternative: line(row.alternative) || null,
+        turn: Number.isInteger(row.turn) ? row.turn : 0,
+        at: typeof row.at === "string" ? row.at : null,
+      }))
+      .slice(-MAX_REFUSALS),
   };
 }

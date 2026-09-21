@@ -1,0 +1,427 @@
+{
+  "id": "3a32ffbe-e635-419b-9243-a5af9d4ab8c2",
+  "title": "I need to solve an algorithmic task whi…",
+  "createdAt": "2026-09-21T00:56:58.314Z",
+  "updatedAt": "2026-09-21T00:58:44.814Z",
+  "usage": {
+    "totalInputTokens": 5548,
+    "totalOutputTokens": 352,
+    "totalCostUsd": 0.007307999999999999,
+    "turnCount": 5,
+    "overheadInputTokens": 16223,
+    "overheadOutputTokens": 482,
+    "overheadCostUsd": 0.018633,
+    "overheadCalls": 6
+  },
+  "branches": {
+    "main": {
+      "id": "main",
+      "name": "main",
+      "headId": "m10",
+      "forkedFromMessageId": null,
+      "parentBranchId": null,
+      "strategy": "memory",
+      "strategyState": {
+        "memory": {
+          "working": {
+            "goal": {
+              "value": "Implement a generic DFS for graph traversal as a reference",
+              "updatedAt": "2026-09-21T00:56:55.975Z",
+              "turn": 1,
+              "previous": []
+            },
+            "constraint.language": {
+              "value": "Kotlin",
+              "updatedAt": "2026-09-21T00:56:55.975Z",
+              "turn": 1,
+              "previous": []
+            },
+            "decision.graph_representation": {
+              "value": "Adjacency list",
+              "updatedAt": "2026-09-21T00:57:28.387Z",
+              "turn": 2,
+              "previous": []
+            },
+            "decision.node_type": {
+              "value": "Int",
+              "updatedAt": "2026-09-21T00:57:46.546Z",
+              "turn": 3,
+              "previous": []
+            },
+            "decision.return_type": {
+              "value": "Int count of visited nodes",
+              "updatedAt": "2026-09-21T00:58:43.789Z",
+              "turn": 5,
+              "previous": []
+            }
+          },
+          "task": {
+            "id": "txj6opw",
+            "previous": null,
+            "startedAt": "2026-09-21T00:56:53.882Z",
+            "updatedAt": "2026-09-21T00:58:23.512Z",
+            "transitions": [],
+            "step": "implementing iterative DFS with visited count",
+            "expectedAction": {
+              "actor": "user",
+              "what": "confirm return type for visited count"
+            },
+            "stepTurn": 4,
+            "expectedTurn": 4,
+            "expectedBy": "model",
+            "suggestion": null,
+            "refused": [],
+            "refusals": [
+              {
+                "invariant": "recursion",
+                "request": "implement DFS using recursion",
+                "alternative": "iterative DFS using an explicit stack",
+                "turn": 1,
+                "at": "2026-09-21T00:56:55.975Z"
+              }
+            ]
+          },
+          "brief": null,
+          "briefThrough": 0,
+          "digest": "## Facts about the user\n- Needs to solve an algorithmic task requiring graph traversal\n- Will use the DFS implementation as a reference\n\n## Decisions made\n- Graph representation: adjacency list (e.g. `Map<Node, List<Node>>`)\n- DFS approach: iterative (not recursive)\n\n## Preferences and constraints\n- none\n\n## Open questions\n- Should nodes be generic (`<T>`) to support any type (`Int`, `String`, etc.), or a specific type like `Int`?\n\n## Discarded / superseded\n- none",
+          "digestThrough": 4,
+          "digestUpdatedAt": "2026-09-21T00:58:24.843Z",
+          "pastTasks": [],
+          "proposals": [],
+          "discarded": [],
+          "promotedAt": {},
+          "profileSeen": {
+            "preference.style": {
+              "id": "e3",
+              "key": "preference.style",
+              "value": "Assume I know the basics.",
+              "updatedAt": "2026-09-20T21:51:15.069Z",
+              "source": "declared"
+            }
+          },
+          "profileUser": "test",
+          "invariantsSeen": {
+            "invariant.language": {
+              "id": "i1",
+              "key": "invariant.language",
+              "subject": "language",
+              "text": "Code is written only in Kotlin.",
+              "check": "any proposal to write code in a language other than Kotlin",
+              "supersedes": null,
+              "updatedAt": "2026-09-20T21:41:32.088Z",
+              "turn": 0,
+              "previous": []
+            },
+            "invariant.recursion": {
+              "id": "i2",
+              "key": "invariant.recursion",
+              "subject": "recursion",
+              "text": "Never uses recursion.",
+              "check": "any function or method that calls itself, directly or indirectly through a call chain",
+              "supersedes": null,
+              "updatedAt": "2026-09-20T21:43:42.370Z",
+              "turn": 0,
+              "previous": []
+            }
+          },
+          "invariantProject": "test-invariants",
+          "attribution": [
+            {
+              "turn": 1,
+              "invariants": 1658,
+              "profile": 367,
+              "working": 1691,
+              "brief": 0,
+              "digest": 0
+            },
+            {
+              "turn": 2,
+              "invariants": 1658,
+              "profile": 367,
+              "working": 1634,
+              "brief": 0,
+              "digest": 0
+            },
+            {
+              "turn": 3,
+              "invariants": 1658,
+              "profile": 367,
+              "working": 1592,
+              "brief": 0,
+              "digest": 0
+            },
+            {
+              "turn": 4,
+              "invariants": 1658,
+              "profile": 367,
+              "working": 1595,
+              "brief": 0,
+              "digest": 599
+            },
+            {
+              "turn": 5,
+              "invariants": 1658,
+              "profile": 367,
+              "working": 1644,
+              "brief": 0,
+              "digest": 599
+            }
+          ],
+          "usage": {
+            "overheadWorking": {
+              "calls": 6,
+              "inputTokens": 17113,
+              "outputTokens": 563,
+              "costUsd": 0.019928
+            },
+            "overheadSummary": {
+              "calls": 1,
+              "inputTokens": 629,
+              "outputTokens": 129,
+              "costUsd": 0.001274
+            },
+            "overheadProfile": {
+              "calls": 0,
+              "turns": 5,
+              "inputTokens": 460,
+              "outputTokens": 0,
+              "costUsd": 0.00046,
+              "estimated": true
+            }
+          }
+        }
+      }
+    }
+  },
+  "activeBranchId": "main",
+  "project": "test-invariants",
+  "messages": [
+    {
+      "role": "user",
+      "content": "I need to solve an algorithmic task which requires traversing a graph. Implement a generic DFS, I'll be using it as a reference.",
+      "id": "m1",
+      "tokens": {
+        "request": 38
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Got it. Before I start, I need to nail down a couple of things:\n\n1. **Graph representation**: How should the graph be represented? Adjacency list (e.g. `Map<Node, List<Node>>`), adjacency matrix, or a custom graph class?\n\n2. **Node type**: Should nodes be generic (e.g. `<T>`) so you can use `Int`, `String`, or any type, or is a specific type fine?\n\nI'm assuming you want a standard iterative DFS (not recursive — we can't use recursion here anyway). That right?",
+      "id": "m2",
+      "parentId": "m1",
+      "tokens": {
+        "request": 38,
+        "sent": 951,
+        "input": 951,
+        "output": 134,
+        "total": 1085
+      },
+      "cost": {
+        "input": 0.000951,
+        "output": 0.00067,
+        "total": 0.001621
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 4431,
+      "stopReason": "end_turn",
+      "strategy": {
+        "id": "memory",
+        "label": "Layered memory",
+        "overheadTokens": 3186,
+        "overheadCost": 0.003798,
+        "overheadMs": 2092,
+        "overheadCalls": 1,
+        "blockTokens": 874,
+        "note": "4 keys set",
+        "droppedMessages": 0,
+        "changedKeys": [
+          "goal",
+          "constraint.language",
+          "open.graph_representation",
+          "open.node_type"
+        ],
+        "degraded": false
+      }
+    },
+    {
+      "role": "user",
+      "content": "Adjacency list should be fine",
+      "id": "m3",
+      "parentId": "m2",
+      "tokens": {
+        "request": 14
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "One more thing: should nodes be **generic** (so you can use `Int`, `String`, or any type), or a specific type like `Int`?",
+      "id": "m4",
+      "parentId": "m3",
+      "tokens": {
+        "request": 14,
+        "sent": 1083,
+        "input": 1083,
+        "output": 37,
+        "total": 1120
+      },
+      "cost": {
+        "input": 0.001083,
+        "output": 0.000185,
+        "total": 0.001268
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 3270,
+      "stopReason": "end_turn",
+      "strategy": {
+        "id": "memory",
+        "label": "Layered memory",
+        "overheadTokens": 3287,
+        "overheadCost": 0.003599,
+        "overheadMs": 1992,
+        "overheadCalls": 1,
+        "blockTokens": 862,
+        "note": "1 key set, 1 forgotten",
+        "droppedMessages": 0,
+        "changedKeys": [
+          "decision.graph_representation",
+          "open.graph_representation"
+        ],
+        "degraded": false
+      }
+    },
+    {
+      "role": "user",
+      "content": "let's go for Ints",
+      "id": "m5",
+      "parentId": "m4",
+      "tokens": {
+        "request": 14
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Everything's clear — we can switch to execution now. Or add more details if you want to refine it first.\n\nTo confirm the shape: a DFS function that takes an adjacency list (`Map<Int, List<Int>>`), a start node, and returns the traversal order (or visits nodes in order). Any preference on what it returns — a list of visited nodes, or just the side effect of visiting them?",
+      "id": "m6",
+      "parentId": "m5",
+      "tokens": {
+        "request": 14,
+        "sent": 1119,
+        "input": 1119,
+        "output": 93,
+        "total": 1212
+      },
+      "cost": {
+        "input": 0.001119,
+        "output": 0.00046499999999999997,
+        "total": 0.001584
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 3363,
+      "stopReason": "end_turn",
+      "strategy": {
+        "id": "memory",
+        "label": "Layered memory",
+        "overheadTokens": 3145,
+        "overheadCost": 0.003325,
+        "overheadMs": 1213,
+        "overheadCalls": 1,
+        "blockTokens": 851,
+        "note": "1 key set, 1 forgotten",
+        "droppedMessages": 0,
+        "changedKeys": [
+          "decision.node_type",
+          "open.node_type"
+        ],
+        "degraded": false
+      }
+    },
+    {
+      "role": "user",
+      "content": "let's count the visited",
+      "id": "m7",
+      "parentId": "m6",
+      "tokens": {
+        "request": 12
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Got it. The function returns the count of visited nodes.\n\nOne last thing: should it return just the count as an `Int`, or a pair/object with both the count and the visited nodes themselves? (The count alone is simpler, but sometimes useful to have both.)",
+      "id": "m8",
+      "parentId": "m7",
+      "tokens": {
+        "request": 12,
+        "sent": 1158,
+        "input": 1158,
+        "output": 61,
+        "total": 1219
+      },
+      "cost": {
+        "input": 0.001158,
+        "output": 0.000305,
+        "total": 0.0014629999999999999
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 5753,
+      "stopReason": "end_turn",
+      "strategy": {
+        "id": "memory",
+        "label": "Layered memory",
+        "overheadTokens": 3951,
+        "overheadCost": 0.004667,
+        "overheadMs": 3971,
+        "overheadCalls": 2,
+        "blockTokens": 1004,
+        "note": "nothing new established · folded 2 exchanges into the digest",
+        "droppedMessages": 4,
+        "changedKeys": [],
+        "degraded": false
+      }
+    },
+    {
+      "role": "user",
+      "content": "just the count",
+      "id": "m9",
+      "parentId": "m8",
+      "tokens": {
+        "request": 10
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Everything's clear — we can switch to execution now. Or add more details if you want to refine it first.",
+      "id": "m10",
+      "parentId": "m9",
+      "tokens": {
+        "request": 10,
+        "sent": 1237,
+        "input": 1237,
+        "output": 27,
+        "total": 1264
+      },
+      "cost": {
+        "input": 0.001237,
+        "output": 0.000135,
+        "total": 0.001372
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 2067,
+      "stopReason": "end_turn",
+      "strategy": {
+        "id": "memory",
+        "label": "Layered memory",
+        "overheadTokens": 3136,
+        "overheadCost": 0.003244,
+        "overheadMs": 1042,
+        "overheadCalls": 1,
+        "blockTokens": 1016,
+        "note": "1 key set",
+        "droppedMessages": 4,
+        "changedKeys": [
+          "decision.return_type"
+        ],
+        "degraded": false
+      }
+    }
+  ]
+}

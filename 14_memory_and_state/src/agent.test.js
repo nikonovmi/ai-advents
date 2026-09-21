@@ -9,6 +9,7 @@ import { FakeProvider } from "./llm/anthropic.js";
 import { JsonFileStore } from "./store/jsonFileStore.js";
 import { MemoryStore } from "./store/memoryStore.js";
 import { MemoryProfileStore } from "./store/profileStore.js";
+import { MemoryInvariantStore } from "./store/invariantStore.js";
 
 const SESSION = "11111111-1111-4111-8111-111111111111";
 
@@ -57,7 +58,7 @@ test("all five strategies answer a turn, and each reports its own overhead", asy
     const { agent } = agentWith({
       provider: new FakeProvider({ delayMs: 0 }),
       strategy: id,
-      strategyOptions: { profileStore: new MemoryProfileStore() },
+      strategyOptions: { profileStore: new MemoryProfileStore(), invariantStore: new MemoryInvariantStore() },
     });
     let meta;
     for (const word of ["one", "two", "three", "four"]) ({ meta } = await agent.run(word));

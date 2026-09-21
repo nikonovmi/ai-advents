@@ -10,7 +10,9 @@ import {
   normaliseRecord,
   normaliseUsage,
   titleFrom,
+  UNTITLED,
 } from "./conversationStore.js";
+import { projectOf } from "./invariantStore.js";
 
 // Resolved from this module, not the cwd — `npm start` from anywhere must
 // read and write the same directory.
@@ -55,15 +57,21 @@ export class JsonFileStore extends ConversationStore {
 
     const record = {
       id: sessionId,
-      // Titles are derived once, on first save, and preserved afterwards —
-      // a conversation that keeps renaming itself is disorienting.
-      title: existing?.title ?? titleFrom(turns),
+      // Derived once and preserved afterwards — a conversation that keeps
+      // renaming itself is disorienting. But the **placeholder is not a
+      // title**, and a record saved before its first message carries one, so
+      // it is re-derived until there is something real to derive it from.
+      // That also heals any conversation already stuck with the placeholder.
+      title: existing?.title && existing.title !== UNTITLED ? existing.title : titleFrom(turns),
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
       usage: usage ? normaliseUsage(usage) : (existing?.usage ?? emptyUsage()),
       // An absent `graph` means "unchanged", not "cleared" — a caller that does
       // not know about branches must not flatten one.
       ...(graph ?? pickGraph(existing)),
+      // Same rule for the project: a caller that does not know invariants
+      // exist must not silently move the conversation to another rule set.
+      project: projectOf(graph?.project ?? existing?.project),
       messages: turns,
     };
 

@@ -15,6 +15,7 @@ import { createStrategy, STRATEGY_IDS } from "./index.js";
 import { MemoryStrategy } from "./memory.js";
 import { SlidingWindowStrategy } from "./slidingWindow.js";
 import { SummarizationStrategy, summaryBlock } from "./summarization.js";
+import { MemoryInvariantStore } from "../store/invariantStore.js";
 
 /** `[u, a, u, a, …]` of the requested length. */
 function alternating(length) {
@@ -183,6 +184,7 @@ function everyStrategy(window) {
     new SummarizationStrategy({ contextMessages: window, summarizer: new StubSummarizer() }),
     new FactsStrategy({ contextMessages: window, extractor: new StubExtractor() }),
     new MemoryStrategy({
+      invariantStore: new MemoryInvariantStore(),
       contextMessages: window,
       profileStore: new MemoryProfileStore(),
       extractor: new StubExtractor(),

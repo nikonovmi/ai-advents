@@ -74,3 +74,4 @@ export { ContextStrategy } from "./strategy.js";
 export { summaryBlock } from "./summarization.js";
 export { factsBlock } from "./facts.js";
 export { profileBlock, workingBlock, ROUTES } from "./memory.js";
+export { invariantsBlock } from "./invariants.js";

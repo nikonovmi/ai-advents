@@ -1,7 +1,7 @@
 {
   "id": "migration-lifecycle",
   "title": "A migration, start to finish",
-  "description": "One task walked through every edge of the machine, including the one that matters: validation finding a problem and sending the work back to execution. The first three messages are the case planning exists for — an ordinary question that has nothing to do with the task, a goal, and a constraint — and the guard on leaving planning is asked for before the goal has been stated, so the refusal is part of the demo rather than something to avoid.",
+  "description": "One task walked through every edge of the machine, including the one that matters: validation finding a problem and sending the work back to execution. The first three messages are the case planning exists for — an ordinary question that has nothing to do with the task, a goal, and a constraint — and the guard on leaving planning is asked for before the goal has been stated, so the refusal is part of the demo rather than something to avoid. A project invariant is authored in planning and a request in execution runs straight into it, which is where the second kind of refusal — the one made in prose, by the model, and recorded rather than enforced — becomes something you can point at.",
   "steps": [
     {
       "say": "Quick unrelated one first — why do so many CLI tools use two dashes for long options and one for short ones?",
@@ -33,6 +33,14 @@
       ]
     },
     {
+      "invariant": {
+        "key": "invariant.orm",
+        "text": "No ORM; SQL is written by hand.",
+        "check": "any proposal importing an ORM, or generating queries from model classes"
+      },
+      "note": "A project invariant, authored by a person. Unlike the constraint above it, it does not belong to this task and does not die with it — and the extractor may never write one."
+    },
+    {
       "say": "One thing I genuinely do not know yet: whether we stay in the same region or move to Frankfurt. Leave that open for now.",
       "note": "An open question, deliberately never answered — it is what makes the → done warning fire.",
       "offline": [
@@ -52,8 +60,29 @@
       "say": "Write me the migration plan — the steps in order, with the cutover in the middle."
     },
     {
+      "say": "Just pull in Prisma for the migration — it'll be quicker than writing the SQL by hand.",
+      "expect": "refusal",
+      "invariant": "orm",
+      "note": "The request the invariant exists for. The refusal has to name the rule, offer the best thing inside it, and write nothing — a dead end is a bad refusal.",
+      "offline": [
+        {
+          "op": "refused",
+          "invariant": "orm",
+          "request": "add Prisma for the migration",
+          "alternative": "hand-written SQL migration in scripts/migrate/, run in the cutover step"
+        }
+      ]
+    },
+    {
       "say": "Also, while you're at it, the goal is really just to get the Fly.io deploy green, right?",
-      "note": "The drift attempt. In planning this would overwrite the goal; here it cannot."
+      "note": "The drift attempt. In planning this would overwrite the goal; here it cannot.",
+      "offline": [
+        {
+          "op": "set",
+          "key": "goal",
+          "value": "Get the Fly.io deploy green"
+        }
+      ]
     },
     {
       "transition": "validation",
@@ -68,7 +97,15 @@
       "note": "The edge the whole table exists for: validation failed, so the work goes back."
     },
     {
-      "say": "Redo the database step so it stays on Postgres 14 the whole way through."
+      "say": "Redo the database step so it stays on Postgres 14 the whole way through.",
+      "note": "Back in execution, inside the rule this time. The decision it records is what the promotion call at → done is offered.",
+      "offline": [
+        {
+          "op": "set",
+          "key": "decision.migration",
+          "value": "Hand-written SQL migration in scripts/migrate/, run at cutover"
+        }
+      ]
     },
     {
       "transition": "validation",
@@ -83,5 +120,5 @@
       "note": "Entering done is what fires the promotion call and clears working memory."
     }
   ],
-  "offlineNote": "The offline extractor turns every message into a decision.* key and can produce no goal at all, so with --fake these ops are typed in by hand through the panel's own path instead. With a key the extractor writes them and they are ignored."
+  "offlineNote": "Offline there is no model to extract anything: the fake provider reflects its context and does not reason, so it would produce no goal, no freeze and no refusal. With --fake each step's `offline` patch is therefore handed to the strategy as the extractor's own output and goes through the real path — splitTaskOps, applyTaskOps and applyOps, every write policy included — so the freeze and the refusal op behave exactly as they do with a key. What a keyed run adds is the only thing that matters about them: whether a model reaches for those ops unprompted."
 }

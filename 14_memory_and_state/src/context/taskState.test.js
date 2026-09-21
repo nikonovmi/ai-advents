@@ -12,6 +12,7 @@ import {
   guardFor,
   normaliseTask,
   splitTaskOps,
+  warningFor,
   stageOf,
   taskLines,
   transition,
@@ -172,6 +173,58 @@ test("both edges that walk away from an open question warn, and neither blocks",
   // answer them, and being warned for doing the right thing is noise.
   const back = transition(walk(emptyTask(), ["execution"], work), { to: "planning", working: work });
   assert.equal(back.warning, null);
+});
+
+test("a model saying it is blocked on you warns, even when nothing was written down", () => {
+  // The conversation this came from: the assistant asked four questions, the
+  // user answered none of them, and the extractor — busy with a refusal that
+  // turn — wrote no `open.*` at all. There was nothing for the open-question
+  // warning to read, so leaving planning went through in silence.
+  const work = { goal: { value: "Implement a generic DFS" } };
+  const planning = applyTaskOps(emptyTask(), [
+    { op: "awaiting", actor: "user", what: "graph representation, return type, and node type" },
+  ], { turn: 2 });
+
+  assert.equal(planning.task.expectedBy, "model");
+  const warning = warningFor("planning", "execution", work, planning.task);
+  assert.match(warning, /still waiting on you/);
+  assert.match(warning, /graph representation, return type, and node type/);
+  // ...and it says why nothing will chase it, which is the actual cost.
+  assert.match(warning, /Nothing recorded it as an open question/);
+
+  // It warns; it does not block. That distinction is the whole design.
+  const moved = transition(planning.task, { to: "execution", working: work, turn: 2 });
+  assert.equal(moved.ok, true);
+  assert.equal(moved.warning, warning);
+});
+
+test("the machine's own resting state is not a warning", () => {
+  // Every stage has a default and planning's is `actor: "user"`, so a task
+  // nobody has said anything about is always "waiting on the user". Warning on
+  // that would fire on every single transition and mean nothing.
+  const work = { goal: { value: "Ship the thing" } };
+  assert.equal(emptyTask().expectedBy, "system");
+  assert.equal(warningFor("planning", "execution", work, emptyTask()), null);
+
+  // A transition resets the field to the stage's default, so the next edge is
+  // not still warning about what a model said two stages ago.
+  const flagged = applyTaskOps(emptyTask(), [{ op: "awaiting", actor: "user", what: "confirm the date" }], { turn: 1 });
+  const inExecution = transition(flagged.task, { to: "execution", working: work, turn: 1 });
+  assert.equal(inExecution.task.expectedBy, "system");
+  assert.equal(warningFor("validation", "done", work, inExecution.task), null);
+
+  // And an agent-side await is not a thing to warn about at all: that is the
+  // machine saying it has work to do, not that it is stuck on you.
+  const busy = applyTaskOps(emptyTask(), [{ op: "awaiting", actor: "agent", what: "writing the code" }], { turn: 1 });
+  assert.equal(warningFor("planning", "execution", work, busy.task), null);
+});
+
+test("both sources of the warning are said, not just whichever came first", () => {
+  const work = { goal: { value: "Ship it" }, "open.region": { value: "Frankfurt or not?" } };
+  const blocked = applyTaskOps(emptyTask(), [{ op: "awaiting", actor: "user", what: "pick a region" }], { turn: 3 });
+  const warning = warningFor("planning", "execution", work, blocked.task);
+  assert.match(warning, /open\.region/);
+  assert.match(warning, /still waiting on you — pick a region/);
 });
 
 test("each stage contributes its own instruction line, and they differ", () => {

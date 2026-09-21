@@ -4,8 +4,9 @@ import { personas } from "./agent.js";
 import { exchangeStarts } from "./context/boundaries.js";
 import { compareProfiles } from "./context/comparison.js";
 import { createStrategy } from "./context/index.js";
-import { getBranchHistory } from "./store/branches.js";
+import { getBranchHistory, pickGraph } from "./store/branches.js";
 import { isValidSessionId } from "./store/conversationStore.js";
+import { DEFAULT_PROJECT, isValidProject } from "./store/invariantStore.js";
 import { DEFAULT_USER, isValidUser } from "./store/profileStore.js";
 
 /**
@@ -34,10 +35,11 @@ import { DEFAULT_USER, isValidUser } from "./store/profileStore.js";
  * @param {import("./store/conversationStore.js").ConversationStore} params.store
  * @param {import("./llm/provider.js").LlmProvider} params.provider
  * @param {import("./store/profileStore.js").ProfileStore} params.profileStore
+ * @param {import("./store/invariantStore.js").InvariantStore} params.invariantStore
  * @param {(sessionId: string) => void} [params.invalidate] - Drop this session's
  *   cached Agent, so it reloads instead of overwriting.
  */
-export function memoryRoutes({ store, provider, profileStore, invalidate = () => {} }) {
+export function memoryRoutes({ store, provider, profileStore, invariantStore, invalidate = () => {} }) {
   const router = express.Router();
 
   /**
@@ -58,7 +60,19 @@ export function memoryRoutes({ store, provider, profileStore, invalidate = () =>
       console.error("[memory] could not load the conversation:", err);
       return res.status(500).json({ error: "Could not load that conversation." });
     }
-    if (!record) return res.status(404).json({ error: "No such conversation." });
+    // **A conversation nobody has spoken in yet is a real state, not an
+    // error.** The page mints a session id when it opens and the record is
+    // only written on the first turn, so a 404 here meant *every button in the
+    // memory panel was dead until you had said something* — the profile
+    // editor, and now the invariant box, which is the one thing in the panel
+    // that has nothing to do with the conversation at all. You should be able
+    // to write down the rules of a project before typing a word at it.
+    //
+    // This is the argument `/memory/compare` below already makes for itself,
+    // applied where it belongs: in the one helper every memory route shares.
+    // The record is a single empty branch — exactly what the store would have
+    // created — and it reaches disk only if the handler succeeds.
+    record ??= { messages: [], ...pickGraph(null) };
 
     const branchId = text(req.body?.branchId) || record.activeBranchId;
     const branch = record.branches?.[branchId];
@@ -69,7 +83,12 @@ export function memoryRoutes({ store, provider, profileStore, invalidate = () =>
     // conversation: the same conversation can be replayed against two
     // profiles, which is the whole point of the comparison below.
     const user = profileId(req.body?.profile);
-    const strategy = createStrategy("memory", { profileStore, user });
+    // Which project's rules this request is about. It arrives with the request
+    // like the profile does — the picker is in the topbar, not in the
+    // conversation — and the record remembers the last answer, so reopening a
+    // chat does not quietly move it under another set of rules.
+    const project = projectId(req.body?.project) ?? record.project ?? DEFAULT_PROJECT;
+    const strategy = createStrategy("memory", { profileStore, invariantStore, user, project });
     const history = getBranchHistory(record, branchId);
     const turns = exchangeStarts(history).length;
     const state = branch.strategyState?.memory ?? strategy.emptyState();
@@ -91,6 +110,7 @@ export function memoryRoutes({ store, provider, profileStore, invalidate = () =>
       await store.save(id, record.messages, record.usage, {
         branches: record.branches,
         activeBranchId: record.activeBranchId,
+        project,
       });
     } catch (err) {
       console.error("[memory] could not persist the change:", err);
@@ -100,11 +120,26 @@ export function memoryRoutes({ store, provider, profileStore, invalidate = () =>
     // place it would write that back over this on the next turn.
     invalidate(id);
 
+    // The panel is built synchronously, so what it should draw is read here,
+    // where awaiting is allowed. Without this a conversation nobody has spoken
+    // in yet draws an empty rule set and an empty profile — which is a
+    // different claim from "nothing has been sent yet", and the wrong one.
+    const [liveInvariants, liveProfile] = await Promise.all([
+      invariantStore.load(project).catch(() => null),
+      profileStore.load(user).catch(() => null),
+    ]);
+
     res.json({
       ok: result.ok !== false,
       note: result.note ?? "",
       branchId,
-      panel: strategy.panel(result.state, { turns }),
+      panel: strategy.panel(result.state, {
+        turns,
+        invariants: liveInvariants,
+        profile: liveProfile,
+        user,
+        project,
+      }),
       ...(result.extra ?? {}),
     });
   }
@@ -178,6 +213,13 @@ export function memoryRoutes({ store, provider, profileStore, invalidate = () =>
         history,
         action,
         text: typeof req.body?.text === "string" ? req.body.text : undefined,
+        // Which of the brief's open questions to leave out. Absent, empty or
+        // wrong all mean *record every one of them*, which is the direction
+        // this should fail in: a page that sends a stale key must not quietly
+        // throw away the record the accept exists to create.
+        drop: Array.isArray(req.body?.drop)
+          ? req.body.drop.map((value) => text(value).toLowerCase()).filter(Boolean).slice(0, 12)
+          : [],
       });
       return {
         ok: answered.ok,
@@ -199,6 +241,37 @@ export function memoryRoutes({ store, provider, profileStore, invalidate = () =>
     onBranch(req, res, async ({ strategy, state }) => {
       const started = strategy.startTask({ state });
       return { ok: started.ok, state: started.state, note: started.note };
+    })
+  );
+
+  /**
+   * **Typed prose in, structured proposals out.** One model call, read-only,
+   * writes nothing.
+   *
+   * It is not a turn — no persona, no reply, nothing appended to the
+   * transcript — and it is the only new call the whole feature adds. It fires
+   * when somebody presses a button, never on a turn, because a cost you did
+   * not press is a cost you press four times by accident.
+   *
+   * What comes back is rows for a review box, every field editable. Accepting
+   * one goes to `/memory/ops` like every other write, with `origin: 'person'`
+   * — which is what keeps the namespace person-only: **the accept is the
+   * write**, and there is no other door into it.
+   */
+  router.post("/conversations/:id/memory/invariants/propose", (req, res) =>
+    onBranch(req, res, async ({ strategy, state, turns }) => {
+      const typed = typeof req.body?.text === "string" ? req.body.text : "";
+      const proposed = await strategy.proposeInvariants({ state, text: typed, turns, provider });
+      return {
+        ok: proposed.ok,
+        // The state is handed back because the call is billed to the
+        // conversation's overhead — it is the only thing about it that
+        // changes, and leaving it out would make the one figure that says what
+        // memory costs quietly wrong.
+        state: proposed.state,
+        note: proposed.note,
+        extra: { rows: proposed.rows },
+      };
     })
   );
 
@@ -233,7 +306,21 @@ export function memoryRoutes({ store, provider, profileStore, invalidate = () =>
       // That flag is the only thing `declared` provenance means, and putting
       // the form anywhere else would be the second code path with no test
       // behind it that `applyOps` exists to prevent.
-      return await strategy.applyPanelOps({ state, ops, turns, declared: req.body?.declared === true });
+      // `acknowledged` is the one way past the invariant check, and it is
+      // only ever the key of a collision row the person is answering. It is
+      // named in the request rather than inferred, so "a human waved this
+      // through" is a thing you can see in the log rather than a mood the
+      // server was in.
+      const acknowledged = Array.isArray(req.body?.acknowledged)
+        ? req.body.acknowledged.map((value) => text(value).toLowerCase()).filter(Boolean).slice(0, 40)
+        : [];
+      return await strategy.applyPanelOps({
+        state,
+        ops,
+        turns,
+        declared: req.body?.declared === true,
+        acknowledged,
+      });
     })
   );
 
@@ -286,6 +373,10 @@ export function memoryRoutes({ store, provider, profileStore, invalidate = () =>
         provider,
         profileStore,
         profiles,
+        invariantStore,
+        projects: Array.isArray(req.body?.projects)
+          ? req.body.projects.map((value) => text(value)).filter((value) => isValidProject(value)).slice(0, 4)
+          : [],
         samples: Number(req.body?.samples) || 3,
         contextMessages: Number(req.body?.contextMessages) || 10,
         maxTokens: Number(req.body?.maxTokens) || 1024,
@@ -314,4 +405,16 @@ function text(value) {
 function profileId(value) {
   const id = text(value).toLowerCase();
   return isValidUser(id) ? id : DEFAULT_USER;
+}
+
+/**
+ * A project id from a request body, or null when none was sent.
+ *
+ * Null rather than the default on purpose: "the request did not say" and "the
+ * request said `default`" are different, and only the first should fall back
+ * to whatever the conversation record already holds.
+ */
+function projectId(value) {
+  const id = text(value).toLowerCase();
+  return isValidProject(id) ? id : null;
 }

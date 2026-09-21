@@ -1,539 +1,466 @@
-# first-agent — memory and task state
+# Invariants — the rules a project does not break
 
-A chat app whose interesting part is what goes on the wire. Four memories with
-four lifetimes, and a task with an explicit lifecycle that decides what the
-model is told and what it is allowed to change.
+Everything else this app remembers is a claim about what is **true**: what the
+user is like, what the work is, what was said. An invariant is a claim about
+what is **allowed**, and the two behave differently in every direction that
+matters.
 
-This README describes the architecture: where state lives, how it moves, and
-**exactly what each stage is passed**.
-
-
-https://github.com/user-attachments/assets/254e0ee4-0793-47af-ace8-2cbe4c3ab3c5
-
-
-```bash
-npm install
-npm test                              # 92 tests, stubs, no key, no network
-echo 'ANTHROPIC_API_KEY=sk-ant-…' > .env
-npm start                             # http://localhost:3000
-npm run lifecycle                     # one task through every stage
-npm run scenario -- --all --window=10 # the five strategies, compared
-npm run compare -- --profiles=plain-english,code-first
 ```
+invariant.database: Stays on Postgres.
+                    — check: any proposal introducing another engine
+```
+
+It outranks the rest of memory. It survives the task. Only a person writes it.
+And it is the only thing here that is still on the wire after the work is done,
+because a closed task can still be asked a question and the answer can still
+break a rule.
 
 ---
 
-## 1. The object graph
-
-`Agent` owns a persona and a branching conversation. It holds no URL, no key,
-no `fetch`, and no opinion about what goes on the wire. Four things are
-injected:
-
-| | answers | implementations |
-| --- | --- | --- |
-| `LlmProvider` | who is the model | `AnthropicProvider`, `FakeProvider` |
-| `ConversationStore` | where the conversation lives | `JsonFileStore`, `MemoryStore` |
-| `ContextStrategy` | **what goes on the wire** | `sliding`, `summary`, `facts`, `memory`, `full` |
-| `ProfileStore` | where what we know about the *user* lives | `JsonFileStore`, `MemoryProfileStore` |
-
-A strategy owns two things: `buildPayload(history) → {system, messages, state}`
-and an opaque `state` the `Agent` never inspects. That is what makes a fifth
-strategy a new file plus one registry line rather than a new branch in `run()`.
-Two rules hold for all five:
-
-- **Strategy calls are billed separately.** A saving whose cost has been added
-  to the thing it is measured against is not a measurement.
-- **Failure degrades the payload, never the turn.** A summary that could not be
-  written or an extraction that failed is logged, the previous state is kept,
-  and the turn is answered anyway.
-
-Everything below is about `memory`, the fifth strategy — the only one with an
-opinion about time.
+## 1. Where it sits
 
 ```
 src/
-  agent.js                 persona, branches, retry, the five-step turn
-  server.js                HTTP; mounts memoryRoutes with one line
-  memoryRoutes.js          the task boundary as HTTP — none of it is a turn
   context/
-    strategy.js            the ContextStrategy contract
-    index.js               the registry
-    memory.js              the four memories, the routing table, applyOps
-    taskState.js           the lifecycle: TRANSITIONS, guardFor, transition
-    boundaries.js          payload must open on a user message; pairs never split
+    patch.js           the patch format: key grammar, routing table, op vocabulary
+    invariants.js      the <invariants> block, and the one call that drafts rules
+    memory.js          the memories, the blocks, applyOps — where writes are refused
+    taskState.js       the lifecycle; the `refused` op lives here
   store/
-    branches.js            messages gain id/parentId; each branch owns strategyState
-    profileStore.js        data/memory/<user>.json — outlives every conversation
+    invariantStore.js  data/invariants/<project>.json
+    profileStore.js    data/memory/<user>.json
 ```
 
----
+Five things are injected into the agent. The fifth is the one this document is
+about:
 
-## 2. The four memories
-
-| | holds | lives in | ends when |
-| --- | --- | --- | --- |
-| **Short-term** | recent exchanges verbatim | the conversation record | it falls past a floor (§4) |
-| **Digest** | a rolling summary of what scrolled past | `strategyState.memory.digest` | never; rewritten at each fold |
-| **Working** | `goal`, `constraint`, `finding`, `open`, `decision`, `agreement`, the stage, the brief | `strategyState.memory`, per branch | the task reaches `done` |
-| **Long-term** | `profile`, `preference`, `rule`, promoted decisions | `data/memory/<user>.json` | only an explicit delete |
-
-The digest is compressed short-term, **not** a layer of its own: the digest
-records *what was discussed*, working memory records *what is currently true
-about the work*. Long-term lives outside `data/conversations/` — delete the
-conversation and the profile is still there.
-
-### The routing table
-
-The extractor proposes a **key** and never a layer. The namespace of that key is
-looked up in one table, in code, identically every run:
-
-```js
-export const ROUTES = {
-  goal:       { layer: 'working',  evict: 'task', singular: true },
-  constraint: { layer: 'working',  evict: 'task' },
-  finding:    { layer: 'working',  evict: 'task' },
-  open:       { layer: 'working',  evict: 'task' },
-  decision:   { layer: 'working',  evict: 'task', promotable: true },
-  agreement:  { layer: 'working',  evict: 'task', promotable: true },
-  profile:    { layer: 'longterm', evict: 'never' },
-  preference: { layer: 'longterm', evict: 'never' },
-  rule:       { layer: 'longterm', evict: 'never' },
-};
-```
-
-- `layer` — which memory the key lives in. An unrecognised namespace is
-  **discarded and logged**, never guessed at.
-- `evict: task` — cleared when the task reaches `done`.
-- `promotable` — may be offered for long-term at the task boundary. A goal or an
-  open question is over when the task is; a decision can outlive it.
-- `singular` — `goal` is the only key that may be a bare namespace. A task has
-  one goal; a user has a role *and* a city *and* a team, so a bare `profile`
-  would be a whole layer collapsed into one slot that each new fact overwrites.
-
-### State shape
-
-```js
-strategyState.memory = {
-  working:   { 'goal': { value, updatedAt, turn, previous: [] }, … },
-  task:      { id, previous, transitions: [], step, expectedAction,
-               stepTurn, expectedTurn, suggestion, refused: [] },
-  brief:     { text, status: 'pending'|'accepted', turn, through, edited } | null,
-  briefThrough: number,         // the floor it set; outlives the brief itself
-  digest:    string | null,
-  digestThrough: number,        // message index the digest covers to
-  pastTasks: [],                // closed tasks: entries, route, brief
-  proposals: [],                // promotions and corrections awaiting a human
-  discarded: [],                // ops that were refused, with the reason
-  promotedAt: {},               // entry id → turn, so a fork cannot read ahead
-  profileSeen: {}, profileUser, attribution: [], usage: {},
-}
-```
-
-It is per-branch and deep-copied on fork, which is how the lifecycle inherits
-branching for free.
-
----
-
-## 3. The task state machine
-
-`taskState.js`. Four stages, the legal edges as data, one mutation path.
-
-```
-planning ──▶ execution ──▶ validation ──▶ done
-    ▲            │              │
-    └────────────┘              │
-                 ◀──────────────┘
-```
-
-```js
-export const TRANSITIONS = {
-  planning:   ['execution'],
-  execution:  ['validation', 'planning'],
-  validation: ['done', 'execution'],
-  done:       [],
-};
-```
-
-**The backward edges are the point.** Validation *failing* is the common case; a
-machine that only moves forward leaves "this does not meet the goal"
-unrepresentable and the work carries on in `validation` pretending otherwise.
-
-**`done` is terminal.** Reopening it would mean a closed task gaining entries
-after its promotion call had run — the one way "promotion fires exactly once"
-stops being structurally true. Resuming is a **new task referencing the old
-one** (`task.previous`).
-
-**The stage is derived, never stored.** Transitions are an append-only log of
-`{from, to, at, by, turn, reason}`; the stage is the last entry's `to`. An empty
-log *is* `planning`, so every conversation starts inside the machine with
-nothing having been created for it, and there is no null/no-task state anywhere
-downstream. One source of truth buys three things that would each otherwise need
-maintaining: the transcript's dividers, the audit trail, and resume-after-restart.
-
-### Guards
-
-`guardFor(from, to, working) → true | reason` is a pure function of state, and
-the reason string *is* the disabled button's tooltip — the rule lives in one
-place and the tooltip is that place quoting itself.
-
-| edge | rule | effect |
+| | answers | keyed by |
 | --- | --- | --- |
-| any | not in `TRANSITIONS` | **blocked**, discarded and logged |
-| `planning → execution` | no `goal` recorded | **blocked** — *"Nothing is recorded as the goal yet"* |
-| `planning → execution` | unanswered `open.*` | **warns**, proceeds on confirm |
-| `→ done` | unanswered `open.*` | **warns**, proceeds on confirm |
+| `LlmProvider` | who is the model | — |
+| `ConversationStore` | where the conversation lives | session |
+| `ContextStrategy` | **what goes on the wire** | — |
+| `ProfileStore` | what we know about the *user* | a person |
+| `InvariantStore` | what the *project* may not do | **a project** |
 
-Neither open-question rule blocks. Plenty of real work starts and finishes with
-questions nobody answered, and blocking the start while the finish only warns
-would gate beginning more strictly than declaring done.
-
-An illegal edge is **discarded and recorded** in `task.refused`, never coerced to
-a nearby valid state: coercion makes the machine look like it worked while the
-stage becomes something nobody chose.
-
-### Three fields on the task
-
-| field | holds |
-| --- | --- |
-| `stage` | derived from the transition log |
-| `step` | one line: what is in progress right now |
-| `expectedAction` | `{ actor: 'user' \| 'agent', what }` |
-
-There is no `blocked` state: blocked is `actor: 'user'`, said in a way the next
-turn can act on. Stage says where you are; `expectedAction` says what to do on
-the next turn after a week's gap — which is why it holds a sentence rather than
-a flag, and why the strip can send it verbatim (§8).
+It is a fifth store rather than a corner of the fourth because the same human
+has two codebases with two different rule sets, and a layer keyed by the human
+would have to pick one of them and be wrong about the other. Which project a
+conversation belongs to is a field on the conversation record, chosen in the
+topbar beside the profile.
 
 ---
 
-## 4. What each stage is passed
+## 2. The namespace
 
-The payload is assembled in `buildPayload`. Blocks are omitted entirely when
-empty, so nothing pays for a layer it is not using.
-
-```
-system:   [persona]
-          + <profile>…</profile>     long-term, if any
-          + <working>…</working>     the stage, the three fields, the keys
-          + <brief>…</brief>         only once accepted
-          + [digest]                 only once something has folded
-
-messages: history.slice( max(digestThrough, briefThrough) ), verbatim
+```js
+invariant: { layer: 'longterm', evict: 'never', personOnly: true, project: true },
 ```
 
-The message floor is the **later** of the two: a message below either is already
-represented in the system prompt, and sending it again would be paying twice to
-say it worse. The floor is snapped to a user message, because a payload that
-opens on an assistant turn reads to the model as its own words.
-
-### The `<working>` block, in every stage
-
-```
-<working>
-The task in hand — what is currently *true about the work*, not a record of
-what was said. All of it is live.
-stage: execution
-step: writing the migration script
-awaiting: you, the assistant — do the work inside the recorded goal and constraints
-STAGE — execution. …one instruction line, per stage, below…
-goal: Move the billing service off Heroku before the March 14 contract end
-constraint.database: Must stay on Postgres 14
-open.region: Same region, or move to Frankfurt?
-</working>
-```
-
-The stage rides **inside** `<working>` rather than in a block of its own,
-because it is the same kind of claim the keys are — what is currently true about
-the work — and a fifth block would be a fifth thing the model has to be told how
-to read.
-
-### Per stage
-
-| | system prompt | messages | `goal` writable by a model |
-| --- | --- | --- | --- |
-| **planning** | persona + profile + working + digest | everything since the digest | **yes** |
-| **execution** | persona + profile + working + **brief** + digest | only since the brief | no — proposal |
-| **validation** | persona + profile + working + **brief** + digest | only since the brief | no — proposal |
-| **done** | persona + profile + working + digest | still only since the brief | n/a — working is cleared |
-
-**planning** — `STAGE — planning. Your job here is to understand the task, not
-to do it.` It refuses the deliverable outright: no plan, no code, no draft, *not
-because the user said "go ahead"*. A direct question that is not the task
-("what's the weather") still gets a short answer, so the first message of a chat
-is not an interrogation. Otherwise it asks for what is missing — at most one or
-two questions a turn, only where a different answer would change the work —
-states its assumptions out loud, and is told the goal is about to freeze and the
-conversation about to be replaced. When the goal and constraints are recorded
-and no `open.*` remain it stops asking and says one fixed line:
-
-> Everything's clear — we can switch to execution now. Or add more details if
-> you want to refine it first.
-
-**execution** — `Work inside the goal and the constraints recorded above and add
-nothing to them. If something outside them turns out to be needed, name it and
-say it is outside the agreed scope; do not quietly widen the work to cover it.`
-
-**validation** — `Check what has been produced against the recorded goal and
-constraints, one at a time, and report what fails, what is unverified and what
-passes. Do not silently fix anything you find: a fix is a return to execution,
-and that is the user's call, not yours.`
-
-**done** — `This task is closed. Nothing further is worked on under it; if the
-user wants more, that is a new task.`
-
-Without these lines the machine is decoration. The test is the one used for
-profiles: the same question asked in two stages has to come back visibly
-different.
-
----
-
-## 5. What happens on each edge
-
-| edge | model calls | state changes |
-| --- | --- | --- |
-| `planning → execution` | **1** (`Briefer`) | writes a *pending* brief; **the stage does not move** |
-| *accept the brief* | 0 | brief `accepted`, `through` set, stage moves, goal freezes |
-| `execution ⇄ validation` | 0 | log entry; `step` and `expectedAction` reset to the stage's defaults |
-| `execution → planning` | 0 | log entry; **goal thaws** |
-| `validation → done` | **1** (`Promoter`) | working cleared into `pastTasks` with its route and brief; proposals raised; brief cleared |
-| *start a new task* | 0 | fresh task in `planning`, `previous` set; brief cleared |
-
-### Leaving planning is a handoff
-
-`→ execution` does not move the stage. It makes one `Briefer` call — the same
-shape as `Promoter`: a model call at a stage edge whose output is a *proposal* —
-and hands you the result in an editable box. **Accepting it is what leaves
-planning.** Then the planning messages stop being sent and `<brief>` stands in
-for them.
+It sits in the same routing table as every other key, so the namespace of a key
+decides its layer in one lookup, in code, identically every run.
 
 | | |
 | --- | --- |
-| `<working>` | the keys — an index, capped at twenty words a value |
-| `<brief>` | the description — what the task *is*, in prose you approved |
+| lives in | `data/invariants/<project>.json`, behind `InvariantStore` |
+| written by | **a person only**, through `/memory/ops` with `origin: 'person'` |
+| entry | `{ text, check, supersedes?, id, updatedAt, turn, previous[] }` |
+| on the wire | first after the persona, in **every** stage including `done` |
 
-The stage waits for the accept rather than moving on the click, and that is the
-one asymmetry with `→ done`, which moves immediately and leaves its proposals
-pending. The difference earns the extra step: a promotion proposal is about
-long-term memory and changes nothing about the task in hand, while the brief *is*
-what the task in hand runs on from here. A task sitting in `execution` with an
-unreviewed brief would be running on exactly the messages the brief replaced. A
-failed `Briefer` call leaves the task in planning with nothing pending, for the
-same reason — half a handoff drops the conversation and puts nothing in its
-place.
+### Person-only, at every point in the conversation
 
-Entering `done` clears the brief along with the keys: it describes work that is
-over, and left on the wire it would go on telling every later turn what the
-finished task was about. Cleared is not deleted — it goes into `pastTasks`,
-where it is the most readable thing a closed task leaves behind.
+The extractor may not write one. Neither may the `promotable` path that runs at
+the task boundary — because a promotion is a human clicking yes on a sentence
+**a model drafted**, which is exactly what an invariant may not be. Three doors,
+all shut in the same place:
 
-**The floor it set outlives it.** `briefThrough` is a separate field from
-`brief.through` for exactly this reason: clearing the brief must not put the
-messages it replaced back on the wire. It only ever moves forward, and a
-successor task inherits it — the planning of a finished task does not come
-back when the next one starts.
+- `applyOps` refuses a model-originated `set` or `delete` on an `invariant.*`
+  key, whatever `allow` says and whatever stage the task is in;
+- `applyOps` refuses a `promote` onto one **even from a person**;
+- the `Promoter`'s offers are filtered before they are ever shown, so nobody is
+  invited to approve something that cannot land.
 
-### Model proposals about the task
+And `invariant` is left out of the namespace list the extractor is given at
+all — a filter rather than a gate, because the cheapest refusal is the one that
+never has to happen.
 
-The extractor may put three task ops in its patch:
+> A rule the assistant can write for itself is a rule it can also decide does
+> not apply today, at which point it is not a constraint.
 
-```json
-[{"op":"step",  "value":"writing the migration script"},
- {"op":"awaiting","actor":"user","what":"confirm the March 14 date"},
- {"op":"stage", "to":"validation","reason":"the script is written"}]
-```
+### `check` is required
 
-`step` and `awaiting` are **written** — descriptive, gate nothing, and a status
-line nobody will click a button to keep fresh goes stale in two turns and is then
-worse than nothing. `stage` is **not**: it becomes a suggestion rendered beside
-the corresponding button, and the stage changes on a click or not at all. The
-model is told what stage it is in; it is never consulted.
+`check` says **how you would know the invariant had been violated**. An
+invariant with no usable check is not an invariant: it comes back from the
+drafting call as a `reject` with a `preference.<subject>` offered instead, and a
+`set` with no check is refused by `applyOps`. Twelve fuzzy rules on the wire
+buys a model that hedges everything, which looks like compliance and is noise.
 
-`splitTaskOps` separates the patch before either mutation path sees the other's
-ops, so `applyOps` goes on refusing everything that is not a routable key and
-`transition` goes on being the only way a stage changes.
+### Keys carry a subject, and the subject is shared
+
+`invariant.database` and `preference.database` are about the same thing. That
+sharing is deliberate: it is what makes conflict detection a string match rather
+than a judgement (§5).
+
+### `rule` versus `invariant`
+
+They were one namespace apart, which is the worst place for two things to be —
+the extractor would route into `rule` and nobody would know which they had
+meant. The line, written down once:
+
+- **`rule`** is *how this user likes to be worked with*, stated absolutely:
+  "never use em-dashes", "always show the SQL". About the assistant, follows the
+  person between projects, extractor-writable, because getting it wrong costs a
+  sentence of tone.
+- **`invariant`** is *what the project cannot do*: "stays on Postgres", "no
+  ORM". About the codebase, stays behind when the person moves on, person-only,
+  because getting it wrong costs the architecture.
+
+The test that separates both from a `constraint`: **if this task were cancelled,
+would it still be true?** "Ship before March 14" would not be. "Stays on
+Postgres" would.
 
 ---
 
-## 6. Writes: two mutation paths, and nothing else
+## 3. Authoring — typed prose in, structured proposals out
 
-Everything that changes memory goes through `applyOps`; everything that changes
-the stage goes through `transition`. One code path each means one place the
-routing table is consulted, one place a malformed key is refused, and one thing
-to test. A button in the UI cannot express a change the patch format cannot.
+Invariants are written in prose by a person and structured by the model. That
+keeps authoring cheap without letting the model legislate:
+
+> The model drafts, the human accepts, and **the accept is the write**.
+
+`POST …/memory/invariants/propose` is **the only new model call the feature
+adds, and it fires on a button** — never on a turn, because a cost you did not
+press is a cost you press four times by accident. It is not a turn at all: no
+persona, no reply, nothing appended to the transcript, and it writes nothing.
+
+It receives the typed text, every existing invariant, and all of long-term
+memory. It returns rows:
 
 ```js
-applyOps({ working, profile }, ops, {
-  allow,            // which of set | delete | promote are permitted here
-  origin,           // 'model' | 'person' — decides whether the write happens
-  source,           // 'declared' | 'learned' | null — what to stamp on long-term
-  frozen,           // working keys the task has committed to
-})
+{ action: 'add' | 'amend' | 'reject',
+  key, text, check,
+  supersedes?, current?,   // amend: the entry being replaced, and its text
+  collisions: [],          // existing entries on the same subject
+  reason?, suggest? }      // reject: why, and where it does belong
 ```
 
-`origin` and `source` are deliberately separate: collapsing them makes *a person
-approving a correction to a declared entry* — which keeps the entry declared —
-unrepresentable.
+Three of its rules are decided **in code** rather than trusted to the prompt,
+because a rule decided in code holds on the run where the model was having an
+off day:
 
-Three write policies, all the same shape, all producing a **correction proposal**
-rather than a silent write or a silent drop:
+- a subject that already has an invariant comes back as `amend`, never `add`,
+  carrying the id and the text being replaced so the box can diff it — this is
+  the point of the feature, that it tells you *which* rules change and how
+  rather than silently shadowing the old value;
+- a row with no usable check becomes a `reject`;
+- the collisions are computed by string match, **here, at propose time**, so
+  conflicts land in the same review box and you resolve everything in one pass
+  instead of meeting a proposal row an hour later.
 
-| policy | a model op is refused when | thaws when |
-| --- | --- | --- |
-| **declared wins** | the long-term entry's `source` is `declared` | never — a person edits it |
-| **the freeze** | the key is in `frozenKeys(task)` — i.e. `goal`, outside planning | the task returns to `planning` |
-| **one key, one block** | working and long-term hold the same key with different values | the human answers the proposal |
+Every field is editable before accept, and accept and reject are **per row**:
+three rules came out of one sentence, and two of them being right is the common
+case. A failed call leaves the box empty and the typed text intact.
 
-The freeze is also the goal-drift fix: drift is a planning-stage phenomenon, so
-the write policy tightens at the moment the task is committed to rather than
-being policed by a prompt for the whole conversation. A declared entry is never
-shadowed by the task either — the user wrote it down on purpose and the thing
-displacing it was inferred from one exchange.
+### Example
 
-Two more refusals worth naming, both of which *preserve* rather than destroy:
+Typed:
 
-- A lone `delete` on an `open.*` is refused. A question is very often the only
-  place a fact was ever written down, so closing it must record the answer in the
-  same array.
-- `promote` may only be sent by a person. Routing lets the extractor *write*
-  long-term; erasing or promoting is asymmetric, because working memory is
-  rebuilt every task and long-term is not.
+> we're never moving off Postgres, no ORM — the SQL is hand-written, and deploys
+> only ever go through CI. also keep the code clean and readable.
 
-### Two schedules, billed apart
+Returned:
 
-Extraction runs on **every user turn** over the last exchange — it cannot wait
-for the fold, because between folds a turn can slide out uncaptured. Folding runs
-at the **high-water mark** through the same `Summarizer` the `summary` strategy
-uses, on the same edge discipline: the digest's edge and the verbatim region's
-edge are the same index, so no message is ever in neither.
-
-| bucket | what it is | when it is paid |
-| --- | --- | --- |
-| `overheadWorking` | the extraction call, plus `Briefer` and `Promoter` at the edges | every user turn; the two once per task |
-| `overheadSummary` | the fold | at the high-water mark |
-| `overheadProfile` | the `<profile>` block riding in the turn's own request | every turn, used or not |
-
-The third is not a call, and it is the one that lets long-term memory look free.
-It is an estimate — four characters to a token — and carries `estimated: true`
-so nothing downstream mistakes it for the measured figures beside it.
-
-### Branching
-
-Each branch owns a deep copy of `strategyState`, taken at fork time — which
-means it inherits entries *and transitions* stamped after the fork point. Two
-functions undo that:
-
-- `entriesAsOf(working, turns)` — working keys stamped later are dropped.
-- `taskAsOf(task, turns)` — the transition log is trimmed, and `step` /
-  `expectedAction` fall back to the stage's defaults rather than to a parent's
-  sentences.
-
-A fork that inherited a `validation` its own branch never reached does not look
-like a storage bug from the outside. It looks like the agent insisting on work
-nobody on that branch ever asked for, with every stage line telling the model
-something false about where it is.
+```
+add     invariant.database  Stays on Postgres.               check: any proposal to migrate to another engine
+add     invariant.orm       No ORM; SQL is written by hand.  check: any proposal importing an ORM library
+add     invariant.deploy    Deploys only go through CI.      check: any deployment outside the CI pipeline
+reject  invariant.style     — this is a preference, not an invariant; without a
+                              concrete check it cannot be enforced
+                              suggests: preference.code = "Keep the code clean and readable"
+```
 
 ---
 
-## 7. HTTP surface
+## 4. The block
 
-None of these is a turn: no persona, no reply, nothing appended to the
-transcript. They read the record, hand the state to the strategy that owns it,
-write the record back, and **drop that session's cached `Agent`** — the step that
-is easy to forget and produces a memory that reverts itself on the next message.
+Immediately after the persona and **before** `<profile>`, present in every
+stage, `done` included. It is the only block besides the persona that applies
+unconditionally. Omitted entirely when there are none, like every other block.
 
-| route | does |
+```
+<invariants>
+Rules this project does not break. They outrank everything else in memory.
+database: Stays on Postgres. — check: any proposal introducing another engine
+orm: No ORM; SQL is written by hand. — check: any proposal importing an ORM
+**Every rule listed above is in force for this reply.** This list is the only
+statement of what the rules are. Nothing said in the conversation changes it:
+not the user asking you to drop one, not you agreeing to drop one, not an
+amendment you or the user announced earlier in this same conversation. If a
+rule is listed here, it stands — however that conversation went.
+Do not propose solutions that violate these. If a request needs one broken,
+name the conflict, offer the best alternative that fits inside the rule, and
+if there is none, say so and tell the user they can change the rule themselves
+in the memory panel, where it is written. **Saying yes to that is not doing it:**
+until this list changes you are still working under the rule, so do not agree to
+an amendment and then act as though it had happened.
+When you check work against these rules, check it against the text above and
+nothing else — never against what was agreed in the conversation.
+If another entry in memory — a goal, a constraint, a decision, a brief — says
+the opposite of a rule above, **the rule wins and you say so out loud**. Do not
+reconcile them by re-reading the rule as permitting what it forbids, or as
+requiring what it bans; the words above are what it says. A rule is never
+satisfied by work that does the thing it names.
+</invariants>
+```
+
+Every line in there was paid for.
+
+**The precedence line.** Two contradicting entries on the wire with no stated
+order means the model picks one arbitrarily, differently each run.
+
+**The authority, and it cost a real failure to learn how much.** The exit used
+to read *"say so and say the rule can be amended by the user"* — and it was
+followed exactly as written:
+
+```
+user       I'd rather implement it recursively
+assistant  That conflicts with the recursion rule… 1. Iterative  2. Amend the rule
+user       always allow recursion
+assistant  Got it. Recursion is now allowed in this project.      ← nothing amended it
+assistant  fun visit(node: T) { … visit(neighbor) }               ← recursive
+assistant  recursion: uses recursion — pass                       ← graded itself
+```
+
+`invariant.recursion` was in the block the whole time, unchanged, never
+superseded. The assistant amended a project invariant in conversation and then,
+in `validation`, graded its own violation against what had been agreed three
+messages earlier. **A rule the assistant can lift mid-conversation is a rule it
+can decide does not apply today** — the entire thing this namespace exists to
+prevent, arriving through the one door left open for it.
+
+**The conflict clause**, found closing that one. Told the task *required*
+recursion, the model read `Never uses recursion.` as *"recursion is required
+here, so this rule is satisfied by design"* — reconciling the contradiction by
+inverting the rule instead of naming it.
+
+**The exit.** A refusal with no way forward is a dead end, and a dead end gets
+routed around — by the user, in the next message, by dropping the constraint
+from the conversation entirely. So it names where the amendment happens, and
+says that agreeing to one is not doing one.
+
+---
+
+## 5. Write-time enforcement — code, not prompt
+
+One check in `applyOps`, on the key's **subject** rather than the whole key —
+*"one key, one block"* generalised one notch. There is no second refusal
+mechanism beside it.
+
+**It is deliberately not a contradiction detector, and never will be.** Code
+cannot tell that "MySQL" contradicts "never move off Postgres" — that is a
+judgement, and buying it would mean a model call on the write path, which is the
+one thing this feature may not spend. What code can tell, every time,
+identically, is that both sentences are about `database`.
+
+### It guards the durable layer, and only the durable layer
+
+It used to refuse every write on an owned subject whatever its layer, and in
+practice that was mostly one thing: **the task restating a rule it had just been
+told.** `invariant.language` says Kotlin, so the conversation establishes
+`constraint.language = Kotlin`, and the machine asks you to confirm a fact you
+are already looking at. That is not the edge case, it *is* the case — a task
+governed by rules restates them constantly — and a question with no content in
+it teaches people to click through questions.
+
+So:
+
+| write | what happens |
 | --- | --- |
-| `POST /chat` | one turn; `strategy`, `profile`, window and ceiling are live controls |
-| `POST …/memory/transition` | one edge of the machine. `→ execution` writes a brief and waits |
-| `POST …/memory/brief` | `accept` (with edits) or `discard` |
-| `POST …/memory/new-task` | a successor task, once `done` |
-| `POST …/memory/proposals/:id` | `approve` (with edits) or `reject` |
-| `POST …/memory/ops` | *forget*, *promote*, and the profile editor — the `applyOps` path |
-| `POST …/memory/compare` | same message, N profiles, read-only |
+| `constraint.database`, `decision.orm`, any **working** key | **lands**, and the row is marked with the rule that outranks it |
+| `preference.database`, `rule.*`, any **long-term** key | **refused**, and becomes a correction proposal |
 
-A guarded or illegal edge returns **200 with `ok: false`** and the guard's own
-sentence. The request was well formed and the answer is "no, and here is why",
-which is a thing the UI renders rather than an error it reports.
+Working memory is rebuilt every task and cleared at `done` — the same asymmetry
+that already makes a long-term delete a person's job and a working one nobody's.
+Nothing is hidden: the panel draws `· invariant.database outranks this` on the
+row, so the collision is still *reported, never resolved*, and when it is a real
+contradiction rather than a restatement both sentences sit on screen together.
+
+Long-term is the layer the property was ever about:
+
+> **Nothing lands in long-term on a subject an invariant owns without a human
+> seeing it.**
+
+There the false positives are real and worth paying for: a `preference.database`
+that happens to *agree* with the rule is refused too, and becomes one proposal
+row on an entry that would otherwise outlive every task you ever run.
+
+### `acknowledged`
+
+A person's write is checked too, which is why this exists: it is the one way
+past the check, it names exactly the key being waved through, and it is used in
+exactly one place — approving the proposal the check itself raised. Otherwise
+answering the machine's question would be refused by the machine that asked it.
+The code is shaped so a `check` predicate could later gate the refusal in the
+same spot; none is implemented.
+
+### The sweep
+
+When a **new** invariant is accepted, existing long-term is swept for colliding
+subjects and one proposal is raised per collision. Otherwise a rule arrives and
+quietly sits on top of something that contradicts it, and you find out when the
+model splits the difference — politely, in prose, in a way that reads like
+agreement.
+
+An **amended** rule does not sweep: it was already in force, so everything
+beside it has been through the check.
+
+A collision row asks the opposite question to a correction row, so its buttons
+say the opposite words: *forget it* (the rule wins) and *keep it* (you looked,
+and the two are compatible).
+
+### Promotions and the extraction prompt
+
+A `Promoter` proposal at `→ done` that collides renders the conflict on the
+existing proposal row; a proposal on an `invariant.*` key is never offered at
+all. No new machinery.
+
+The extractor is told the invariants and told not to propose anything that
+contradicts them. That is a **filter, not a gate** — it reduces how often the
+case arises; `applyOps` decides whether the write lands.
 
 ---
 
-## 8. The UI
+## 6. Answer-time refusal
 
-**The stage strip** sits above the composer, always visible, because it answers
-*whose turn is it* before you type rather than after you have typed something the
-agent was not waiting for. Four dots, the `step` line, an `awaiting` line styled
-distinctly by actor, and a button per currently-legal edge rendered from
-`TRANSITIONS` filtered by the stage — so the UI cannot offer an edge the table
-does not have. Disabled buttons carry the guard's reason.
+Nothing reaches `applyOps` when the model suggests an ORM in a paragraph. That
+is where the prompt block earns its place, and where the refusal has to be made
+visible. A fourth task op, split out beside `step` / `awaiting` / `stage`:
 
-**A transition changes the next reply's instruction; it does not produce a
-reply.** The agent only ever answers a message. So when the stage is waiting on
-the agent the strip offers `▶ let it continue`, which sends `expectedAction.what`
-as the next turn. It is a button of its own rather than something the arrows do
-quietly, because it costs a model call and a cost you did not press is a cost you
-press four times by accident.
+```json
+{"op":"refused","invariant":"orm","request":"add Prisma for the migration",
+ "alternative":"hand-written SQL migration in scripts/migrate/"}
+```
 
-**The brief editor** replaces the strip's controls while a brief is pending —
-rendering the arrows beside it would invite a click that skips the one step the
-handoff exists for.
+**Written, not gating** — the refusal already happened, in prose, in the reply;
+this is the record of it. It never reaches `applyOps`, and it is rendered in the
+memory panel **on the rule's own row**. That is the visible artefact of the whole
+feature: *what happens when a request conflicts* becomes something you point at
+on screen rather than a transcript someone has to read.
 
-**The memory panel** draws the layers, the accepted brief, the proposals, the
-discarded keys and what memory has cost. Every row has *forget*; promotable rows
-have *promote*; a frozen `goal` carries a lock; corrections appear on the row
-they are about rather than in a list you have to scroll to. The profile editor
-writes through the same `/memory/ops` route, with one flag saying the sentences
-came from a person — that flag is the whole of what `declared` means.
+**The refusal must always carry an exit** — the rule, what would have violated
+it, the best thing available *inside* it, and if there is nothing, the amendment
+path. A dead end is a bad refusal, and the panel says so out loud when
+`alternative` is missing: *"nothing was offered in its place"*.
 
-**The transcript** draws a thin divider at each transition, from the log —
-consecutive clicks with nothing said between them collapse into one line.
-Messages below the floor are greyed, and the boundary says which mechanism
-replaced them: *"⟵ 2 planning messages replaced by the brief"* reads differently
-from *"folded into the digest"*, and should.
+Live, on a project whose rules forbid ORMs and non-Postgres engines:
 
-**The resume banner** is composed from state with **no model call**: stage, step,
-actor, and how long ago it last moved. That is the whole payoff of deriving the
-stage from an append-only log.
+> I need to flag a conflict with the project invariants before we go further.
+> Your request asks for Prisma (an ORM) against MySQL (not Postgres). Both break
+> the rules. **Best alternative that fits the invariants:** hand-written SQL
+> against Postgres… **If you need to override the invariants:** name which ones,
+> and we can proceed — but that's a decision call, not something I should assume.
+
+---
+
+## 7. Amendment
+
+Amending or deleting goes through `/memory/ops`, person-only, with the
+supersession recorded in `supersedes`, the superseded sentence kept in
+`previous[]`, and a withdrawn rule leaving a tombstone in `retired[]`.
+
+> An invariant that changed without a trace is worse than none — the entire
+> value of the mechanism is that it is stable, so every change has to be visible
+> after the fact.
+
+The panel draws both: `· amended` on the row, with every sentence it has ever
+had beneath it.
+
+---
+
+## 8. The stage edges — no new model calls
+
+The existing checkpoints do the work. In order of cost, cheapest first:
+
+| stage | what changes |
+| --- | --- |
+| **planning** | the block is on the wire; a goal that requires a violation is flagged while it is still cheap to change |
+| **`→ execution`** | the `Briefer` receives the invariants. If the goal cannot be met without breaking one, it says so **in the brief**, in the editable box, before the goal freezes. One prompt change on a call already billed |
+| **execution** | prose refusal, recorded by the `refused` op |
+| **validation** | the one-at-a-time enumeration gains a row per rule: `pass \| fail \| unverified` |
+
+`unverified` is a **first-class verdict** and must never be reported as `pass`:
+from inside a chat it is the honest answer far more often than people expect —
+nothing here ran the code — and a model with two boxes to tick will tick `pass`.
+
+Validation grades against the block and nothing else. Given work whose own goal
+and constraint demanded recursion, on a project that forbids it:
+
+> **Against the goal and constraints:** ✓ All met.
+> **Against invariants:** ✗ **Recursion rule violated.** The nested `visit()`
+> function calls itself directly in the `forEach` lambda.
+
+Validation is the *last* place to catch a violation, not the first.
 
 ---
 
 ## 9. Verifying it
 
 ```bash
-npm test                        # 92 tests
-npm run lifecycle               # the full cycle, including validation → execution
-npm run lifecycle -- --fake     # offline; the machine still runs
-npm run lifecycle -- --blocks   # print the <working> block after every turn
+npm test                                            # 139 tests, stubs, no key
+npm run compare -- --invariants=none,postgres-only  # does the rule change the answer?
+npm run lifecycle -- --fake                         # a request that runs into a rule
 ```
 
-`scripts/lifecycle.js` walks `scenarios/migration-lifecycle.json`, where a step
-is either something said or a button pressed, and asserts what the machine did
-with each: the guard refusing an edge before there was a goal, the brief written
-and accepted, the goal frozen, validation sending the work back to execution, and
-the promotion call firing exactly once on the way into `done`. It drives
-transitions through the same read-transition-write path the routes take, because
-a demo that reached past the routes into the agent's own state would be
-demonstrating something the app does not do.
+**Unit tests** — `src/context/invariants.test.js`:
 
-The **restart test** is the one that matters for resume: `npm start` mid-task,
-kill it, restart, reopen the conversation. The banner renders from state and the
-agent's first reply continues the work instead of asking what it was.
+- the extractor cannot write `invariant`, at any stage, including at `→ done`
+- a `promote` onto one is refused even from a person
+- a colliding write lands in the task and is refused in long-term
+- accepting a new invariant sweeps long-term and proposes per collision
+- the propose route returns `amend`, not `add`, when the subject exists
+- a rule with no usable check comes back as `reject`
+- the refusal op is split correctly and never reaches `applyOps`
+- `<invariants>` is present in all four stages, and absent when empty
+- the block says it is the authority, and that agreeing is not amending
 
-### The five strategies, for context
+**Eval.** The same message, the same profile, run under two rule sets:
 
-`claude-haiku-4-5`, 15 turns, five planted facts recalled at the end. All-in is
-the conversation plus whatever the strategy spent on its own calls.
+```
+none           — What's already running in your Berlin setup — PostgreSQL,
+                 MongoDB, something else?
+postgres-only  — Given your invariants, we're staying on Postgres with
+                 hand-written SQL — that's the foundation.
+```
 
-| | | recall | all-in |
-| --- | --- | :---: | ---: |
-| `sliding` | last N exchanges | 0/5 | $0.02555 |
-| `summary` | digest in the system prompt | 5/5 | $0.03061 |
-| `facts` | key-value block, patch-based extraction | 4/5 | $0.03606 |
-| `memory` | profile + working + brief + digest | 5/5 | $0.06250 |
-| `full` | everything, every turn | 5/5 | **$0.02539** |
+The two answers have to differ visibly. **If they do not, the block is
+decoration — report that rather than adjusting the test.** The harness varies
+one dimension at a time: a comparison where both the profile and the rule set
+moved would not say which of the two did it.
 
-At fifteen turns, sending everything is still the cheapest thing that works, and
-the whole difference between the rows is overhead. `full` grows quadratically
-while `memory`'s per-turn cost is flat, so the curves cross — where exactly is
-arithmetic on a 15-turn measurement, not a measurement. Pick `full` until it
-hurts; pick `memory` when something has to survive the conversation, or when the
-work has stages.
+**Scenario.** `scenarios/migration-lifecycle.json` authors an invariant in
+planning and then, in execution, asks for the thing it forbids. The run asserts
+the refusal op was emitted, that it carried an alternative, and that nothing was
+written on the subject the rule owns — driven through the same routes the
+buttons take, because a demo that reached past them would demonstrate something
+the app does not do.
+
+---
+
+## 10. What this does not do
+
+Worth being explicit, because the gap between these two is where the design
+lives:
+
+- **It does not detect contradictions.** Subject collision only. A
+  `preference.database` that agrees with the rule is refused exactly as loudly
+  as one that disagrees.
+- **It does not stop a model writing a paragraph that breaks a rule.** Nothing
+  reaches the write path when the violation is prose. The block, the refusal op
+  and the validation enumeration are three chances to catch it, and all three
+  are the model checking itself.
+- **It does not verify a `check`.** `check` is a sentence for a reader, not a
+  predicate. The code is shaped so one could gate the refusal later; none does
+  today.
+
+What it *does* guarantee is narrower and worth more than any of those:
+**nothing lands in long-term on a subject an invariant owns without a human
+seeing it, and no rule is ever written or changed by anything but a person.**

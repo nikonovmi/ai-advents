@@ -14,6 +14,7 @@
  */
 
 import { normaliseGraph } from "./branches.js";
+import { projectOf } from "./invariantStore.js";
 
 /**
  * @typedef {import("../llm/provider.js").Message} Message
@@ -88,10 +89,22 @@ const TITLE_MAX = 40;
  * @param {StoredMessage[]} messages
  * @returns {string}
  */
+/**
+ * What a conversation is called before anybody has said anything in it.
+ *
+ * Exported because it is a **placeholder, not a title**, and the stores have
+ * to be able to tell the two apart. A record can now be written before its
+ * first message — the memory panel's buttons work on a conversation nobody
+ * has spoken in yet — and "titles are derived once and preserved afterwards"
+ * quietly became "every conversation is called New conversation forever" the
+ * moment that was true.
+ */
+export const UNTITLED = "New conversation";
+
 export function titleFrom(messages) {
   const first = messages?.find?.((m) => m?.role === "user")?.content ?? "";
   const text = String(first).replace(/\s+/g, " ").trim();
-  if (!text) return "New conversation";
+  if (!text) return UNTITLED;
   return text.length > TITLE_MAX ? text.slice(0, TITLE_MAX - 1).trimEnd() + "…" : text;
 }
 
@@ -192,6 +205,16 @@ export function normaliseRecord(data) {
     createdAt: data?.createdAt,
     updatedAt: data?.updatedAt,
     usage: normaliseUsage(data?.usage),
+    // **Which project's rules this conversation is subject to.**
+    //
+    // It lives on the record rather than being folded into the user key
+    // because it is a different question: the user key says whose long-term
+    // memory to read, this says whose invariants apply. One person has two
+    // codebases with two rule sets, and a field that answered both would have
+    // to pick one of them and be wrong about the other. A record written
+    // before this field existed loads as the default project, which is the
+    // honest answer for a conversation nobody ever said belonged anywhere.
+    project: projectOf(data?.project),
     ...graph,
   };
 }

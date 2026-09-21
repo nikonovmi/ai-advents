@@ -4,6 +4,7 @@ import test from "node:test";
 import { Agent } from "../agent.js";
 import { MemoryStore } from "../store/memoryStore.js";
 import { getBranchHistory } from "../store/branches.js";
+import { MemoryInvariantStore } from "../store/invariantStore.js";
 import { MemoryProfileStore, emptyProfile } from "../store/profileStore.js";
 import { exchangeStarts } from "./boundaries.js";
 import { MemoryExtractor, MemoryStrategy, ROUTES, applyOps, routeFor } from "./memory.js";
@@ -81,6 +82,10 @@ class StubPromoter {
 /** A briefer whose output is recognisable, so a test can see it reach the wire. */
 class StubBriefer {
   calls = [];
+  /** What planning left unanswered, as the real one now reports it. */
+  open = [];
+  /** Overridable, for the briefs whose *prose* is the thing under test. */
+  text = null;
   #fail;
 
   constructor({ fail = false } = {}) {
@@ -91,7 +96,8 @@ class StubBriefer {
     this.calls.push({ entries, messages });
     if (this.#fail) throw new Error("briefer is down");
     return {
-      text: ["THE BRIEF", ...entries.map((entry) => `${entry.key} — ${entry.value}`)].join("\n"),
+      text: this.text ?? ["THE BRIEF", ...entries.map((entry) => `${entry.key} — ${entry.value}`)].join("\n"),
+      open: this.open ?? [],
       usage: { inputTokens: 200, outputTokens: 90 },
       model: "stub",
       ms: 1,
@@ -114,21 +120,32 @@ class StubSummarizer {
   }
 }
 
-function strategyWith({ ops = [], window = 10, profileStore = new MemoryProfileStore(), ...rest } = {}) {
+function strategyWith({
+  ops = [],
+  window = 10,
+  profileStore = new MemoryProfileStore(),
+  // Injected like the profile store, and for the same reason: a test that
+  // fell through to the process-wide one would read whatever rules happen to
+  // be in `data/invariants/` and pass or fail on somebody's demo fixtures.
+  invariantStore = new MemoryInvariantStore(),
+  ...rest
+} = {}) {
   const extractor = new StubExtractor({ ops });
   const promoter = new StubPromoter();
   const briefer = new StubBriefer();
   const summarizer = new StubSummarizer();
   const strategy = new MemoryStrategy({
+    invariantStore: new MemoryInvariantStore(),
     contextMessages: window,
     profileStore,
+    invariantStore,
     extractor,
     promoter,
     briefer,
     summarizer,
     ...rest,
   });
-  return { strategy, extractor, promoter, briefer, summarizer, profileStore };
+  return { strategy, extractor, promoter, briefer, summarizer, profileStore, invariantStore };
 }
 
 /**
@@ -418,6 +435,92 @@ test("closing an open question must record its answer", async () => {
   assert.ok(!("open.other" in byHand.state.working));
 });
 
+test("a mangled op envelope is read through, whatever shape it arrives in", () => {
+  // Three rounds of this arrived as three different useless panel rows, and
+  // every time it was the unanswered questions — the one thing in here that
+  // nothing else writes down. The envelope is what a model gets wrong; the
+  // content of these is unambiguous.
+  const applied = applyOps({ working: {}, profile: emptyProfile() }, [
+    // The key in the verb's place, no key at all.
+    { op: "open.graph_representation", value: "How is the graph provided?" },
+    // A verb nobody knows.
+    { op: "add", key: "open.graph_direction", value: "Directed or undirected?" },
+    // No verb at all.
+    { key: "open.dfs_output", value: "What should it return?" },
+    // ...and a well-formed one, unchanged.
+    { op: "set", key: "goal", value: "Implement a generic DFS" },
+  ], { turn: 2 });
+
+  assert.deepEqual(Object.keys(applied.working).sort(), [
+    "goal",
+    "open.dfs_output",
+    "open.graph_direction",
+    "open.graph_representation",
+  ]);
+  assert.equal(applied.working["open.dfs_output"].value, "What should it return?");
+  assert.deepEqual(applied.discarded, []);
+});
+
+test("reading through the envelope never invents a verb the model may not use", () => {
+  // `promote` is a real verb the model is not allowed to send, so it stays
+  // refused rather than being quietly rewritten into something permitted.
+  const promoting = applyOps({ working: { "decision.db": { value: "Postgres" } }, profile: emptyProfile() }, [
+    { op: "promote", key: "decision.db", value: "Stays on Postgres" },
+  ], { turn: 1, origin: "model" });
+  assert.deepEqual(Object.keys(promoting.profile.entries), []);
+  assert.equal(promoting.discarded[0].reason, "`promote` is not allowed here");
+
+  // A delete carries no value, so nothing about it looks like a `set`.
+  const deleting = applyOps({ working: { "open.region": { value: "Frankfurt?" } }, profile: emptyProfile() }, [
+    { op: "delete", key: "open.region" },
+  ], { turn: 1, unpairedCloses: true });
+  assert.deepEqual(deleting.deleted, ["open.region"]);
+
+  // And with no value there is nothing to store, so nothing is conjured.
+  const empty = applyOps({ working: {}, profile: emptyProfile() }, [
+    { op: "open.region" },
+    { key: "open.region" },
+  ], { turn: 1 });
+  assert.deepEqual(empty.working, {});
+  assert.equal(empty.discarded.length, 2);
+});
+
+test("a patch with the key in the op field is still a patch", () => {
+  // Exactly what the extractor emitted: the key where the op should be, no
+  // `key` at all. It reached the panel as "(no key) — unknown namespace",
+  // which is true of a dozen different slips and useful for none of them —
+  // and the ops it happened to were the unanswered questions, the one thing
+  // in here nothing else writes down.
+  const applied = applyOps({ working: {}, profile: emptyProfile() }, [
+    { op: "open.graph_representation", value: "How is the graph provided?" },
+    { op: "set", key: "goal", value: "Implement a generic DFS" },
+  ], { turn: 2 });
+
+  assert.equal(applied.working["open.graph_representation"].value, "How is the graph provided?");
+  assert.equal(applied.working.goal.value, "Implement a generic DFS");
+  assert.deepEqual(applied.discarded, []);
+});
+
+test("the forgiveness is narrow, and what it cannot save it describes", () => {
+  const applied = applyOps({ working: {}, profile: emptyProfile() }, [
+    // No value, so there is nothing to store and nothing to guess at.
+    { op: "open.region" },
+    // A namespace nobody recognises, in either field.
+    { op: "remember", value: "something" },
+    { op: "set", key: "random.thing", value: "nope" },
+    // A real op name is never reinterpreted as a key.
+    { op: "delete", key: "goal" },
+  ], { turn: 1, unpairedCloses: true });
+
+  assert.deepEqual(applied.working, {});
+  const reasons = applied.discarded.map((row) => [row.key, row.reason]);
+  assert.deepEqual(reasons[0], ["(no key)", "no key, and `open.region` is not an op"]);
+  assert.deepEqual(reasons[1], ["(no key)", "no key, and `remember` is not an op"]);
+  assert.deepEqual(reasons[2], ["random.thing", "unknown namespace"]);
+  // The panel gets the op, which for a keyless row is all there is to show.
+  assert.equal(applied.discarded[1].op, "remember");
+});
+
 test("a model may set and delete; it may not promote", async () => {
   const { strategy, profileStore } = strategyWith({
     ops: [
@@ -431,7 +534,10 @@ test("a model may set and delete; it may not promote", async () => {
 
   assert.equal(state.working["decision.database"].value, "Postgres 14 it is");
   assert.deepEqual(Object.keys(profile.entries), [], "the model promoted itself into long-term");
-  assert.equal(state.discarded.at(-1).reason, "operation not allowed here");
+  // A *known* verb the model may not send is refused and named — unlike a
+  // mangled envelope, which `coerceOp` reads through. "Not allowed" and
+  // "not a verb" are different mistakes and the panel has to say which.
+  assert.equal(state.discarded.at(-1).reason, "`promote` is not allowed here");
 });
 
 test("a reversal overwrites the key and keeps what it replaced", () => {
@@ -485,6 +591,7 @@ test("extraction runs every turn and the fold runs at the mark, billed apart", a
 
 test("extraction failure keeps the memory and answers the turn anyway", async () => {
   const failing = new MemoryStrategy({
+    invariantStore: new MemoryInvariantStore(),
     contextMessages: 10,
     profileStore: new MemoryProfileStore(),
     extractor: new StubExtractor({ fail: true }),
@@ -574,6 +681,7 @@ test("a failed promotion call leaves the task open rather than clearing it", asy
   const { state, history } = await aTask();
   // The same closed task, handed to a strategy whose promoter falls over.
   const broken = new MemoryStrategy({
+    invariantStore: new MemoryInvariantStore(),
     contextMessages: 10,
     profileStore: new MemoryProfileStore(),
     extractor: new StubExtractor(),
@@ -759,6 +867,43 @@ test("the panel's buttons are the same applyOps path the extractor uses", async 
   assert.deepEqual(panel.profile, []);
 });
 
+test("the panel says how far memory has been read, because the answer is not 'now'", async () => {
+  const { strategy } = strategyWith({
+    ops: [
+      // Turn one reads `[user]` — the assistant has not spoken yet, so
+      // whatever it is about to ask cannot be in this patch.
+      [{ op: "set", key: "goal", value: "Implement a generic DFS" }],
+      // Turn two reads `[assistant, user]`, and the questions turn one's reply
+      // asked land here — one turn after they were asked.
+      [
+        { op: "set", key: "open.graph_representation", value: "Adjacency list or matrix?" },
+        { op: "set", key: "open.return_value", value: "Visit order or side effects?" },
+      ],
+    ],
+  });
+
+  const provider = new StubProvider();
+  const first = await converse(strategy, ["build me a DFS"], { provider });
+  const afterOne = strategy.panel(first.state, { turns: 1 });
+  assert.deepEqual(afterOne.task.map((row) => row.key), ["goal"]);
+  // The lag is not a failure and it is not nothing: it is stated, so "it asked
+  // six questions and the task shows nothing open" is explained rather than
+  // left to be worked out.
+  assert.equal(afterOne.reads.through, 0);
+  assert.equal(afterOne.reads.pending, true);
+
+  const second = await converse(strategy, ["just get on with it"], {
+    provider,
+    from: { history: first.history, state: first.state },
+  });
+  const afterTwo = strategy.panel(second.state, { turns: 2 });
+  assert.deepEqual(
+    afterTwo.task.map((row) => row.key).filter((key) => key.startsWith("open.")),
+    ["open.graph_representation", "open.return_value"]
+  );
+  assert.equal(afterTwo.reads.through, 1);
+});
+
 test("the panel attributes each turn's blocks, for the counter under the reply", async () => {
   const { strategy, state } = await aTask();
   const panel = strategy.panel(state, { turns: 2 });
@@ -784,6 +929,7 @@ test("the profile survives a restart and a brand new conversation", async () => 
     sessionId: SESSION,
     contextMessages: 10,
     strategy: new MemoryStrategy({
+      invariantStore: new MemoryInvariantStore(),
       contextMessages: 10,
       profileStore,
       extractor: new StubExtractor({ ops: [[{ op: "set", key: "preference.tooling", value: "never suggest Kubernetes" }]] }),
@@ -801,6 +947,7 @@ test("the profile survives a restart and a brand new conversation", async () => 
     sessionId: "33333333-3333-4333-8333-333333333333",
     contextMessages: 10,
     strategy: new MemoryStrategy({
+      invariantStore: new MemoryInvariantStore(),
       contextMessages: 10,
       profileStore,
       extractor: new StubExtractor(),
@@ -831,7 +978,7 @@ test("the Agent learns no file path, and a branch keeps its own memory", async (
     sessionId: SESSION,
     contextMessages: 10,
     strategy: "memory",
-    strategyOptions: { profileStore },
+    strategyOptions: { profileStore, invariantStore: new MemoryInvariantStore() },
   });
 
   const { meta } = await agent.run("hello");
@@ -1253,6 +1400,7 @@ test("→ done is the only way a task closes, and it closes exactly once", async
 test("a failed promotion call leaves the stage where it was", async () => {
   const { state, history } = await aTask();
   const broken = new MemoryStrategy({
+    invariantStore: new MemoryInvariantStore(),
     contextMessages: 10,
     profileStore: new MemoryProfileStore(),
     extractor: new StubExtractor(),
@@ -1372,6 +1520,198 @@ test("leaving planning writes a brief, and the brief is what replaces the conver
   assert.match(built.system, /<working>[\s\S]*<\/working>[\s\S]*<brief>/);
 });
 
+test("what the brief leaves open becomes keys, and the accept is the write", async () => {
+  const { strategy, briefer } = strategyWith({
+    ops: [[{ op: "set", key: "goal", value: "Implement a generic DFS" }]],
+  });
+  briefer.open = [
+    { key: "open.graph_representation", question: "How is the graph provided?" },
+    { key: "open.return_type", question: "What should DFS return?" },
+    { key: "open.node_type", question: "Generic, or a specific node type?" },
+  ];
+
+  const provider = new StubProvider();
+  const talk = await converse(strategy, ["build me a DFS"], { provider });
+  const written = await strategy.transition({ state: talk.state, to: "execution", history: talk.history, provider });
+
+  // A proposal, like everything else a model produces at an edge: the brief
+  // has been saying this in prose all along, and prose is read once and gone.
+  assert.equal(written.awaitingBrief, true);
+  assert.equal(written.state.brief.open.length, 3);
+  assert.ok(!Object.keys(written.state.working).some((key) => key.startsWith("open.")));
+
+  // The accept is what writes them — and one was answered in the box, so it
+  // is named as dropped. **What to leave out, never what to keep**: a caller
+  // that says nothing records everything, which is the direction this has to
+  // fail in.
+  const accepted = await strategy.answerBrief({
+    state: written.state,
+    history: talk.history,
+    action: "accept",
+    drop: ["open.node_type"],
+  });
+
+  assert.equal(accepted.ok, true);
+  assert.deepEqual(
+    Object.keys(accepted.state.working).filter((key) => key.startsWith("open.")).sort(),
+    ["open.graph_representation", "open.return_type"]
+  );
+  assert.equal(accepted.state.working["open.return_type"].value, "What should DFS return?");
+  assert.match(accepted.note, /2 open questions recorded/);
+  assert.match(accepted.note, /1 you dropped/);
+
+  // ...which is the whole point: the questions are now in a form the machine
+  // can read, so the edge that walks away from them says so. Before this they
+  // existed only in the brief's prose and `→ done` went through in silence.
+  const panel = strategy.panel(accepted.state, { turns: Infinity });
+  assert.equal(panel.task.filter((row) => row.namespace === "open").length, 2);
+
+  const checking = await strategy.transition({ state: accepted.state, to: "validation", history: talk.history, provider });
+  const done = strategy
+    .panel(checking.state, { turns: Infinity })
+    .lifecycle.edges.find((edge) => edge.to === "done");
+  assert.match(done.warning ?? "", /2 questions are still unanswered/);
+  assert.match(done.warning, /open\.graph_representation/);
+});
+
+test("the brief cannot say one thing in prose and another in keys", async () => {
+  const { strategy, briefer } = strategyWith({
+    ops: [[{ op: "set", key: "goal", value: "Implement a generic DFS" }]],
+  });
+  // The brief says three questions are open and hands back no keys for them.
+  // One model, one call, two halves that drift — and it used to resolve
+  // silently in favour of the half nothing downstream can read: the prose read
+  // fine and the task simply never held them.
+  briefer.text = [
+    "The task — Implement a generic DFS in Kotlin.",
+    "",
+    "Constraints — Kotlin only; no recursion.",
+    "",
+    "Still open — Adjacency list or matrix? What should it return? Generic node type or Int?",
+  ].join("\n");
+  briefer.open = [];
+
+  const provider = new StubProvider();
+  const talk = await converse(strategy, ["build me a DFS"], { provider });
+  const written = await strategy.transition({ state: talk.state, to: "execution", history: talk.history, provider });
+
+  assert.equal(written.state.brief.open.length, 3, "the prose section was not read");
+  // Read out of prose, so planning certainly did not record them — and they
+  // sit in the editor behind a × like everything else it did not record.
+  assert.ok(written.state.brief.open.every((row) => row.recorded === false));
+
+  const accepted = await strategy.answerBrief({ state: written.state, history: talk.history, action: "accept" });
+  assert.equal(
+    Object.keys(accepted.state.working).filter((key) => key.startsWith("open.")).length,
+    3
+  );
+  // ...and the prose is untouched: the person still reads the brief they were
+  // shown, headings and all.
+  assert.match(accepted.state.brief.text, /Still open/);
+});
+
+test("a brief with no open section at all is left alone", async () => {
+  const { strategy, briefer } = strategyWith({
+    ops: [[{ op: "set", key: "goal", value: "Ship it" }]],
+  });
+  briefer.text = "The task — Ship the thing.\n\nConstraints — None stated.";
+  briefer.open = [];
+
+  const provider = new StubProvider();
+  const talk = await converse(strategy, ["ship it"], { provider });
+  const written = await strategy.transition({ state: talk.state, to: "execution", history: talk.history, provider });
+  assert.deepEqual(written.state.brief.open, []);
+});
+
+test("a question planning never recorded is marked, not trusted", async () => {
+  const { strategy, briefer } = strategyWith({
+    ops: [[
+      { op: "set", key: "goal", value: "Implement a generic DFS" },
+      { op: "set", key: "open.graph_representation", value: "How is the graph provided?" },
+    ]],
+  });
+  briefer.open = [
+    // One the extractor wrote down during planning...
+    { key: "open.graph_representation", question: "How is the graph provided?" },
+    // ...and two the brief thought of on its own. A `Still open` heading is a
+    // box, and a model asked to fill one writes the questions it *would* ask.
+    // They read to the person accepting the brief as something they ignored,
+    // and are then recorded against their task as unanswered forever.
+    { key: "open.bounds", question: "What if the starting index is out of bounds?" },
+    { key: "open.null_input", question: "Should it handle null input?" },
+  ];
+
+  const provider = new StubProvider();
+  const talk = await converse(strategy, ["build me a DFS"], { provider });
+  const written = await strategy.transition({ state: talk.state, to: "execution", history: talk.history, provider });
+
+  const marked = new Map(written.state.brief.open.map((row) => [row.key, row.recorded]));
+  assert.equal(marked.get("open.graph_representation"), true);
+  assert.equal(marked.get("open.bounds"), false);
+  assert.equal(marked.get("open.null_input"), false);
+
+  // Marked, never resolved. Code cannot tell a real question from a plausible
+  // one, so it says which ones planning wrote down and leaves the rest to a
+  // person — who can drop them, and whose choice is still what writes.
+  const accepted = await strategy.answerBrief({
+    state: written.state,
+    history: talk.history,
+    action: "accept",
+    drop: ["open.bounds", "open.null_input"],
+  });
+  assert.deepEqual(
+    Object.keys(accepted.state.working).filter((key) => key.startsWith("open.")),
+    ["open.graph_representation"]
+  );
+});
+
+test("a caller that says nothing about the open questions records all of them", async () => {
+  const { strategy, briefer } = strategyWith({
+    ops: [[{ op: "set", key: "goal", value: "Implement a generic DFS" }]],
+  });
+  briefer.open = [
+    { key: "open.graph_representation", question: "How is the graph provided?" },
+    { key: "open.return_type", question: "What should DFS return?" },
+  ];
+
+  const provider = new StubProvider();
+  const talk = await converse(strategy, ["build me a DFS"], { provider });
+  const written = await strategy.transition({ state: talk.state, to: "execution", history: talk.history, provider });
+
+  // No list, a stale one, an empty one: all of them mean *record everything*.
+  // Asking the caller to name what to keep meant any mismatch threw the record
+  // away silently, which is indistinguishable from the feature being broken.
+  for (const answer of [{}, { drop: [] }, { drop: ["open.nothing_like_this"] }]) {
+    const accepted = await strategy.answerBrief({
+      state: written.state,
+      history: talk.history,
+      action: "accept",
+      ...answer,
+    });
+    assert.deepEqual(
+      Object.keys(accepted.state.working).filter((key) => key.startsWith("open.")).sort(),
+      ["open.graph_representation", "open.return_type"],
+      `answering with ${JSON.stringify(answer)} lost the record`
+    );
+  }
+});
+
+test("a brief with nothing left open records nothing and warns about nothing", async () => {
+  const { strategy, briefer } = strategyWith({
+    ops: [[{ op: "set", key: "goal", value: "Ship the thing" }]],
+  });
+  briefer.open = [];
+
+  const provider = new StubProvider();
+  const talk = await converse(strategy, ["ship it"], { provider });
+  const written = await strategy.transition({ state: talk.state, to: "execution", history: talk.history, provider });
+  const accepted = await strategy.answerBrief({ state: written.state, history: talk.history, action: "accept" });
+
+  assert.ok(!Object.keys(accepted.state.working).some((key) => key.startsWith("open.")));
+  assert.equal(accepted.warning, null);
+  assert.ok(!/open question/.test(accepted.note));
+});
+
 test("a discarded brief leaves planning exactly as it was", async () => {
   const { strategy } = strategyWith({
     ops: [[{ op: "set", key: "goal", value: "migrate billing off Heroku" }]],
@@ -1401,6 +1741,7 @@ test("a discarded brief leaves planning exactly as it was", async () => {
 test("a failed brief leaves the task in planning with nothing pending", async () => {
   const profileStore = new MemoryProfileStore();
   const strategy = new MemoryStrategy({
+    invariantStore: new MemoryInvariantStore(),
     contextMessages: 10,
     profileStore,
     extractor: new StubExtractor({ ops: [[{ op: "set", key: "goal", value: "ship it" }]] }),
@@ -1542,12 +1883,13 @@ test("a mid-flight task survives a restart, and the resume line is a render", as
     store,
     sessionId: SESSION,
     strategy: "memory",
-    strategyOptions: { profileStore },
+    strategyOptions: { profileStore, invariantStore: new MemoryInvariantStore() },
   };
 
   const agent = new Agent({
     ...options,
     strategy: new MemoryStrategy({
+      invariantStore: new MemoryInvariantStore(),
       contextMessages: 10,
       profileStore,
       extractor: new StubExtractor({
@@ -1567,7 +1909,7 @@ test("a mid-flight task survives a restart, and the resume line is a render", as
 
   // The click, exactly as the route does it: read the record, hand the state
   // to a strategy that holds no conversation, write the record back.
-  const strategy = new MemoryStrategy({ profileStore });
+  const strategy = new MemoryStrategy({ profileStore, invariantStore: new MemoryInvariantStore() });
   const record = await store.load(SESSION);
   const moved = await toExecution(strategy, {
     state: record.branches.main.strategyState.memory,
@@ -1583,6 +1925,7 @@ test("a mid-flight task survives a restart, and the resume line is a render", as
   const after = await Agent.load({
     ...options,
     strategy: new MemoryStrategy({
+      invariantStore: new MemoryInvariantStore(),
       contextMessages: 10,
       profileStore,
       extractor: new StubExtractor({ ops: [[{ op: "step", value: "writing the migration script" }]] }),
@@ -1598,6 +1941,7 @@ test("a mid-flight task survives a restart, and the resume line is a render", as
   const resumed = await Agent.load({
     ...options,
     strategy: new MemoryStrategy({
+      invariantStore: new MemoryInvariantStore(),
       contextMessages: 10,
       profileStore,
       extractor: new StubExtractor(),

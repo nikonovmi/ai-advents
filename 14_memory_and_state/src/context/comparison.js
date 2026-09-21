@@ -1,4 +1,5 @@
 import { estimateCost } from "../llm/pricing.js";
+import { DEFAULT_PROJECT, InvariantStore, normaliseInvariants } from "../store/invariantStore.js";
 import { DEFAULT_USER, ProfileStore, normaliseProfile } from "../store/profileStore.js";
 import { MemoryStrategy } from "./memory.js";
 
@@ -81,6 +82,44 @@ export class ReadOnlyProfileStore extends ProfileStore {
 }
 
 /**
+ * The same, for the project's rules.
+ *
+ * Nothing in a turn writes to this store — the rules are read in
+ * `buildPayload` and written only by a person pressing accept — so this wrapper
+ * buys no safety that the code does not already have. It exists because
+ * "strictly read-only" should be enforced by the type of the thing handed in
+ * rather than by a claim in a comment that stays true until somebody adds a
+ * write.
+ */
+export class ReadOnlyInvariantStore extends InvariantStore {
+  #inner;
+  refused = [];
+
+  /** @param {InvariantStore} inner */
+  constructor(inner) {
+    super();
+    this.#inner = inner;
+  }
+
+  async load(projectId = DEFAULT_PROJECT) {
+    return this.#inner.load(projectId);
+  }
+
+  async save(projectId = DEFAULT_PROJECT, record) {
+    this.refused.push({ op: "save", projectId });
+    return { ...normaliseInvariants(record, projectId), updatedAt: new Date().toISOString() };
+  }
+
+  async clear(projectId = DEFAULT_PROJECT) {
+    this.refused.push({ op: "clear", projectId });
+  }
+
+  async list() {
+    return this.#inner.list();
+  }
+}
+
+/**
  * Run one message against several profiles and hand back every answer.
  *
  * @param {object} params
@@ -93,6 +132,13 @@ export class ReadOnlyProfileStore extends ProfileStore {
  * @param {import("../llm/provider.js").LlmProvider} params.provider
  * @param {import("../store/profileStore.js").ProfileStore} params.profileStore
  * @param {string[]} params.profiles - Profile ids, in the order to show them.
+ * @param {import("../store/invariantStore.js").InvariantStore} [params.invariantStore]
+ * @param {string[]} [params.projects] - Project ids. **Two or more of them
+ *   makes the comparison about invariants instead of about profiles**: the
+ *   profile is held still and the rule set is what varies, which is the eval
+ *   the README calls for — the same message under `none` and under
+ *   `postgres-only`, and if the two answers do not differ visibly the block is
+ *   decoration and the run should say so rather than the test being adjusted.
  * @param {number} [params.samples] - Runs per arm.
  * @param {number} [params.contextMessages]
  * @param {number} [params.maxTokens]
@@ -107,6 +153,8 @@ export async function compareProfiles({
   provider,
   profileStore,
   profiles = [],
+  invariantStore = null,
+  projects = [],
   samples = 3,
   contextMessages = 10,
   maxTokens = 1024,
@@ -116,10 +164,23 @@ export async function compareProfiles({
   const text = typeof message === "string" ? message.trim() : "";
   if (!text) throw new Error("A comparison needs a message to ask.");
   const users = [...new Set(profiles.filter((id) => typeof id === "string" && id.trim()))];
-  if (users.length < 2) throw new Error("A comparison needs at least two profiles.");
+  const rulesets = [...new Set(projects.filter((id) => typeof id === "string" && id.trim()))];
   if (!provider || typeof provider.complete !== "function") {
     throw new Error("A comparison needs a provider with a complete() method.");
   }
+
+  // **One dimension varies at a time, and which one is decided here.**
+  //
+  // A comparison where both the profile and the rule set move is not a
+  // comparison — whichever way the answers differ, nothing says which of the
+  // two changes did it. So two or more projects means the projects are the
+  // arms and the profile is held still; otherwise the profiles are the arms
+  // and every one of them runs under the same rules.
+  const byProject = rulesets.length >= 2;
+  const pairs = byProject
+    ? rulesets.map((project) => ({ user: users[0] ?? DEFAULT_USER, project, label: project }))
+    : users.map((user) => ({ user, project: rulesets[0] ?? DEFAULT_PROJECT, label: user }));
+  if (pairs.length < 2) throw new Error("A comparison needs at least two profiles, or two projects.");
 
   const runs = Math.max(1, Math.min(5, Math.floor(samples) || 1));
   // The message the arms are asked is appended here and nowhere else: the
@@ -129,14 +190,15 @@ export async function compareProfiles({
   const startedAt = Date.now();
 
   const arms = await Promise.all(
-    users.map((user) => runArm({
-      user,
+    pairs.map((pair) => runArm({
+      ...pair,
       runs,
       turn,
       state,
       systemPrompt,
       provider,
       profileStore,
+      invariantStore,
       contextMessages,
       maxTokens,
       temperature,
@@ -159,28 +221,41 @@ export async function compareProfiles({
     message: text,
     samples: runs,
     turns: history.length,
+    /** Which dimension the arms vary along, so a reader is not left guessing. */
+    varying: byProject ? "invariants" : "profile",
     arms,
     // Its own bill, never the conversation's. See the header.
     meta: { ...meta, ms: Date.now() - startedAt, billedToConversation: false },
   };
 }
 
-/** One profile, `runs` times, each one a whole turn that is then thrown away. */
+/** One arm, `runs` times, each one a whole turn that is then thrown away. */
 async function runArm({
   user,
+  project,
+  label,
   runs,
   turn,
   state,
   systemPrompt,
   provider,
   profileStore,
+  invariantStore,
   contextMessages,
   maxTokens,
   temperature,
   model,
 }) {
   const store = new ReadOnlyProfileStore(profileStore);
-  const strategy = new MemoryStrategy({ contextMessages, profileStore: store, user, model });
+  const rules = invariantStore ? new ReadOnlyInvariantStore(invariantStore) : null;
+  const strategy = new MemoryStrategy({
+    contextMessages,
+    profileStore: store,
+    invariantStore: rules,
+    user,
+    project,
+    model,
+  });
   const results = [];
 
   // Sequential within an arm, concurrent across them: three samples of the
@@ -193,8 +268,13 @@ async function runArm({
   }
 
   const profile = await store.load(user);
+  const ruleset = rules ? await rules.load(project) : null;
   return {
     user,
+    project,
+    /** What the column is headed by: whichever dimension is varying. */
+    label: label ?? user,
+    invariantCount: ruleset ? Object.keys(ruleset.entries).length : 0,
     entryCount: Object.keys(profile.entries).length,
     declaredCount: Object.values(profile.entries).filter((entry) => entry.source === "declared").length,
     runs: results,
@@ -255,6 +335,11 @@ async function runOnce({ strategy, turn, state, systemPrompt, provider, maxToken
       // model could be asked to make about which preferences it used.
       profileBlock: blockFrom(built.system, "profile"),
       workingBlock: blockFrom(built.system, "working"),
+      // Exactly the rules this arm was sent, lifted out of the string that was
+      // sent. The demonstration is structural — *this* went in, *that* came
+      // back — so quoting the payload matters more than anything the model
+      // could be asked to say about which rules it followed.
+      invariantsBlock: blockFrom(built.system, "invariants"),
       layers: built.meta?.layers ?? null,
       note: built.meta?.note ?? "",
       overheadTokens: built.meta?.overheadTokens ?? 0,
@@ -280,7 +365,7 @@ async function runOnce({ strategy, turn, state, systemPrompt, provider, maxToken
   }
 }
 
-/** The `<profile>` or `<working>` block as it actually went on the wire. */
+/** The `<invariants>`, `<profile>` or `<working>` block as it went on the wire. */
 function blockFrom(system, tag) {
   const match = new RegExp(`<${tag}>[\\s\\S]*?</${tag}>`).exec(String(system ?? ""));
   return match ? match[0] : "";

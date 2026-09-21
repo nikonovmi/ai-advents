@@ -1,28 +1,35 @@
 {
   "user": "local",
-  "updatedAt": "2026-09-19T23:07:20.496Z",
-  "nextId": 7,
+  "updatedAt": "2026-09-20T21:35:22.038Z",
+  "nextId": 8,
   "entries": {
     "profile.location": {
       "id": "e3",
       "key": "profile.location",
       "value": "Berlin",
       "updatedAt": "2026-09-19T22:53:25.356Z",
-      "source": "extracted"
+      "source": "learned"
     },
     "profile.role": {
       "id": "e4",
       "key": "profile.role",
       "value": "Hiring manager or interviewer for Senior Android Developer role",
       "updatedAt": "2026-09-19T22:56:22.918Z",
-      "source": "extracted"
+      "source": "learned"
     },
     "profile.hiring": {
       "id": "e6",
       "key": "profile.hiring",
       "value": "Willing to move forward with candidates who demonstrate strong conceptual understanding but need support on implementation details, particularly when other screening sections are solid.",
       "updatedAt": "2026-09-19T23:07:15.092Z",
-      "source": "promoted"
+      "source": "learned"
+    },
+    "preference.format": {
+      "id": "e7",
+      "key": "preference.format",
+      "value": "Bullets, code first",
+      "updatedAt": "2026-09-20T21:35:22.037Z",
+      "source": "declared"
     }
   }
 }

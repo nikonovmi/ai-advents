@@ -1,7 +1,39 @@
+// The patch format — the key grammar, the routing table and the op vocabulary
+// — lives in `patch.js`, and these are re-exported so that "what may a key
+// say?" has one answer and one import path for everything that asks.
+export { ROUTES, NAMESPACES, PROPOSABLE, routeFor, coerceOp, readPatch } from "./patch.js";
+
 import { estimateCost } from "../llm/pricing.js";
 import { Summarizer } from "../summarizer.js";
+import {
+  DEFAULT_PROJECT,
+  defaultInvariantStore,
+  emptyInvariants,
+  normaliseInvariants,
+  projectOf,
+  retireInvariant,
+  subjectOf,
+  writeInvariant,
+} from "../store/invariantStore.js";
 import { DEFAULT_USER, defaultProfileStore } from "../store/profileStore.js";
 import { exchangeStarts, foldTo, snapToUserMessage, toWire } from "./boundaries.js";
+import {
+  KEY_PATTERN,
+  NAMESPACES,
+  PROPOSABLE,
+  ROUTES,
+  coerceOp,
+  parseJsonArray,
+  readPatch,
+  routeFor,
+} from "./patch.js";
+import {
+  InvariantProposer,
+  collisionsOn,
+  invariantFor,
+  invariantsBlock,
+  orderInvariants,
+} from "./invariants.js";
 import { ContextStrategy, NO_OVERHEAD, overheadFrom } from "./strategy.js";
 import { summaryBlock } from "./summarization.js";
 import {
@@ -12,45 +44,12 @@ import {
   frozenKeys,
   guardFor,
   normaliseTask,
-  splitTaskOps,
   stageOf,
   taskAsOf,
   taskLines,
   transition,
   warningFor,
 } from "./taskState.js";
-
-/**
- * **The routing table.** One place, in code, identical every run.
- *
- * The extractor proposes a *key*. It never proposes a layer, is never asked
- * which layer a key belongs in, and is never shown that layers exist. The
- * namespace of the key it chose is looked up here and that is the whole of the
- * decision — which is what makes "why is this in long-term?" a question with
- * an answer rather than a question about what a model felt like doing on a
- * particular afternoon.
- *
- *   - `layer`      — which of the three memories the key lives in.
- *   - `evict`      — `task` clears when the user finishes the task; `never`
- *                    means only an explicit delete removes it.
- *   - `promotable` — may be offered for long-term at the task boundary. A goal
- *                    or an open question is over when the task is; a decision
- *                    or an agreement can outlive it.
- */
-export const ROUTES = {
-  goal: { layer: "working", evict: "task", singular: true },
-  constraint: { layer: "working", evict: "task" },
-  finding: { layer: "working", evict: "task" },
-  open: { layer: "working", evict: "task" },
-  decision: { layer: "working", evict: "task", promotable: true },
-  agreement: { layer: "working", evict: "task", promotable: true },
-  profile: { layer: "longterm", evict: "never" },
-  preference: { layer: "longterm", evict: "never" },
-  rule: { layer: "longterm", evict: "never" },
-};
-
-/** The namespaces, in the order a block lists them. */
-export const NAMESPACES = Object.keys(ROUTES);
 
 /**
  * One line each, for the extractor's prompt and for the panel's legend.
@@ -82,11 +81,8 @@ const MEANINGS = {
   preference: "how this user likes to work, true beyond the task at hand",
   "preference.style": "how they want to be spoken to — tone, warmth, verbosity, how much to assume they know",
   "preference.format": "what an answer should look like — bullets or prose, code first, how long",
-  rule: "a hard standing rule the assistant must always obey, stated as a prohibition or an obligation ('never use em-dashes', 'always show the SQL'). Needs a sub-key: rule.emdash, rule.sql",
+  rule: "a hard standing rule about *how this user likes to be worked with*, stated as a prohibition or an obligation ('never use em-dashes', 'always show the SQL'). About the assistant, not about the codebase. Needs a sub-key: rule.emdash, rule.sql",
 };
-
-/** `constraint.database`, `preference.tooling`, or a bare `goal`. */
-const KEY_PATTERN = new RegExp(`^(${NAMESPACES.join("|")})(\\.[a-z0-9][a-z0-9_-]*){0,2}$`);
 
 const MAX_VALUE_LENGTH = 240;
 /** How many superseded values a working key remembers, so the UI can show a change. */
@@ -96,36 +92,6 @@ const MAX_PAST_TASKS = 12;
 const MAX_ATTRIBUTION = 80;
 /** Keys the panel may still show as "proposed, not stored". */
 const MAX_DISCARDED = 12;
-
-/**
- * What a key resolves to, or null when nothing does.
- *
- * Exported because this is the function the routing test drives: every
- * namespace resolves to exactly one layer, and an unknown one resolves to
- * nothing at all rather than to a guess.
- *
- * @param {string} key
- * @returns {{ namespace: string, layer: "working" | "longterm", evict: string, promotable: boolean } | null}
- */
-export function routeFor(key) {
-  const text = typeof key === "string" ? key.trim().toLowerCase() : "";
-  if (!KEY_PATTERN.test(text)) return null;
-  const namespace = text.split(".")[0];
-  const route = ROUTES[namespace];
-  if (!route) return null;
-  return {
-    namespace,
-    layer: route.layer,
-    evict: route.evict,
-    promotable: Boolean(route.promotable),
-    // A task has one goal, so `goal` is a key. A user has a role *and* a city
-    // *and* a team, so a bare `profile` is not a key — it is a whole layer
-    // collapsed into one slot, where every new fact silently overwrites the
-    // last one. Long-term never expires, which makes that overwrite permanent.
-    singular: Boolean(route.singular),
-    bare: text === namespace,
-  };
-}
 
 // ---- the three blocks -------------------------------------------------------
 
@@ -188,10 +154,14 @@ export function profileBlock(entries) {
  * @param {Record<string, { value: string }>} working
  * @param {object} [task] - The lifecycle record. Omitted, the block is the
  *   plain key list it always was.
+ * @param {{ invariants?: number }} [context] - How many project rules are on
+ *   the wire. Validation's instruction gains a row-per-rule enumeration when
+ *   there are any, and does not when there are none — nothing pays for a layer
+ *   it is not using.
  */
-export function workingBlock(working, task = null) {
+export function workingBlock(working, task = null, { invariants = 0 } = {}) {
   const lines = orderKeys(working).map((key) => `${key}: ${working[key].value}`);
-  const stage = task ? taskLines(task) : [];
+  const stage = task ? taskLines(task, { invariants }) : [];
   if (!lines.length && !stage.length) return "";
   return [
     "",
@@ -241,6 +211,10 @@ const EXTRACTOR_PROMPT = [
   'Format: [{"op":"set","key":"constraint.database","value":"Postgres 14 on port 8477"},',
   '         {"op":"delete","key":"open.region"}]',
   "",
+  "`op` is the verb and `key` is the key, always, including for the ops you emit alongside",
+  "a refusal or a stage suggestion. `{\"op\":\"open.region\",\"value\":\"…\"}` is the one",
+  "mistake worth naming: it puts the key where the verb goes, and the verb it meant is `set`.",
+  "",
   "Choose the key. Nothing else about where it is kept is yours to decide — do not",
   "label anything short-term, long-term, temporary or permanent, and do not add any",
   "field other than op, key and value — except on the three task ops below, which",
@@ -260,6 +234,17 @@ const EXTRACTOR_PROMPT = [
   "  This is a **suggestion shown to the user beside a button**, never a change. Never",
   "  emit it to restate the stage you are already in, and never assume it took effect.",
   "  The stages are: " + STAGES.join(" → ") + ", and validation can go back to execution.",
+  '- {"op":"refused","invariant":"orm","request":"add Prisma for the migration",',
+  '   "alternative":"hand-written SQL migration in scripts/migrate/"} — emit this whenever',
+  "  the reply you have just read **turned a request down because it would break one of the",
+  "  PROJECT INVARIANTS**. `invariant` is the rule's subject, exactly as the <invariants>",
+  "  block names it. `request` is what was asked for, in the user's terms. `alternative` is",
+  "  what was offered inside the rule instead — leave it out only if genuinely nothing was.",
+  "  One op per rule the request ran into. This records a refusal that already happened; it",
+  "  does not make one, and it is not a substitute for saying so in the reply. Do not emit it",
+  "  when nothing was refused, and never emit it about a rule that is not in the block.",
+  "  Emitting one does not excuse you from the rest of the patch — an unanswered question in",
+  "  the same exchange is still an `open.*`, and a refusal is the turn it is most likely on.",
   "",
   "The namespaces, and what each one means:",
   ...Object.entries(MEANINGS).map(([key, meaning]) => `- ${key}: ${meaning}`),
@@ -297,6 +282,12 @@ const EXTRACTOR_PROMPT = [
   "  question: `open.invariants = \"Which rules must the agent never violate?\"`. Nothing else",
   "  in the conversation writes these down, and an unknown nobody wrote down is an unknown",
   "  that gets assumed later.",
+  "  **This rule holds on busy turns too, and those are the turns it is for.** A turn where",
+  "  you are also emitting a `refused`, a `step` or a `stage` op is still a turn where four",
+  "  unanswered questions have to be written down. They are not competing: emit all of it.",
+  "  If the assistant's message ends by asking for something and the user's reply moved on",
+  "  without giving it, there is an `open.*` in this patch. The user saying 'just do it',",
+  "  'go ahead' or arguing with a different part of the answer does not answer anything.",
   "- The mirror of that rule matters as much: a question the user **did** answer in this",
   "  exchange is not an `open.*` at all. Record the answer (`finding.*` or `decision.*`) and,",
   "  if the question was already stored, delete it in the same array.",
@@ -330,7 +321,7 @@ const EXTRACTOR_PROMPT = [
   "  'I hate emoji'). Something true only of this piece of work is a constraint, not a",
   "  preference.",
   "- Keys are lowercase and dotted, at most three segments, and must begin with one of:",
-  "  " + NAMESPACES.join(" ") + ".",
+  "  " + PROPOSABLE.join(" ") + ".",
   "- `goal` is the only key that may be a bare namespace — a task has one goal. Everything",
   "  else needs at least one sub-key: `profile.role`, `profile.city`, `constraint.budget`,",
   "  `open.parking`. A bare `profile` is one slot for everything about a person, and the",
@@ -342,6 +333,11 @@ const EXTRACTOR_PROMPT = [
   "- Record what the USER established. Do not record the assistant's own suggestions,",
   "  opinions, examples or plans as facts — with the single exception of an unanswered",
   "  question it asked, which is an `open.*` as described above.",
+  "- **Do not propose an entry that contradicts one of the PROJECT INVARIANTS shown below,",
+  "  and never propose an `invariant.*` key of your own.** Those rules are written by a",
+  "  person and amended by a person. If the exchange argues with one, that is something to",
+  "  say in the reply, not a key to write. This is a filter and not the enforcement: a",
+  "  colliding key is refused in code and shown to the user as a proposal either way.",
   "- Output the JSON array and nothing else: no prose, no explanation, no code fences.",
 ].join("\n");
 
@@ -373,18 +369,22 @@ export class MemoryExtractor {
    *   vocabulary of whatever was said last.
    * @param {import("../llm/provider.js").Message[]} [params.exchange]
    */
-  async extract({ stored = [], exchange = [] } = {}) {
+  async extract({ stored = [], exchange = [], invariants = [] } = {}) {
     const startedAt = Date.now();
     const result = await this.#provider.complete({
       model: this.model,
       system: EXTRACTOR_PROMPT,
-      messages: [{ role: "user", content: extractionPrompt(stored, exchange) }],
+      messages: [{ role: "user", content: extractionPrompt(stored, exchange, invariants) }],
       temperature: 0,
       maxTokens: this.maxTokens,
     });
 
+    const parsed = parseJsonArray(result?.text);
     return {
-      ops: parseJsonArray(result?.text),
+      ops: parsed.items,
+      // A reply with no array in it is not a model that found nothing to say,
+      // and the two must not look alike in the panel.
+      rejected: parsed.rejected,
       usage: result?.usage ?? { inputTokens: 0, outputTokens: 0 },
       model: result?.model ?? null,
       ms: Date.now() - startedAt,
@@ -454,7 +454,7 @@ export class Promoter {
     });
 
     return {
-      proposals: parseJsonArray(result?.text)
+      proposals: parseJsonArray(result?.text).items
         .map((item) => ({
           key: typeof item?.key === "string" ? item.key.trim().toLowerCase() : "",
           value: String(item?.value ?? "").replace(/\s+/g, " ").trim(),
@@ -483,18 +483,52 @@ const BRIEFER_PROMPT = [
   "  Constraints — the hard ones, each with the reason if one was given.",
   "  Decided — the choices already made, and what they rule out.",
   "  Established — what was learned in planning that the work depends on.",
-  "  Still open — questions nobody answered. Say so plainly; do not invent answers.",
+  "  Still open — questions that were **actually raised and left unanswered**, found by the",
+  "    procedure below. Say them plainly; do not invent answers to them.",
   "",
   "Rules:",
+  "- **If the goal cannot be met without breaking one of the PROJECT INVARIANTS, say so, in",
+  "  the brief, under a heading `Conflicts with a project rule`.** Name the rule, name what",
+  "  about the goal needs it broken, and say what the best alternative inside the rule would",
+  "  be. Do not resolve it and do not quietly narrow the goal to avoid it — this is the last",
+  "  cheap moment to find out, because the goal freezes the instant this brief is accepted.",
   "- **Write only what was actually established.** You are transcribing a conversation, not",
   "  advising on it. Do not add steps, suggest an approach, estimate anything, or resolve a",
   "  question that was left open — the whole point of the next stage is that it does that",
   "  work with a human watching.",
+  "- **`Still open` is found, not judged.** Do not decide whether something feels unresolved;",
+  "  run this, in order, and write down what it returns:",
+  "    1. Every `open.*` entry in the store is an unanswered question somebody already wrote",
+  "       down. All of them go in, verbatim, under their existing keys.",
+  "    2. Go through the assistant's messages above. For **each question it asked**, look for",
+  "       the place the user answered it. A question with no answer goes in.",
+  "    3. Nothing else goes in. A sensible clarifying question that nobody actually asked is",
+  "       not open — it reads to the person accepting this brief as something they ignored,",
+  "       and is recorded against their task as unanswered forever.",
+  "  Step 2 is the one that gets skipped. **'Just do it', 'go ahead', 'get on with it', or a",
+  "  reply about something else entirely, answer nothing** — the questions are still open and",
+  "  being told to hurry is not an answer to any of them. If steps 1 and 2 both come back",
+  "  empty, omit the heading; if they do not, it is not your call to leave them out.",
   "- Keep names, numbers, versions, ports, paths and dates **exactly** as they were stated.",
   "- Prefer the user's own words for anything they were specific about.",
   "- Address the assistant that will do the work, not the user. No greeting, no sign-off.",
   "- Be complete before you are brief. This is the only thing carrying the planning forward.",
   "- Output the brief and nothing else: no preamble, no code fences, no commentary on it.",
+  "",
+  "AFTER the brief, on a line of its own, write `---OPEN---`, and after that a JSON array of",
+  "the questions under `Still open` — **those and nothing else**, one object each:",
+  '  [{"key":"open.graph_representation","question":"How is the graph provided?"}]',
+  "",
+  "The prose is read by a person once; these are stored, shown in the task, and are the only",
+  "reason anything downstream knows a question was left unanswered. A question in the prose",
+  "and not here is one nobody will be reminded of again — and a question **here** that",
+  "nobody actually asked is one the person is now answerable for forever.",
+  "",
+  "**Every `open.*` entry in the store gets a row here, under that exact key**, because it",
+  "is a question somebody already wrote down as unanswered. Anything you are adding from the",
+  "conversation gets a new key: lowercase, dotted, at most three segments, beginning with",
+  "`open.`. Write `[]` only when the store holds no `open.*` entry and nothing above was",
+  "left hanging.",
 ].join("\n");
 
 /**
@@ -524,25 +558,110 @@ export class Briefer {
   }
 
   /**
-   * @param {{ entries: { key: string, value: string }[], messages: import("../llm/provider.js").Message[] }} params
+   * @param {{ entries: { key: string, value: string }[], messages: import("../llm/provider.js").Message[], invariants?: { key: string, text: string, check: string }[] }} params
    */
-  async write({ entries = [], messages = [] } = {}) {
+  async write({ entries = [], messages = [], invariants = [] } = {}) {
     const startedAt = Date.now();
     const result = await this.#provider.complete({
       model: this.model,
       system: BRIEFER_PROMPT,
-      messages: [{ role: "user", content: briefPrompt(entries, messages) }],
+      messages: [{ role: "user", content: briefPrompt(entries, messages, invariants) }],
       temperature: 0,
       maxTokens: this.maxTokens,
     });
 
+    const raw = String(result?.text ?? "").trim();
+    const marker = raw.lastIndexOf("---OPEN---");
+    const text = (marker === -1 ? raw : raw.slice(0, marker)).trim();
+    const tail = marker === -1 ? [] : openQuestions(raw.slice(marker + "---OPEN---".length));
+
     return {
-      text: String(result?.text ?? "").trim(),
+      // The prose, with the structured tail taken off it. A model that ignored
+      // the tail still produces a usable brief; it just leaves nothing for the
+      // task to hold on to, which is the failure this exists to end.
+      text,
+      open: tail,
       usage: result?.usage ?? { inputTokens: 0, outputTokens: 0 },
       model: result?.model ?? null,
       ms: Date.now() - startedAt,
     };
   }
+}
+
+/**
+ * The `Still open` section, as keys.
+ *
+ * The brief has said this twice on purpose — once in prose for the person
+ * reading it, once here for the machine — because they are read by different
+ * things and only one of them survives the turn. Coerced through the same key
+ * grammar every other key goes through, so a malformed one is dropped rather
+ * than stored.
+ */
+function openQuestions(raw) {
+  const rows = [];
+  const used = new Set();
+  for (const item of parseJsonArray(raw).items) {
+    const question = String(item?.question ?? item?.value ?? "").replace(/\s+/g, " ").trim();
+    // A row with no question is nothing at all — there is no sentence to show
+    // in the editor and none to store, so there is nothing to report either.
+    if (!question) continue;
+    let key = String(item?.key ?? "").trim().toLowerCase();
+    if (!key.startsWith("open.")) key = "open." + slugKey(key || question);
+    if (!routeFor(key) || used.has(key)) {
+      key = "open." + slugKey(question) + (used.has(key) ? "-" + (used.size + 1) : "");
+    }
+    if (!routeFor(key) || used.has(key)) continue;
+    used.add(key);
+    rows.push({ key, question: question.slice(0, MAX_VALUE_LENGTH) });
+  }
+  return rows.slice(0, 12);
+}
+
+/**
+ * The `Still open` section, read out of the prose.
+ *
+ * The fallback for when the structured tail came back empty beside a prose
+ * section that is not — which is the brief contradicting itself, and used to
+ * resolve silently in favour of the half nothing downstream can read.
+ *
+ * Splitting prose into questions is a heuristic and it is allowed to be: every
+ * row it produces is marked as one planning never recorded and sits in the
+ * editor behind a `×`. An over-eager split costs a click. The alternative
+ * costs the record.
+ */
+function fromProse(text) {
+  const heading = /(^|\n)\s*(?:#+\s*)?(?:\*\*)?still open(?:\*\*)?\s*[—:-]?\s*/i.exec(String(text ?? ""));
+  if (!heading) return [];
+
+  const body = text.slice(heading.index + heading[0].length);
+  // To the next heading, which is a line that looks like one of the brief's.
+  const end = /\n\s*(?:#+\s*)?(?:\*\*)?(?:the task|constraints|decided|established|conflicts)\b/i.exec(body);
+  const section = (end ? body.slice(0, end.index) : body).trim();
+  if (!section) return [];
+
+  // The brief writes these as questions, so a question mark is the boundary.
+  // Without one there is a single statement of what is unresolved, which is
+  // one row rather than none.
+  const parts = section.includes("?")
+    ? section.split("?").map((part) => part.trim()).filter(Boolean).map((part) => part + "?")
+    : [section];
+
+  return openQuestions(JSON.stringify(parts.map((question) => ({ question }))));
+}
+
+/** A question, as the tail of a key: `How is the graph provided?` → `graph_provided`. */
+function slugKey(text) {
+  const words = String(text ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(" ")
+    .filter((word) => word && !["the", "a", "an", "is", "are", "what", "which", "how", "do", "does", "should", "it", "to", "of", "for", "and", "or", "be"].includes(word))
+    .slice(0, 3)
+    .join("_")
+    .slice(0, 28)
+    .replace(/_+$/, "");
+  return /^[a-z0-9]/.test(words) ? words : "q" + Math.random().toString(36).slice(2, 6);
 }
 
 // ---- the one mutation path --------------------------------------------------
@@ -580,7 +699,30 @@ export class Briefer {
  * was the first thing tried, and it makes "a person approving a correction to
  * a declared entry" unrepresentable.
  *
- * @param {{ working: Record<string, object>, profile: import("../store/profileStore.js").Profile }} stores
+ * **Invariants, and the one check that applies to every write.** Two rules
+ * live here and nowhere else, because a second refusal mechanism beside this
+ * one is a second thing that can be forgotten:
+ *
+ *   - **Person-only.** A model op onto an `invariant.*` key never writes, at
+ *     any stage, whatever `allow` says. Neither does a `promote` onto one,
+ *     even from a person: a promotion is a human approving a sentence a model
+ *     drafted, and the whole point of the namespace is that its sentences are
+ *     not drafted by models.
+ *   - **Subject collision.** Any write — `preference`, `constraint`, `goal`,
+ *     anything, in any layer, from anybody — whose key *subject* is owned by
+ *     an invariant is refused and becomes a correction proposal carrying both
+ *     values and the invariant's check. This is *"one key, one block"*
+ *     generalised one notch: there the collision is on the whole key, here it
+ *     is on the subject.
+ *
+ * It is deliberately **not** a contradiction detector. Code cannot tell that
+ * "MySQL" contradicts "never move off Postgres", so it does not try; it tells
+ * that both are about `database`, every time, identically. False positives are
+ * the price and they are cheap. The property being bought is not that every
+ * contradiction is caught — it is that **nothing lands on a subject an
+ * invariant owns without a human seeing it.**
+ *
+ * @param {{ working: Record<string, object>, profile: import("../store/profileStore.js").Profile, invariants?: import("../store/invariantStore.js").Invariants }} stores
  * @param {unknown[]} ops
  * @param {object} [params]
  * @param {number} [params.turn]
@@ -599,7 +741,7 @@ export class Briefer {
  *   sentence was still up for revision. A person-originated op still writes.
  */
 export function applyOps(
-  { working, profile },
+  { working, profile, invariants },
   ops,
   {
     turn = 0,
@@ -610,11 +752,25 @@ export function applyOps(
     origin = "model",
     source = null,
     frozen = [],
+    acknowledged = [],
   } = {}
 ) {
   const locked = new Set(frozen);
   const nextWorking = { ...(working ?? {}) };
   const nextProfile = { ...profile, entries: { ...(profile?.entries ?? {}) } };
+  const base = invariants ?? emptyInvariants();
+  const nextInvariants = { ...base, entries: { ...(base.entries ?? {}) } };
+  /**
+   * Keys whose invariant collision a person has already been shown and has
+   * answered — the one way past the check above.
+   *
+   * It exists because the check applies to *every* write, a person's included,
+   * and without it approving the proposal the check raised would be refused by
+   * the check again, forever. It is also the seam to build on: the day a
+   * `check` predicate can decide a collision on its own, it decides it here,
+   * and nothing else about this function moves.
+   */
+  const waved = new Set(acknowledged);
   const permitted = new Set(allow);
   const now = new Date().toISOString();
   /**
@@ -636,6 +792,10 @@ export function applyOps(
   const stamped = [];
   /** Whether long-term was touched at all — a delete leaves nothing to stamp. */
   let profileTouched = false;
+  /** Whether the project's rule set changed, so the caller knows to save it. */
+  let invariantsTouched = false;
+  /** Invariants this patch created for the first time — what the sweep reads. */
+  const added = [];
   /** Keys that were proposed and not stored — the panel says so out loud. */
   const discarded = [];
   /**
@@ -658,9 +818,9 @@ export function applyOps(
    */
   const contested = [];
 
-  for (const op of Array.isArray(ops) ? ops : []) {
-    const key = typeof op?.key === "string" ? op.key.trim().toLowerCase() : "";
-    const action = typeof op?.op === "string" ? op.op.trim().toLowerCase() : "";
+  for (const raw of Array.isArray(ops) ? ops : []) {
+    const op = raw;
+    const { key, action } = coerceOp(raw);
     const route = routeFor(key);
 
     if (!route) {
@@ -668,7 +828,18 @@ export function applyOps(
       // not guessed at** — and it is logged, because "the model proposed
       // something and it went nowhere" is information the panel should show
       // rather than a silence that looks like the model saying nothing.
-      discarded.push({ key: key || "(no key)", op: action || "(no op)", reason: "unknown namespace", at: now, turn });
+      //
+      // The reason has to name the actual mistake. "(no key) — unknown
+      // namespace" is true of a dozen different slips and useful for none of
+      // them; when the key is missing, what there *is* to report is the op.
+      discarded.push({
+        key: key || "(no key)",
+        op: action || "(no op)",
+        value: String(op?.value ?? "").replace(/\s+/g, " ").trim().slice(0, MAX_VALUE_LENGTH),
+        reason: key ? "unknown namespace" : `no key, and \`${action || "(no op)"}\` is not an op`,
+        at: now,
+        turn,
+      });
       continue;
     }
     // A bare key may not *create* a slot that everything about a person would
@@ -690,7 +861,40 @@ export function applyOps(
       continue;
     }
     if (!permitted.has(action)) {
-      discarded.push({ key, op: action || "(no op)", reason: "operation not allowed here", at: now, turn });
+      // A *known* verb that is not permitted here — `promote` from a model,
+      // say. Unlike the envelope slips `coerceOp` forgives, this one is the
+      // model asking for something it may not have, so it is refused and
+      // named rather than reinterpreted.
+      discarded.push({
+        key,
+        op: action || "(no op)",
+        reason: `\`${action || "(no op)"}\` is not allowed here`,
+        at: now,
+        turn,
+      });
+      continue;
+    }
+
+    // **Person-only, and there is no stage at which that stops being true.**
+    //
+    // Not during extraction, not at `→ done` through the promotable path, not
+    // inside an approved promotion. The last of those is the one worth being
+    // explicit about: a promotion is a person clicking yes on a sentence a
+    // model wrote, which is exactly the thing an invariant may not be. A
+    // person authoring one goes through `/memory/ops` with `origin: 'person'`
+    // and a `set`, which is the only door.
+    if (route.personOnly && (origin !== "person" || action === "promote")) {
+      discarded.push({
+        key,
+        op: action,
+        value: String(op?.value ?? op?.text ?? "").replace(/\s+/g, " ").trim().slice(0, MAX_VALUE_LENGTH),
+        reason:
+          action === "promote"
+            ? "an invariant is written, never promoted — a promoted sentence was drafted by a model"
+            : "an invariant is yours to write — a model may only propose one",
+        at: now,
+        turn,
+      });
       continue;
     }
 
@@ -722,6 +926,16 @@ export function applyOps(
       continue;
     }
 
+    // Withdrawing a rule. It has already passed the person-only gate above, so
+    // the only thing left to decide is that the tombstone gets written.
+    if (action === "delete" && route.project) {
+      if (retireInvariant(nextInvariants, key, now)) {
+        deleted.push(key);
+        invariantsTouched = true;
+      }
+      continue;
+    }
+
     if (action === "delete") {
       const from = op.from === "profile" || op.from === "longterm" ? "longterm" : op.from === "working" ? "working" : route.layer;
       if (from === "longterm" && !longtermDeletes) {
@@ -746,7 +960,77 @@ export function applyOps(
       continue;
     }
 
-    const value = String(op.value ?? "").replace(/\s+/g, " ").trim().slice(0, MAX_VALUE_LENGTH);
+    const value = String(op.value ?? op.text ?? "").replace(/\s+/g, " ").trim().slice(0, MAX_VALUE_LENGTH);
+
+    // **The rule set, written.** `value` is the rule and `check` is how you
+    // would know it had been violated; both are required, because an invariant
+    // with no usable check is the thing the drafting call turns into a
+    // `preference.*` instead. A `set` onto a subject that already has one is an **amendment**
+    // — `writeInvariant` records the supersession and keeps the old sentence,
+    // so a rule that changed is a rule you can still read the history of.
+    if (route.project) {
+      const check = String(op.check ?? "").replace(/\s+/g, " ").trim().slice(0, MAX_VALUE_LENGTH);
+      if (!value || !check) {
+        discarded.push({
+          key,
+          op: action,
+          value,
+          reason: value ? "an invariant needs a check — how would you know it had been violated?" : "empty value",
+          at: now,
+          turn,
+        });
+        continue;
+      }
+      const held = nextInvariants.entries[key];
+      if (held?.text === value && held?.check === check) continue;
+      const written = writeInvariant(nextInvariants, { key, text: value, check, turn, at: now });
+      invariantsTouched = true;
+      set.push(key);
+      if (!written.amended) added.push(written.entry);
+      continue;
+    }
+
+    // **The check guards the durable layer, and only the durable layer.**
+    //
+    // It used to refuse every write on an owned subject, whatever its layer,
+    // and in practice that is mostly one thing: the task restating a rule it
+    // was just told. `invariant.language` says Kotlin, so the conversation
+    // establishes `constraint.language = Kotlin`, and the machine asks you to
+    // confirm a fact you are already looking at. That is not the common edge
+    // case, it *is* the common case — a task governed by rules restates them
+    // constantly — and a question with no content in it teaches people to
+    // click through questions.
+    //
+    // So working memory takes the write. It is rebuilt every task and cleared
+    // at `done`, which is the same asymmetry that already makes a long-term
+    // delete a person's job and a working one nobody's. Nothing is hidden: a
+    // row on an owned subject is marked as governed in the panel, and a
+    // genuine contradiction still reaches the model with the block's own
+    // precedence line and its instruction to name the conflict rather than
+    // quietly pick a side.
+    //
+    // Long-term is the layer the property was ever about — *nothing lands in
+    // long-term on a subject an invariant owns without a human seeing it* —
+    // and there it still refuses and asks.
+    if (route.layer === "longterm" && !waved.has(key)) {
+      const rule = invariantFor(key, nextInvariants.entries);
+      // A `promote` with no value of its own means "whatever working memory
+      // holds", so the collision is judged against the text that would
+      // actually have landed.
+      const landing = value || nextWorking[key]?.value || "";
+      if (rule && landing) {
+        contested.push({
+          key,
+          value: landing,
+          was: nextProfile.entries[key]?.value ?? nextWorking[key]?.value ?? null,
+          reason: "invariant",
+          invariant: rule.key,
+          rule: rule.text,
+          check: rule.check,
+        });
+        continue;
+      }
+    }
 
     if (action === "promote") {
       const text = value || nextWorking[key]?.value || "";
@@ -810,11 +1094,18 @@ export function applyOps(
   return {
     working: evict(nextWorking, maxWorking),
     profile: nextProfile,
+    invariants: nextInvariants,
     set,
     deleted,
     promoted,
     stamped,
     profileTouched,
+    invariantsTouched,
+    // The rules this patch created for the first time. An *amended* rule was
+    // already in force and whatever disagrees with it has already been through
+    // the check; a brand new one arrives on top of a long-term memory that has
+    // never been measured against it, which is what the sweep is for.
+    added,
     contested,
     discarded,
     changed: [...set, ...deleted, ...promoted],
@@ -897,9 +1188,11 @@ function evict(working, maxWorking) {
  */
 export class MemoryStrategy extends ContextStrategy {
   #profileStore;
+  #invariantStore;
   #extractor;
   #promoter;
   #briefer;
+  #proposer;
   #summarizer;
   #cachedFor = null;
 
@@ -925,10 +1218,13 @@ export class MemoryStrategy extends ContextStrategy {
     maxTokens = 300,
     model,
     user = DEFAULT_USER,
+    project = DEFAULT_PROJECT,
     profileStore,
+    invariantStore,
     extractor,
     promoter,
     briefer,
+    proposer,
     summarizer,
   } = {}) {
     super();
@@ -938,10 +1234,18 @@ export class MemoryStrategy extends ContextStrategy {
     this.maxTokens = maxTokens;
     this.model = model;
     this.user = user;
+    /**
+     * Whose rules apply. Keyed by the codebase rather than by the human,
+     * because the same person has two of them with two different rule sets —
+     * see `invariantStore.js`.
+     */
+    this.project = projectOf(project);
     this.#profileStore = profileStore ?? null;
+    this.#invariantStore = invariantStore ?? null;
     this.#extractor = extractor ?? null;
     this.#promoter = promoter ?? null;
     this.#briefer = briefer ?? null;
+    this.#proposer = proposer ?? null;
     this.#summarizer = summarizer ?? null;
   }
 
@@ -971,10 +1275,26 @@ export class MemoryStrategy extends ContextStrategy {
     if (typeof user === "string" && user.trim()) this.user = user.trim().toLowerCase();
   }
 
+  /**
+   * Switch projects between turns, exactly as `useProfile` switches people.
+   * An empty id is ignored rather than treated as "no project": a request that
+   * forgot to say which codebase it is about should get the one it had, not an
+   * empty rule set it is then free to violate.
+   */
+  useProject(project) {
+    if (typeof project === "string" && project.trim()) this.project = projectOf(project);
+  }
+
   /** The store, resolved lazily so listing the catalogue touches no disk. */
   get profileStore() {
     this.#profileStore ??= defaultProfileStore();
     return this.#profileStore;
+  }
+
+  /** The same, for the project's rules. */
+  get invariantStore() {
+    this.#invariantStore ??= defaultInvariantStore();
+    return this.#invariantStore;
   }
 
   emptyState() {
@@ -1006,6 +1326,12 @@ export class MemoryStrategy extends ContextStrategy {
       promotedAt: {},
       profileSeen: {},
       profileUser: null,
+      // The project's rules, as they stood on the last turn of this branch.
+      // The panel is built synchronously by routes that hold a record rather
+      // than a store, so what it draws has to already be in the state — the
+      // same bargain `profileSeen` strikes, for the same reason.
+      invariantsSeen: {},
+      invariantProject: null,
       attribution: [],
       usage: emptySpend(),
     };
@@ -1037,11 +1363,19 @@ export class MemoryStrategy extends ContextStrategy {
 
     const profile = await this.#loadProfile();
     const inherited = visibleProfile(profile, current.promotedAt, turn - 1);
+    // **Not filtered by turn, and not branch-local.** Working memory and the
+    // profile are stamped so a fork cannot read what its parent established
+    // after the fork point. A project rule is neither established by a
+    // conversation nor owned by one: it was true before this chat opened and
+    // it is true on every branch of it. Hiding it from a fork would mean a
+    // branch quietly allowed to break a rule the project has.
+    const invariants = await this.#loadInvariants();
 
     const extracted = await this.#extract({
       history,
       state: current,
       profile,
+      invariants,
       provider,
       model,
       turn,
@@ -1091,8 +1425,13 @@ export class MemoryStrategy extends ContextStrategy {
     next.proposals = withCorrections(next.proposals, overridden, turn);
 
     const blocks = {
+      // **First after the persona, and present in every stage including
+      // `done`.** It is the only block besides the persona that applies
+      // unconditionally: a closed task can still be asked a question, and the
+      // answer can still violate a rule.
+      invariants: invariantsBlock(invariants.entries),
       profile: profileBlock(visible),
-      working: workingBlock(next.working, next.task),
+      working: workingBlock(next.working, next.task, { invariants: Object.keys(invariants.entries).length }),
       // The long form of the same subject, and the reason the planning
       // messages below can be left off the wire.
       brief: briefBlock(next.brief),
@@ -1114,6 +1453,8 @@ export class MemoryStrategy extends ContextStrategy {
     next.usage = addProfileSpend(next.usage, blocks.profile, model ?? provider?.model);
 
     next.profileSeen = snapshot(extracted.profile);
+    next.invariantsSeen = invariants.entries;
+    next.invariantProject = this.project;
     // Whose profile this was. The panel is built from stored state by routes
     // that hold a record rather than a strategy, so without recording it here
     // the panel could not say which profile the rows above it came from — and
@@ -1124,6 +1465,7 @@ export class MemoryStrategy extends ContextStrategy {
       ...next.attribution.filter((row) => row.turn !== turn),
       {
         turn,
+        invariants: blocks.invariants.length,
         profile: blocks.profile.length,
         working: blocks.working.length,
         brief: blocks.brief.length,
@@ -1140,7 +1482,8 @@ export class MemoryStrategy extends ContextStrategy {
     const start = Math.min(Math.max(0, snapToUserMessage(history, floor)), history.length);
 
     return {
-      system: systemPrompt + blocks.profile + blocks.working + blocks.brief + blocks.digest,
+      system:
+        systemPrompt + blocks.invariants + blocks.profile + blocks.working + blocks.brief + blocks.digest,
       messages: toWire(history.slice(start)),
       state: next,
       meta: {
@@ -1151,6 +1494,7 @@ export class MemoryStrategy extends ContextStrategy {
         verbatimExchanges: exchangeStarts(history, start).length,
         stage: stageOf(next.task),
         layers: {
+          invariants: Object.keys(invariants.entries).length,
           profile: Object.keys(visible).length,
           working: Object.keys(next.working).length,
           brief: next.brief?.status === "accepted" ? 1 : 0,
@@ -1173,15 +1517,46 @@ export class MemoryStrategy extends ContextStrategy {
    * store is re-read on every turn regardless, which puts the ceiling on how
    * stale this can get at one turn.
    *
+   * **A caller that has already read the stores hands them in**, and that is
+   * not an optimisation — it is the difference between two very different
+   * claims. A branch that has taken no turns has no snapshot, and drawing an
+   * empty panel from it says *there are no rules and nothing is known about
+   * you*, when the truth is *nothing has been sent yet*. In an empty chat
+   * those read identically and only one of them is true.
+   *
+   * The two are treated differently on purpose:
+   *
+   *   - **Invariants are always the live set when one is supplied.** They are
+   *     not established by a conversation and not owned by one; there is no
+   *     point in this chat's history at which they were not already true, so
+   *     there is nothing for a snapshot to be more accurate about.
+   *   - **The profile falls back only when there is no snapshot at all.** Once
+   *     a branch has sent something, what it sent is the honest answer — a
+   *     fork must go on showing what *it* was told, stamps and all, rather
+   *     than what the store holds now.
+   *
    * The last one matters more than it looks. A namespace the routing table
    * does not know is discarded in code, and without a line in the panel saying
    * *proposed, not stored: `random.thing`* that discarding is indistinguishable
    * from the extractor having found nothing at all.
    */
-  panel(state, { turns = Infinity } = {}) {
+  panel(state, { turns = Infinity, invariants = null, profile: liveProfile = null, user = null, project = null } = {}) {
     const current = normaliseState(state);
     const working = entriesAsOf(current.working, turns);
-    const profile = visibleProfile({ entries: current.profileSeen }, current.promotedAt, turns);
+    // Nothing sent yet is not nothing known. See the note above.
+    const seen = Object.keys(current.profileSeen).length ? current.profileSeen : (liveProfile?.entries ?? {});
+    const profile = visibleProfile({ entries: seen }, current.promotedAt, turns);
+    const rules = invariants?.entries ?? current.invariantsSeen;
+    /**
+     * Which rule owns a row's subject, if one does.
+     *
+     * The working layer takes these writes rather than asking about them, so
+     * this is what keeps the collision visible: *reported, never resolved*,
+     * said on the row instead of in a dialogue box. It is also how you see the
+     * real case when it happens — a row that contradicts the rule sitting
+     * above it, with both on screen and the rule saying which wins.
+     */
+    const governing = (key) => invariantFor(key, rules)?.key ?? null;
     const proposals = current.proposals.filter((p) => (p.turn ?? 0) <= turns);
     const pending = proposals.filter((p) => p.status === "pending");
     /** The one unanswered correction per key, so a row can show its own. */
@@ -1193,12 +1568,61 @@ export class MemoryStrategy extends ContextStrategy {
     const task = taskAsOf(current.task, turns);
     const stage = stageOf(task);
     const frozen = new Set(frozenKeys(task));
+    /**
+     * The refusals, gathered onto the rule each one belongs to.
+     *
+     * This is the visible artefact of the whole feature: *what happens when a
+     * request conflicts* stops being a paragraph somebody has to find in the
+     * transcript and becomes a line under the rule that caused it.
+     */
+    const refusalsFor = new Map();
+    for (const row of task.refusals ?? []) {
+      const key = row.invariant.startsWith("invariant.") ? row.invariant : `invariant.${row.invariant}`;
+      refusalsFor.set(key, [...(refusalsFor.get(key) ?? []), row]);
+    }
 
     return {
       kind: "memory",
       title: "Memory",
-      /** Whose long-term memory the rows below were read from, last turn. */
-      user: current.profileUser ?? null,
+      /**
+       * Whose long-term memory the rows below came from, and whose rules.
+       * The stored answer is *last turn's*; when the caller supplied the live
+       * stores it is theirs, because those are what the next turn will use.
+       */
+      user: current.profileUser ?? user ?? null,
+      project: project ?? current.invariantProject ?? null,
+      /**
+       * **The rules, above everything else the panel draws** — the same order
+       * they are in on the wire, and for the same reason.
+       *
+       * Not filtered by `turns` like the layers below it: an invariant is not
+       * something this conversation established, so there is no point in its
+       * history at which it was not yet true.
+       */
+      invariants: orderInvariants(rules).map((entry) => ({
+        key: entry.key,
+        subject: entry.subject,
+        text: entry.text,
+        check: entry.check,
+        updatedAt: entry.updatedAt,
+        // Every sentence this rule has had, newest first. An invariant that
+        // changed without a trace is worse than none.
+        previous: [...(entry.previous ?? [])].reverse(),
+        amended: Boolean(entry.supersedes),
+        // What the assistant refused under this rule, and what it offered
+        // instead. A refusal that carried no alternative is a dead end, and
+        // this is where you can see whether it did.
+        refusals: (refusalsFor.get(entry.key) ?? []).slice().reverse(),
+      })),
+      /**
+       * Refusals citing a rule this project no longer has — kept rather than
+       * dropped, because "we refused that under a rule we have since amended"
+       * is exactly the thing you want to be able to find afterwards.
+       */
+      orphanRefusals: (task.refusals ?? []).filter((row) => {
+        const key = row.invariant.startsWith("invariant.") ? row.invariant : `invariant.${row.invariant}`;
+        return !rules[key];
+      }),
       /**
        * **The lifecycle.** Everything the stage strip draws, composed from
        * stored state and nothing else — which is what makes the resume banner
@@ -1233,6 +1657,9 @@ export class MemoryStrategy extends ContextStrategy {
               through: current.brief.through,
               edited: current.brief.edited,
               acceptedAt: current.brief.acceptedAt,
+              // What planning left unanswered, as the brief found it. Still a
+              // proposal: these become keys when the brief is accepted.
+              open: current.brief.open ?? [],
             }
           : null,
       },
@@ -1242,6 +1669,9 @@ export class MemoryStrategy extends ContextStrategy {
         value: profile[key].value,
         updatedAt: profile[key].updatedAt,
         source: profile[key].source ?? "learned",
+        // A rule owns this subject. In long-term that means a person waved
+        // this row past the check, or it predates the rule.
+        governedBy: governing(key),
         // You wrote this one down on purpose. It is the flag that decides
         // whether the extractor may overwrite the row and whether the task in
         // hand may displace it on the wire, so the panel marks it rather than
@@ -1269,6 +1699,22 @@ export class MemoryStrategy extends ContextStrategy {
         // declared preference is never silently overridden".
         sent: !(working[key] && working[key].value !== profile[key].value) || profile[key].source === "declared",
       })),
+      /**
+       * **How far memory has been read.**
+       *
+       * Extraction runs inside `buildPayload`, before the model answers, over
+       * the exchange that ends with the message just sent — so the *reply* to
+       * that message is not read until the next turn. That ordering is
+       * deliberate and it buys something real: a preference stated in this
+       * message shapes the answer to this message. It costs one turn of lag on
+       * anything the assistant itself establishes, and the most visible case
+       * is the one that reads as a bug: it asks six questions, and the task
+       * shows nothing open until you say something else.
+       *
+       * There is no second call to close that with, so the panel says it
+       * instead of leaving you to work it out.
+       */
+      reads: { through: Math.max(0, (Number.isFinite(turns) ? turns : 0) - 1), pending: true },
       task: orderKeys(working).map((key) => ({
         key,
         namespace: key.split(".")[0],
@@ -1276,6 +1722,10 @@ export class MemoryStrategy extends ContextStrategy {
         turn: working[key].turn,
         updatedAt: working[key].updatedAt,
         promotable: Boolean(routeFor(key)?.promotable),
+        // A rule owns this subject, so the row is written but outranked. Most
+        // of the time it is the task agreeing with the rule; when it is not,
+        // this is where you see it.
+        governedBy: governing(key),
         // Committed to. The panel draws a lock, for the same reason it marks a
         // declared profile row: a write policy nobody can see is a write
         // policy that reads as the extractor having quietly stopped working.
@@ -1302,6 +1752,13 @@ export class MemoryStrategy extends ContextStrategy {
         kind: p.kind ?? "promotion",
         reason: p.reason ?? null,
         was: p.was ?? null,
+        // Which rule refused it, what that rule says, and how you would know
+        // it had been broken. Carried onto the row so the question can be
+        // answered without going looking for the rule it is about.
+        invariant: p.invariant ?? null,
+        rule: p.rule ?? null,
+        check: p.check ?? null,
+        layer: p.layer ?? null,
       })),
       pastTasks: current.pastTasks
         .filter((past) => (past.turn ?? 0) <= turns)
@@ -1319,7 +1776,11 @@ export class MemoryStrategy extends ContextStrategy {
       discarded: current.discarded
         .filter((row) => (row.turn ?? 0) <= turns)
         .slice(-MAX_DISCARDED)
-        .map((row) => ({ key: row.key, reason: row.reason, value: row.value ?? "", turn: row.turn })),
+        // The op rides along with the key. A row that has no key is a row
+        // where the op is the only thing there is to look at, and leaving it
+        // out made the one list whose whole job is to say what was thrown
+        // away unable to say it.
+        .map((row) => ({ key: row.key, op: row.op ?? "", reason: row.reason, value: row.value ?? "", turn: row.turn })),
       digest: {
         text: current.digest,
         covers: current.digestThrough,
@@ -1454,11 +1915,18 @@ export class MemoryStrategy extends ContextStrategy {
     }
 
     const working = entriesAsOf(state.working, turn);
+    const invariants = await this.#loadInvariants();
     const startedAt = Date.now();
     let result;
     try {
       result = await this.#brieferFor(provider).write({
         entries: orderKeys(working).map((key) => ({ key, value: working[key].value })),
+        // **One prompt change on a call already billed.** The goal freezes the
+        // moment this brief is accepted, so if it cannot be met without
+        // breaking a rule, the editable box a person is about to read is the
+        // last cheap place to find that out. Validation is the *last* place to
+        // catch a violation, not the first.
+        invariants: orderInvariants(invariants.entries),
         // Everything not already covered by the digest. The brief and the
         // digest between them have to account for every message that is about
         // to stop being sent.
@@ -1486,12 +1954,49 @@ export class MemoryStrategy extends ContextStrategy {
       awaitingBrief: true,
       state: {
         ...state,
-        brief: { text: result.text, status: "pending", turn, through: 0, createdAt: new Date().toISOString(), acceptedAt: null, edited: false },
+        brief: {
+          text: result.text,
+          // **The questions the brief found, held as a proposal.** Nothing is
+          // written yet: the brief is a proposal and so are these, and the
+          // accept is what turns them into keys — the same discipline the
+          // promotion and the invariant both keep.
+          //
+          // Each one says whether planning actually recorded it. A `Still
+          // open` heading is a box a model will fill, and asked to fill it it
+          // will write the sensible clarifying questions it *would* ask rather
+          // than the ones anybody did — which reads to the person accepting
+          // the brief as something they ignored, and is then recorded against
+          // their task as unanswered forever. Code cannot tell a real question
+          // from a plausible one, so it does not try: it says which ones
+          // planning wrote down, and lets the person look at the rest.
+          //
+          // **And the brief may not say one thing in prose and another in
+          // keys.** It says this twice by design — once for a person, once for
+          // the machine — and both halves come from one model on one call, so
+          // they drift. A `Still open` section listing three questions beside
+          // an empty tail is the brief telling the person something the task
+          // will never hold, and it is invisible: the prose reads fine and the
+          // keys are simply absent. So when the tail is empty and the prose is
+          // not, the prose is read.
+          //
+          // Reconciled here rather than inside `Briefer` because it is a claim
+          // about the *result*, true of whatever produced it.
+          open: (result.open?.length ? result.open : fromProse(result.text)).map((row) => ({
+            ...row,
+            recorded: Boolean(working[row.key]),
+          })),
+          status: "pending",
+          turn,
+          through: 0,
+          createdAt: new Date().toISOString(),
+          acceptedAt: null,
+          edited: false,
+        },
         usage: addSpend(state.usage, "overheadWorking", overhead),
       },
       proposals: [],
       overhead,
-      warning: warningFor("planning", "execution", working),
+      warning: warningFor("planning", "execution", working, state.task),
       note: "the brief is written — read it, change anything it got wrong, then start execution",
     };
   }
@@ -1507,7 +2012,7 @@ export class MemoryStrategy extends ContextStrategy {
    *
    * @param {{ state: object, history: object[], action: "accept" | "discard", text?: string }} params
    */
-  async answerBrief({ state, history = [], action, text }) {
+  async answerBrief({ state, history = [], action, text, drop = [] }) {
     const turn = exchangeStarts(history).length;
     const current = normaliseState(state);
     if (current.brief?.status !== "pending") throw new Error("There is no brief waiting to be answered.");
@@ -1524,7 +2029,36 @@ export class MemoryStrategy extends ContextStrategy {
     const edited = String(text ?? current.brief.text).trim();
     if (!edited) throw new Error("An accepted brief needs some text.");
 
-    const working = entriesAsOf(current.working, turn);
+    // **The accept is the write.** Planning's unanswered questions have been
+    // sitting in the brief's prose, which nothing downstream can read; this is
+    // the moment they become keys. A person is doing it — they have the list
+    // in front of them and can drop any of it before pressing the button — so
+    // the ops are person-originated like every other panel write.
+    //
+    // It happens *before* the transition on purpose: the guard and the warning
+    // both read working memory, and a question recorded a line too late is a
+    // question the edge it exists for has already walked past.
+    //
+    // **The caller names what to drop, never what to keep**, and the default
+    // is therefore *record all of them*. The other way round was the obvious
+    // way round and it is the wrong one: a page that sends a stale key, an
+    // empty list, or nothing at all would silently record nothing, which is
+    // indistinguishable from the feature not working and is exactly the bug it
+    // exists to fix. Saying what to leave out fails towards keeping the
+    // record, and nothing is lost that a person did not point at.
+    const unwanted = new Set(Array.isArray(drop) ? drop : []);
+    const questions = (current.brief.open ?? []).filter((row) => !unwanted.has(row.key));
+    const applied = questions.length
+      ? applyOps({ working: current.working, profile: { entries: {}, nextId: 1 } }, questions.map((row) => ({ op: "set", key: row.key, value: row.question })), {
+          turn,
+          maxWorking: this.maxWorking,
+          allow: ["set"],
+          origin: "person",
+        })
+      : null;
+    const nextWorking = applied?.working ?? current.working;
+
+    const working = entriesAsOf(nextWorking, turn);
     const moved = transition(current.task, { to: "execution", by: "user", reason: "brief accepted", working, turn });
     if (!moved.ok) {
       return { ok: false, state: current, note: moved.reason };
@@ -1534,6 +2068,7 @@ export class MemoryStrategy extends ContextStrategy {
       ok: true,
       state: {
         ...current,
+        working: nextWorking,
         task: moved.task,
         brief: {
           ...current.brief,
@@ -1548,7 +2083,10 @@ export class MemoryStrategy extends ContextStrategy {
         briefThrough: Math.max(current.briefThrough, history.length),
       },
       warning: moved.warning,
-      note: `planning → execution · the brief replaces ${history.length} message${history.length === 1 ? "" : "s"} on the wire`,
+      note:
+        `planning → execution · the brief replaces ${history.length} message${history.length === 1 ? "" : "s"} on the wire` +
+        (questions.length ? ` · ${questions.length} open question${questions.length === 1 ? "" : "s"} recorded` : "") +
+        (unwanted.size ? ` · ${unwanted.size} you dropped` : ""),
     };
   }
 
@@ -1618,6 +2156,13 @@ export class MemoryStrategy extends ContextStrategy {
         });
         proposed = result.proposals
           .map((item) => ({ key: routeFor(item.key) ? item.key : promotable[0].key, value: item.value }))
+          // **Person-only holds at the task boundary too.** The `promotable`
+          // path is the one place a model's sentence gets a human's click on
+          // it, and a click on a sentence a model wrote is exactly what an
+          // invariant may not be. `applyOps` refuses the write regardless;
+          // dropping the row here means the offer is never made, so nobody is
+          // invited to approve something that cannot land.
+          .filter((item) => !routeFor(item.key)?.personOnly)
           .slice(0, 12);
         overhead = overheadFrom({ usage: result.usage, model: result.model ?? model, ms: result.ms ?? Date.now() - startedAt });
       } catch (err) {
@@ -1706,15 +2251,76 @@ export class MemoryStrategy extends ContextStrategy {
     if (action === "reject") {
       return {
         state: { ...current, proposals: current.proposals.map((p) => (p.id === id ? { ...p, status: "rejected" } : p)) },
-        note: `rejected ${proposal.key}`,
+        note: proposal.kind === "collision" ? `kept ${proposal.key}` : `rejected ${proposal.key}`,
       };
     }
     if (action !== "approve") throw new Error("An answer is either 'approve' or 'reject'.");
+
+    // **A collision row is the sweep's question, and the answer is a delete.**
+    //
+    // The sweep does not resolve anything — it points at an entry that is
+    // about a subject a rule now owns and asks which of the two you meant.
+    // *Reject* leaves the entry alone, because you looked and decided the two
+    // are compatible. *Approve* is "the rule wins", and the entry goes.
+    if (proposal.kind === "collision") {
+      const profile = await this.#loadProfile();
+      const invariants = await this.#loadInvariants();
+      const applied = applyOps({ working: current.working, profile, invariants }, [
+        { op: "delete", key: proposal.key, from: proposal.layer === "working" ? "working" : "profile" },
+      ], { turn: turns, maxWorking: this.maxWorking, allow: ["delete"], longtermDeletes: true, unpairedCloses: true, origin: "person" });
+      if (applied.profileTouched) await this.#saveProfile(applied.profile);
+
+      return {
+        state: {
+          ...current,
+          working: applied.working,
+          profileSeen: snapshot(applied.profile),
+          proposals: current.proposals.map((p) => (p.id === id ? { ...p, status: "approved" } : p)),
+        },
+        note: `${proposal.key} forgotten — ${proposal.invariant} owns that subject`,
+      };
+    }
 
     // The edit the user made in the box is the thing that gets stored — this
     // is the moment they are allowed to disagree with the phrasing.
     const text = String(value ?? proposal.value).replace(/\s+/g, " ").trim();
     if (!text) throw new Error("An approved proposal needs a value.");
+
+    // **A write the invariant check refused, let through.**
+    //
+    // The check raised this row precisely so a person would look at both
+    // sentences and the rule's check before anything landed. They have. So the
+    // write happens now, onto whichever layer the key routes to, and the key
+    // is waved past the check that would otherwise refuse it again — which is
+    // what `acknowledged` exists for and the only thing it is used for.
+    if (proposal.reason === "invariant") {
+      const profile = await this.#loadProfile();
+      const invariants = await this.#loadInvariants();
+      const applied = applyOps({ working: current.working, profile, invariants }, [
+        { op: "set", key: proposal.key, value: text },
+      ], {
+        turn: turns,
+        maxWorking: this.maxWorking,
+        allow: ["set"],
+        origin: "person",
+        acknowledged: [proposal.key],
+      });
+      if (applied.profileTouched) await this.#saveProfile(applied.profile);
+
+      const promotedAt = { ...current.promotedAt };
+      for (const entryId of applied.stamped) promotedAt[entryId] = turns;
+
+      return {
+        state: {
+          ...current,
+          working: applied.working,
+          promotedAt,
+          profileSeen: snapshot(applied.profile),
+          proposals: current.proposals.map((p) => (p.id === id ? { ...p, status: "approved", value: text } : p)),
+        },
+        note: `${proposal.key} written — you saw it against ${proposal.invariant} and said yes`,
+      };
+    }
 
     // **A frozen key is corrected in place, not promoted.** The other two
     // kinds of proposal are about long-term memory, so approving them is a
@@ -1739,8 +2345,13 @@ export class MemoryStrategy extends ContextStrategy {
     }
 
     const profile = await this.#loadProfile();
+    // The rule set rides along so a promotion cannot slip past the one check
+    // that applies to every write. A promoted decision about `database` on a
+    // project whose rules own `database` does not land; it becomes the same
+    // collision row every other refused write becomes.
+    const invariants = await this.#loadInvariants();
     const applied = applyOps(
-      { working: current.working, profile },
+      { working: current.working, profile, invariants },
       [{ op: "promote", key: proposal.key, value: text }],
       // A person is answering, so the write happens even onto a declared key —
       // and the entry keeps whichever provenance it already had. Approving a
@@ -1761,15 +2372,22 @@ export class MemoryStrategy extends ContextStrategy {
       }
     }
 
+    const refused = applied.contested.filter((row) => row.reason === "invariant");
     return {
       state: {
         ...current,
         promotedAt,
         pastTasks,
         profileSeen: snapshot(applied.profile),
-        proposals: current.proposals.map((p) => (p.id === id ? { ...p, status: "approved", value: text } : p)),
+        proposals: withCorrections(
+          current.proposals.map((p) => (p.id === id ? { ...p, status: "approved", value: text } : p)),
+          refused,
+          turns
+        ),
       },
-      note: `promoted ${proposal.key} to long-term`,
+      note: refused.length
+        ? `${proposal.key} held back — ${refused[0].invariant} owns that subject, and it is waiting for you below`
+        : `promoted ${proposal.key} to long-term`,
     };
   }
 
@@ -1780,10 +2398,11 @@ export class MemoryStrategy extends ContextStrategy {
    *
    * @param {{ state: object, ops: object[], turns?: number }} params
    */
-  async applyPanelOps({ state, ops, turns = 0, declared = false }) {
+  async applyPanelOps({ state, ops, turns = 0, declared = false, acknowledged = [] }) {
     const current = normaliseState(state);
     const profile = await this.#loadProfile();
-    const applied = applyOps({ working: current.working, profile }, ops, {
+    const invariants = await this.#loadInvariants();
+    const applied = applyOps({ working: current.working, profile, invariants }, ops, {
       turn: turns,
       maxWorking: this.maxWorking,
       // A person pressing a button may do the things a model may not.
@@ -1794,12 +2413,43 @@ export class MemoryStrategy extends ContextStrategy {
       // The profile form says so; *forget* and *promote* do not, and leave
       // whatever provenance the row already had alone.
       source: declared ? "declared" : null,
+      // Accepting a proposal the invariant check itself raised is the one way
+      // past that check. Without it, answering the question the machine asked
+      // would be refused by the machine that asked it.
+      acknowledged,
     });
 
     if (applied.profileTouched) await this.#saveProfile(applied.profile);
+    if (applied.invariantsTouched) await this.#saveInvariants(applied.invariants);
 
     const promotedAt = { ...current.promotedAt };
     for (const entryId of applied.stamped) promotedAt[entryId] = turns;
+
+    // **The sweep.** A rule that has just been written arrives on top of a
+    // long-term memory nothing ever measured against it. Without this, the
+    // rule quietly sits over something that contradicts it and you find out
+    // when the model splits the difference — which it will do politely, in
+    // prose, in a way that reads like agreement.
+    //
+    // Only *new* invariants sweep. An amended one was already in force, so
+    // everything beside it has been through the check on the way in.
+    const swept = [];
+    for (const entry of applied.added) {
+      // Long-term only, matching the check itself. A working key on the new
+      // rule's subject is marked as governed and left alone — it dies with the
+      // task either way, and asking about it would be the same contentless
+      // question the check stopped asking.
+      for (const row of collisionsOn(entry.subject, { longterm: applied.profile.entries })) {
+        swept.push({
+          key: row.key,
+          value: row.value,
+          layer: row.layer,
+          invariant: entry.key,
+          rule: entry.text,
+          check: entry.check,
+        });
+      }
+    }
 
     return {
       state: {
@@ -1807,10 +2457,132 @@ export class MemoryStrategy extends ContextStrategy {
         working: applied.working,
         promotedAt,
         profileSeen: snapshot(applied.profile),
-        proposals: withCorrections(current.proposals, applied.contested, turns),
+        invariantsSeen: applied.invariants.entries,
+        invariantProject: this.project,
+        proposals: withCollisions(
+          withCorrections(current.proposals, applied.contested, turns),
+          swept,
+          turns
+        ),
         discarded: mergeDiscarded(current.discarded, applied.discarded),
       },
-      note: describe(applied) || "nothing changed",
+      note: [describe(applied), sweepNote(swept)].filter(Boolean).join(", ") || "nothing changed",
+    };
+  }
+
+  /**
+   * **Typed prose in, structured proposals out — the one new model call.**
+   *
+   * It is not a turn: no persona, no reply, nothing appended to the
+   * transcript, and **it writes nothing at all**. That is what lets authoring
+   * be cheap without letting the model legislate — the model drafts, the human
+   * accepts, and the accept is the write, which is the whole of what keeps the
+   * namespace person-only.
+   *
+   * Two things are decided here in code rather than by the prompt, because a
+   * rule decided in code is a rule that holds on the run where the model was
+   * having an off day:
+   *
+   *   - **A subject that already has an invariant is an `amend`, never an
+   *     `add`**, and the row carries the id being replaced and the text being
+   *     replaced so the box can show you the difference. This is the point of
+   *     the feature: it tells you *which* rules change and how, rather than
+   *     silently shadowing the old value.
+   *   - **Collisions are found here**, at propose time, so the conflicts land
+   *     in the same review box and you resolve everything in one pass instead
+   *     of meeting a proposal row an hour later.
+   *
+   * @param {{ state: object, text: string, turns?: number, provider: object, model?: string }} params
+   */
+  async proposeInvariants({ state, text, turns = 0, provider, model }) {
+    const current = normaliseState(state);
+    const typed = String(text ?? "").trim();
+    if (!typed) throw new Error("Type the rules first — one sentence each is enough.");
+
+    const profile = await this.#loadProfile();
+    const invariants = await this.#loadInvariants();
+    const startedAt = Date.now();
+
+    let result;
+    try {
+      result = await this.#proposerFor(provider).propose({
+        text: typed,
+        invariants: orderInvariants(invariants.entries),
+        longterm: orderKeys(profile.entries).map((key) => ({ key, value: profile.entries[key].value })),
+      });
+    } catch (err) {
+      // **Nothing is written on a partial result**, and the box keeps the text
+      // you typed. A failed draft costs a click, not a paragraph.
+      console.error("[memory] the invariant proposal failed:", err?.message ?? err);
+      return {
+        ok: false,
+        state: current,
+        rows: [],
+        overhead: { ...NO_OVERHEAD, overheadMs: Date.now() - startedAt },
+        note: "could not draft the rules — nothing was written, try again",
+      };
+    }
+
+    const rows = result.rows.map((row) => {
+      const held = invariants.entries[row.key];
+      // **No usable check, no invariant.** Decided here rather than trusted to
+      // the prompt: twelve fuzzy rules on the wire buys a model that hedges
+      // everything, which looks like compliance and is noise. The rule is not
+      // thrown away — it is offered as the `preference.*` it actually is.
+      const unusable = !row.text || !row.check;
+      const action = row.action === "reject" || unusable ? "reject" : held ? "amend" : "add";
+      return {
+        ...row,
+        action,
+        reason:
+          action === "reject" && unusable
+            ? row.reason ??
+              (row.text
+                ? "no usable check could be written — this is a preference, not an invariant"
+                : "nothing to store")
+            : row.reason,
+        suggest:
+          action === "reject" && unusable && row.text
+            ? row.suggest ?? { key: `preference.${row.subject}`, value: row.text }
+            : row.suggest,
+        supersedes: action === "amend" ? held.id : null,
+        // The existing sentence, so the box can diff it rather than making you
+        // remember what the rule used to say.
+        current: action === "amend" ? held.text : null,
+        currentCheck: action === "amend" ? held.check : null,
+        // Reported, never resolved.
+        collisions: action === "reject"
+          ? []
+          : collisionsOn(row.subject, { longterm: profile.entries, working: current.working }),
+      };
+    });
+
+    const overhead = overheadFrom({
+      usage: result.usage,
+      model: result.model ?? model,
+      ms: result.ms ?? Date.now() - startedAt,
+    });
+
+    return {
+      ok: true,
+      // The call is billed to the same bucket the other boundary calls are: it
+      // is overhead the conversation paid for, and burying it would make the
+      // one figure that says what memory costs quietly wrong.
+      state: {
+        ...current,
+        usage: addSpend(current.usage, "overheadWorking", overhead),
+        // ...and what it could not read goes where every other unreadable
+        // thing goes, rather than being a row that never appeared.
+        discarded: mergeDiscarded(
+          current.discarded,
+          (result.rejected ?? []).map((row) => ({ ...row, turn: turns, at: new Date().toISOString() }))
+        ),
+      },
+      rows,
+      overhead,
+      note: rows.length
+        ? `${rows.length} row${rows.length === 1 ? "" : "s"} drafted — nothing is written until you accept`
+        : "nothing in that reads as a rule with a check behind it",
     };
   }
 
@@ -1828,7 +2600,7 @@ export class MemoryStrategy extends ContextStrategy {
    * and a single malformed op is discarded on its own while the rest of the
    * patch still applies.
    */
-  async #extract({ history, state, profile, provider, model, turn }) {
+  async #extract({ history, state, profile, invariants, provider, model, turn }) {
     const exchange = latestExchange(history);
     const unchanged = { state, profile, profileKeys: [], changed: [], note: "", overhead: { ...NO_OVERHEAD } };
     if (!exchange.length) return { ...unchanged, note: "nothing to extract from" };
@@ -1842,6 +2614,10 @@ export class MemoryStrategy extends ContextStrategy {
           ...orderKeys(profile.entries).map((key) => ({ key, value: profile.entries[key].value })),
         ],
         exchange,
+        // The filter, not the gate. Telling the extractor about the rules
+        // reduces how often it proposes something that argues with one;
+        // `applyOps` below is what decides whether the write lands.
+        invariants: orderInvariants(invariants?.entries),
       });
     } catch (err) {
       console.error("[memory] extraction failed, keeping what is stored:", err?.message ?? err);
@@ -1852,14 +2628,16 @@ export class MemoryStrategy extends ContextStrategy {
       };
     }
 
-    // One call, two mutation paths. The patch is split before either path
-    // sees the other's ops, so `applyOps` goes on refusing everything that is
-    // not a routable key and `transition` goes on being the only way a stage
-    // changes.
-    const { taskOps, memoryOps } = splitTaskOps(result.ops);
+    // **One call, two mutation paths, and one list of what neither could
+    // use.** The patch is read before either path sees the other's ops, so
+    // `applyOps` goes on refusing everything that is not a routable key and
+    // `transition` goes on being the only way a stage changes — and anything
+    // that is neither comes back with a reason rather than falling into the
+    // memory pile to be refused there under a sentence about namespaces.
+    const { taskOps, memoryOps, rejected } = readPatch(result.ops, { turn });
     const task = applyTaskOps(state.task, taskOps, { turn });
 
-    const applied = applyOps({ working: state.working, profile }, memoryOps, {
+    const applied = applyOps({ working: state.working, profile, invariants }, memoryOps, {
       turn,
       maxWorking: this.maxWorking,
       // The model proposes a key and a value. It may not promote, and it may
@@ -1894,13 +2672,25 @@ export class MemoryStrategy extends ContextStrategy {
         // becomes a proposal like any other — and until it is answered, the
         // payload simply stops asserting the stale half (see buildPayload).
         proposals: withCorrections(state.proposals, applied.contested, turn),
-        discarded: mergeDiscarded(state.discarded, applied.discarded),
+        // **Three streams, one list.** What the reply could not be read as,
+        // what the task ops could not use, and what the write path refused.
+        // Each of these used to end somewhere different, and two of them
+        // ended nowhere at all.
+        discarded: mergeDiscarded(state.discarded, [
+          ...(result.rejected ?? []),
+          ...rejected,
+          ...task.rejected,
+          ...applied.discarded,
+        ]),
         usage: addSpend(state.usage, "overheadWorking", overhead),
       },
       profile: applied.profile,
       profileKeys,
       changed: applied.changed,
-      note: describe(applied, task.suggested),
+      note: describe(
+        { ...applied, discarded: [...(result.rejected ?? []), ...rejected, ...task.rejected, ...applied.discarded] },
+        task.suggested
+      ),
       overhead,
     };
   }
@@ -1979,6 +2769,33 @@ export class MemoryStrategy extends ContextStrategy {
     }
   }
 
+  /**
+   * The project's rules.
+   *
+   * An unreadable rule set degrades to *no rules* rather than to a failed
+   * turn, which is the same bargain every other store here strikes — and it is
+   * worth being explicit that it is the unsafe direction of the two. The block
+   * simply is not sent, the answer is unconstrained, and the console says so.
+   * The alternative is refusing to answer at all because a file would not
+   * parse, which nobody wants and which this app does nowhere else.
+   */
+  async #loadInvariants() {
+    try {
+      return await this.invariantStore.load(this.project);
+    } catch (err) {
+      console.error("[memory] could not read the invariants:", err?.message ?? err);
+      return emptyInvariants(this.project);
+    }
+  }
+
+  async #saveInvariants(record) {
+    try {
+      await this.invariantStore.save(this.project, record);
+    } catch (err) {
+      console.error("[memory] could not write the invariants:", err?.message ?? err);
+    }
+  }
+
   #extractorFor(provider) {
     if (this.#extractor && this.#cachedFor === null) return this.#extractor;
     this.#rebuild(provider);
@@ -1997,18 +2814,25 @@ export class MemoryStrategy extends ContextStrategy {
     return this.#briefer;
   }
 
+  #proposerFor(provider) {
+    if (this.#proposer && this.#cachedFor === null) return this.#proposer;
+    this.#rebuild(provider);
+    return this.#proposer;
+  }
+
   #summarizerFor(provider) {
     if (this.#summarizer && this.#cachedFor === null) return this.#summarizer;
     this.#rebuild(provider);
     return this.#summarizer;
   }
 
-  /** The three helpers all speak to the conversation's provider by default. */
+  /** The helpers all speak to the conversation's provider by default. */
   #rebuild(provider) {
     if (this.#cachedFor === provider) return;
     this.#extractor = new MemoryExtractor({ provider, model: this.model, maxTokens: this.maxTokens });
     this.#promoter = new Promoter({ provider, model: this.model });
     this.#briefer = new Briefer({ provider, model: this.model });
+    this.#proposer = new InvariantProposer({ provider, model: this.model });
     this.#summarizer = new Summarizer({ provider, model: this.model });
     this.#cachedFor = provider;
   }
@@ -2137,6 +2961,13 @@ function withCorrections(proposals, contested, turn) {
       key: row.key,
       value: row.value,
       was: row.was,
+      // Which rule refused this, what it says and how you would know it had
+      // been broken — all three on the row, because a refusal you cannot read
+      // the reason for is one you answer by clicking whichever button is
+      // nearer.
+      invariant: row.invariant ?? null,
+      rule: row.rule ?? null,
+      check: row.check ?? null,
       kind: "correction",
       // Which disagreement this is, so the panel can say the right sentence:
       // a `task` correction is long-term going stale against the work in hand,
@@ -2151,6 +2982,49 @@ function withCorrections(proposals, contested, turn) {
   }
 
   return next;
+}
+
+/**
+ * **The sweep's rows, as proposals.**
+ *
+ * A separate `kind` from `correction` rather than a flag on it, because the
+ * question is a different question and the buttons mean the opposite things. A
+ * correction asks *should this say the new thing instead?* — approve writes
+ * it. A collision asks *a rule now owns this subject; does this entry still
+ * belong?* — approve forgets it. One pair of buttons doing both would be two
+ * meanings behind one label, which is how people click the wrong one.
+ */
+function withCollisions(proposals, swept, turn) {
+  if (!swept?.length) return proposals;
+  const next = [...proposals];
+
+  for (const row of swept) {
+    if (next.some((p) => p.kind === "collision" && p.key === row.key && p.invariant === row.invariant && p.status === "pending")) {
+      continue;
+    }
+    next.push({
+      id: `s${turn}-${next.length + 1}-${Math.random().toString(36).slice(2, 7)}`,
+      key: row.key,
+      value: row.value,
+      was: null,
+      layer: row.layer,
+      invariant: row.invariant,
+      rule: row.rule,
+      check: row.check,
+      kind: "collision",
+      reason: "invariant",
+      status: "pending",
+      turn,
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  return next;
+}
+
+function sweepNote(swept) {
+  if (!swept?.length) return "";
+  return `${swept.length} existing entr${swept.length === 1 ? "y" : "ies"} on that subject — waiting for you below`;
 }
 
 /**
@@ -2175,6 +3049,14 @@ function describe({ set, deleted, promoted, discarded, contested = [] }, suggest
   // and it should read as "the machine stopped it", not as a quiet turn.
   const frozen = contested.filter((row) => row.reason === "frozen").length;
   if (frozen) parts.push(`${frozen} held back — the goal is frozen`);
+  // The third refusal of the same shape, and the one that has to name the rule
+  // that did it: "held back" with no rule attached reads as the machine being
+  // arbitrary, which is exactly what an invariant is not.
+  const byRule = contested.filter((row) => row.reason === "invariant");
+  if (byRule.length) {
+    const rules = [...new Set(byRule.map((row) => row.invariant))].join(", ");
+    parts.push(`${byRule.length} held back by ${rules}`);
+  }
   // **Say which refusal it was.** Everything that was not an unroutable key
   // used to be reported as a "malformed op", which is wrong about most of
   // them and unhelpful about all of them: a lone `delete` on an answered
@@ -2211,10 +3093,18 @@ function latestExchange(history) {
   return messages.slice(from).map(({ role, content }) => ({ role, content }));
 }
 
-function extractionPrompt(stored, exchange) {
+function extractionPrompt(stored, exchange, invariants = []) {
   return [
     "ALREADY STORED — current values. Do not restate any of these unchanged:",
     stored.length ? stored.map((entry) => `${entry.key}: ${entry.value}`).join("\n") : "(nothing yet)",
+    ...(invariants.length
+      ? [
+          "",
+          "PROJECT INVARIANTS — written by a person, amended only by a person. Never propose a",
+          "key that contradicts one of these, and never propose an `invariant.*` key at all:",
+          invariants.map((entry) => `${entry.key}: ${entry.text}`).join("\n"),
+        ]
+      : []),
     "",
     "LATEST EXCHANGE:",
     ...exchange.map((m) => `[${m.role}] ${m.content}`),
@@ -2223,10 +3113,17 @@ function extractionPrompt(stored, exchange) {
   ].join("\n");
 }
 
-function briefPrompt(entries, messages) {
+function briefPrompt(entries, messages, invariants = []) {
   return [
     "WHAT PLANNING ESTABLISHED — the store, as it stands:",
     entries.length ? entries.map((entry) => `${entry.key}: ${entry.value}`).join("\n") : "(nothing was recorded)",
+    ...(invariants.length
+      ? [
+          "",
+          "PROJECT INVARIANTS — rules this work does not get to break:",
+          invariants.map((entry) => `${entry.key}: ${entry.text} — check: ${entry.check}`).join("\n"),
+        ]
+      : []),
     "",
     "THE PLANNING CONVERSATION:",
     ...messages.map((m) => `[${m.role}] ${m.content}`),
@@ -2245,24 +3142,6 @@ function promotionPrompt(entries, context) {
     "",
     "Return the proposals.",
   ].join("\n");
-}
-
-/**
- * Pull the JSON array out of whatever came back. A model that ignored "no code
- * fences" or prefixed a sentence has still done the work, and throwing that
- * away would cost a turn its memory for a formatting slip.
- */
-function parseJsonArray(raw) {
-  const text = String(raw ?? "").replace(/```(?:json)?/gi, "").trim();
-  const start = text.indexOf("[");
-  const end = text.lastIndexOf("]");
-  if (start === -1 || end <= start) return [];
-  try {
-    const parsed = JSON.parse(text.slice(start, end + 1));
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
 }
 
 /**
@@ -2353,6 +3232,16 @@ function normaliseBrief(brief) {
     acceptedAt: typeof source.acceptedAt === "string" ? source.acceptedAt : null,
     /** Whether a person edited the words before accepting them. */
     edited: source.edited === true,
+    /** The `Still open` section, as keys, until a person accepts them. */
+    open: (Array.isArray(source.open) ? source.open : [])
+      .map((row) => ({
+        key: String(row?.key ?? "").trim().toLowerCase(),
+        question: String(row?.question ?? "").replace(/\s+/g, " ").trim(),
+        /** Whether planning wrote this down, or the brief is raising it now. */
+        recorded: row?.recorded === true,
+      }))
+      .filter((row) => row.question && routeFor(row.key)?.namespace === "open")
+      .slice(0, 12),
   };
 }
 
@@ -2372,6 +3261,8 @@ export function normaliseState(state) {
     promotedAt: {},
     profileSeen: {},
     profileUser: null,
+    invariantsSeen: {},
+    invariantProject: null,
     attribution: [],
     usage: emptySpend(),
   };
@@ -2421,6 +3312,10 @@ export function normaliseState(state) {
     profileSeen,
     promotedAt,
     profileUser: typeof source.profileUser === "string" ? source.profileUser : null,
+    // Coerced through the store's own normaliser, so a rule with no check
+    // cannot reach the panel from a hand-edited conversation file either.
+    invariantsSeen: normaliseInvariants({ entries: source.invariantsSeen }).entries,
+    invariantProject: typeof source.invariantProject === "string" ? source.invariantProject : null,
     digest: typeof source.digest === "string" && source.digest.trim() ? source.digest : null,
     digestThrough: Number.isInteger(source.digestThrough) ? source.digestThrough : 0,
     digestUpdatedAt: typeof source.digestUpdatedAt === "string" ? source.digestUpdatedAt : null,

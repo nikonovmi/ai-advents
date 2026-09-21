@@ -31,6 +31,7 @@ import { AnthropicProvider, FakeProvider } from "../src/llm/anthropic.js";
 import { formatTokens } from "../src/llm/pricing.js";
 import { MemoryStore } from "../src/store/memoryStore.js";
 import { MemoryProfileStore } from "../src/store/profileStore.js";
+import { MemoryInvariantStore } from "../src/store/invariantStore.js";
 
 const COLOUR = process.stdout.isTTY && !process.env.NO_COLOR;
 const ESC = String.fromCharCode(27);
@@ -100,7 +101,7 @@ async function runStrategy(id) {
     // run gets its own. Sharing the real one would mean the second run of the
     // day started with the first one's answers already in the profile — and a
     // comparison that leaks between arms is not a comparison.
-    strategyOptions: { profileStore: new MemoryProfileStore() },
+    strategyOptions: { profileStore: new MemoryProfileStore(), invariantStore: new MemoryInvariantStore() },
   });
 
   const label = createStrategy(id).label;
