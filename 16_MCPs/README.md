@@ -3,6 +3,12 @@
 A chat app with layered memory and an explicit task lifecycle. Node + Express,
 vanilla front end, no build step.
 
+
+
+https://github.com/user-attachments/assets/5a36353c-5caf-4a3e-ae75-4d61625cb653
+
+
+
 ```bash
 npm install
 echo 'ANTHROPIC_API_KEY=sk-ant-…' > .env    # omit for the offline FakeProvider
