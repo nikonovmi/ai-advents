@@ -1,12 +1,7 @@
 # first-agent
 
 A chat app with layered memory and an explicit task lifecycle. Node + Express,
-vanilla front end, no build step. Project rules are documented separately in
-[INVARIANTS.md](INVARIANTS.md).
-
-
-https://github.com/user-attachments/assets/254e0ee4-0793-47af-ace8-2cbe4c3ab3c5
-
+vanilla front end, no build step.
 
 ```bash
 npm install
