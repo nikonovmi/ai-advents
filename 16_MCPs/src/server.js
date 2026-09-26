@@ -11,6 +11,9 @@ import { AnthropicProvider, FakeProvider } from "./llm/anthropic.js";
 import { estimateCost } from "./llm/pricing.js";
 import { forkFrom, isValidSessionId } from "./store/conversationStore.js";
 import { memoryRoutes } from "./memoryRoutes.js";
+import { McpClient, NOTION_MCP_URL } from "./mcp/mcpClient.js";
+import { mcpRoutes } from "./mcpRoutes.js";
+import { JsonMcpAuthStore } from "./store/mcpAuthStore.js";
 import { JsonFileStore } from "./store/jsonFileStore.js";
 import { MemoryStore } from "./store/memoryStore.js";
 import { DEFAULT_PROJECT, defaultInvariantStore, isValidProject } from "./store/invariantStore.js";
@@ -145,6 +148,16 @@ app.get("/vendor/:file", (req, res) => {
 app.use(
   memoryRoutes({ store, provider, profileStore, invariantStore, invalidate: (id) => sessions.delete(id) })
 );
+
+// One MCP server for now, connected on demand. The routes only see the seam;
+// the OAuth callback URL has to match the port the app is actually on.
+const mcp = new McpClient({
+  server: "notion",
+  url: process.env.NOTION_MCP_URL || NOTION_MCP_URL,
+  authStore: new JsonMcpAuthStore(),
+  redirectUrl: `http://localhost:${PORT}/mcp/oauth/callback`,
+});
+app.use(mcpRoutes({ mcp }));
 
 /**
  * Which agents exist — the dropdown in the title, built from the registry.
