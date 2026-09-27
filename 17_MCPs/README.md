@@ -1,5 +1,9 @@
 # Day 17 — a local MCP server, and an agent that calls it
 
+
+https://github.com/user-attachments/assets/4e906e3c-0944-41a9-853a-6710f7ca721f
+
+
 Two sibling Node projects that talk to each other over MCP (streamable HTTP):
 
 | project | port | role |
