@@ -1,5 +1,7 @@
 # Day 19 — composable pipelines
 
+https://github.com/user-attachments/assets/535ecbb6-002b-48fe-bb33-0724a5e87b5c
+
 A pipeline per chat: ordered steps, each feeding the next, run once or every N seconds.
 
 | project | port | role |
