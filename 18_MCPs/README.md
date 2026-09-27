@@ -1,5 +1,8 @@
 # Day 18 — scheduled agents
 
+https://github.com/user-attachments/assets/80823cc9-f8fb-4d48-aca4-5700f8a8a44c
+
+
 A periodic task per chat, backed by a scheduler MCP server with SQLite.
 
 | project | port | role |
