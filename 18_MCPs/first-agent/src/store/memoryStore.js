@@ -7,6 +7,7 @@ import {
   normaliseMessages,
   normaliseRecord,
   normaliseUsage,
+  explicitTitle,
   titleFrom,
   UNTITLED,
 } from "./conversationStore.js";
@@ -41,7 +42,8 @@ export class MemoryStore extends ConversationStore {
       // title**, and a record saved before its first message carries one, so
       // it is re-derived until there is something real to derive it from.
       // That also heals any conversation already stuck with the placeholder.
-      title: existing?.title && existing.title !== UNTITLED ? existing.title : titleFrom(turns),
+      // An explicit title (a scheduled chat's prompt) wins over both.
+      title: explicitTitle(extra?.title) ?? (existing?.title && existing.title !== UNTITLED ? existing.title : titleFrom(turns)),
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
       usage: usage ? normaliseUsage(usage) : (existing?.usage ?? emptyUsage()),

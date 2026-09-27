@@ -40,6 +40,15 @@ const AGENT_PATTERN = /^[a-z0-9][a-z0-9_-]{0,63}$/;
  * @property {string[]} [mcpServers] - Ids from `src/mcp/servers.js` whose
  *   tools this agent may call. Omitted means none: the agent is sent no tools
  *   and behaves exactly as it did before tools existed.
+ * @property {"chat" | "scheduled"} [kind] - `chat` (the default) is a
+ *   conversation: you type, it answers, with memory and the task lifecycle.
+ *   `scheduled` is a periodic task per chat: each chat holds one schedule and
+ *   the chat is a read-only feed of its runs. Every run starts from a fresh
+ *   context — the persona, the chat's prompt, the tools — and skips memory,
+ *   extraction and the lifecycle entirely.
+ * @property {Record<string, string[]>} [tools] - For a scheduled agent, the
+ *   only tools its model is offered, per server. Everything else a server
+ *   has — the scheduler's app-only tools above all — never reaches it.
  */
 
 /** @type {AgentDefinition[]} */
@@ -84,6 +93,23 @@ const AGENTS = [
       "Keep replies short and conversational; a small Markdown table is welcome when comparing films.",
     ].join(" "),
   },
+  {
+    id: "movie-picker",
+    name: "Movie picker",
+    tagline: "a periodic task per chat",
+    kind: "scheduled",
+    mcpServers: ["omdb", "scheduler"],
+    // No task prompt here: each chat sets its own, in the Schedule panel.
+    tools: {
+      omdb: ["random_movie", "get_movie", "search_movies"],
+      scheduler: ["record", "aggregate"],
+    },
+    systemPrompt: [
+      "You run unattended on a schedule: nobody is reading along live, and nobody can answer a question.",
+      "Do exactly what the task asks, using the tools, then reply with only the result it asks for — no preamble,",
+      "no offers of further help. Base every fact on what the tools returned. If a tool fails, say so in one line.",
+    ].join(" "),
+  },
 ];
 
 const BY_ID = new Map(AGENTS.map((agent) => [agent.id, agent]));
@@ -119,10 +145,25 @@ export function agentFor(id) {
   return BY_ID.get(agentOf(id));
 }
 
+/** `chat` or `scheduled`. Anything unknown is a chat, which is what every agent was before. */
+export function kindOf(id) {
+  return agentFor(id).kind === "scheduled" ? "scheduled" : "chat";
+}
+
+/**
+ * Whether a conversation of this agent is a schedule's feed. Unlike `agentFor`
+ * it does not fall back to the default: an unknown id is not a scheduled agent.
+ *
+ * @param {unknown} id
+ */
+export function isScheduledAgent(id) {
+  return isValidAgent(id) && kindOf(id) === "scheduled";
+}
+
 /**
  * Every agent, for the dropdown. Without the system prompt: the browser has no
  * use for it, and a persona is not something to ship to the client.
  */
 export function agentCatalog() {
-  return AGENTS.map(({ id, name, tagline, mcpServers = [] }) => ({ id, name, tagline, mcpServers }));
+  return AGENTS.map(({ id, name, tagline, mcpServers = [] }) => ({ id, name, tagline, mcpServers, kind: kindOf(id) }));
 }

@@ -6,7 +6,7 @@ import "dotenv/config";
 import express from "express";
 
 import { Agent } from "./agent.js";
-import { DEFAULT_AGENT, agentCatalog, agentOf, isValidAgent } from "./agents.js";
+import { DEFAULT_AGENT, agentCatalog, agentOf, isScheduledAgent, isValidAgent } from "./agents.js";
 import { AnthropicProvider, FakeProvider } from "./llm/anthropic.js";
 import { estimateCost } from "./llm/pricing.js";
 import { forkFrom, isValidSessionId } from "./store/conversationStore.js";
@@ -14,6 +14,10 @@ import { memoryRoutes } from "./memoryRoutes.js";
 import { McpRegistry } from "./mcp/servers.js";
 import { McpToolbox } from "./mcp/toolbox.js";
 import { mcpRoutes } from "./mcpRoutes.js";
+import { scheduleRoutes } from "./scheduleRoutes.js";
+import { SchedulerClient } from "./scheduler/client.js";
+import { ScheduledRunner } from "./scheduler/runner.js";
+import { DEFAULT_TICK_MS, Ticker } from "./scheduler/ticker.js";
 import { JsonMcpAuthStore } from "./store/mcpAuthStore.js";
 import { JsonFileStore } from "./store/jsonFileStore.js";
 import { MemoryStore } from "./store/memoryStore.js";
@@ -70,6 +74,14 @@ const toolbox = new McpToolbox({ registry: mcpRegistry });
 // not a blank slate. That is what lets a conversation survive a restart.
 /** @type {Map<string, Agent>} */
 const sessions = new Map();
+
+// Scheduled agents: the scheduler server called from code (never by a model),
+// a runner that turns one claimed run into one message, and the plain-code
+// ticker that claims due runs. A run writes to the store directly, so it drops
+// any cached Agent for that conversation, which would otherwise be stale.
+const scheduler = new SchedulerClient({ mcp: mcpRegistry.get("scheduler") });
+const runner = new ScheduledRunner({ provider, store, toolbox, onAppended: (id) => sessions.delete(id) });
+const ticker = new Ticker({ scheduler, runner, intervalMs: Number(process.env.SCHEDULER_TICK_MS) || DEFAULT_TICK_MS });
 
 function createProvider() {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -166,6 +178,10 @@ app.use(
 );
 
 app.use(mcpRoutes({ registry: mcpRegistry }));
+
+// Before the chat routes on purpose: it answers POST /chat, fork and delete for
+// a scheduled chat, and hands everything else on.
+app.use(scheduleRoutes({ store, scheduler, invalidate: (id) => sessions.delete(id) }));
 
 /**
  * Which agents exist — the dropdown in the title, built from the registry.
@@ -419,6 +435,20 @@ app.get("/conversations/:id", async (req, res) => {
   }
 
   try {
+    // A scheduled chat is a feed read straight from the store: no Agent, no
+    // strategy, no memory panel. The runner is the only thing that writes it.
+    const record = await store.load(id);
+    const scheduledId = record ? record.agentId : isScheduledAgent(req.query?.agent) ? agentOf(req.query.agent) : null;
+    if (scheduledId && isScheduledAgent(scheduledId)) {
+      return res.json({
+        messages: record?.messages ?? [],
+        agentId: scheduledId,
+        kind: "scheduled",
+        forkedFrom: null,
+        panel: { kind: "scheduled" },
+      });
+    }
+
     const agent = await agentSession(id, req.query?.agent);
 
     // A conversation nobody has spoken in yet is a real state here too — the
@@ -619,4 +649,7 @@ function readableError(err) {
 
 app.listen(PORT, () => {
   console.log(`first-agent listening on http://localhost:${PORT}`);
+  // The ticker starts with the server; a scheduler that is not up yet is
+  // logged once and waited for.
+  ticker.start();
 });

@@ -32,6 +32,7 @@ starts; every tool call answers `isError: true` with instructions.
 ```bash
 npm start      # OMDb MCP server listening at http://127.0.0.1:3001/mcp
 npm test       # node:test, fetch stubbed — no key, no network
+npm run validate:top500   # manual: checks src/top500.js against OMDb (~500 of 1,000 daily requests)
 ```
 
 `PORT` overrides 3001. From `../first-agent`:
@@ -47,10 +48,13 @@ npm run mcp:call -- omdb get_movie '{"title":"Inception"}'
 | --- | --- | --- |
 | `search_movies` | `query` (title words), `year?`, `type?` (`movie` \| `series` \| `episode`), `page?` (1–100) | `{ results: [{ title, year, imdbId, type }] ≤ 10, totalResults }` |
 | `get_movie` | exactly one of `imdbId` \| `title`; `year?`, `plot?` (`short` \| `full`) | `{ title, year, runtimeMinutes, genres[], director, actors[], plot, imdbRating, ratings[], imdbId }` |
-| `random_movie` | `genre?` | same as `get_movie`, for a title from a curated list of 32 classics |
+| `random_movie` | none | `{ n, pickedAt, ...get_movie }` for one of 500 well-known, highly rated films |
 
 Results are normalized JSON: `"148 min"` → `148`, `"8.8"` → `8.8`, `"N/A"` → `null`
 (or `[]` for lists). Each result is JSON text content plus `structuredContent`.
+
+`random_movie` picks `n = hash(Date.now()) % 500` (multiplicative hash, high half
+folded down so 15 s ticks spread over all 500).
 
 Failures are `isError: true` with a readable sentence, never a crash: invalid input
 (including both or neither of `imdbId`/`title`), OMDb's own
@@ -65,6 +69,6 @@ src/
   tools.js         zod schemas, handlers, registerTool ×3, toolResult()
   omdbClient.js    the only code that talks to OMDb: one GET, timeout, OmdbError
   normalize.js     OMDb's strings → numbers, arrays and nulls
-  curated.js       the random_movie pool (OMDb has no random endpoint)
+  top500.js        the random_movie pool: 500 IMDb ids (OMDb has no random endpoint)
   tools.test.js    offline tests: normalization, validation, error mapping, over MCP
 ```

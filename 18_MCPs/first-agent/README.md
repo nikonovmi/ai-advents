@@ -11,7 +11,7 @@ npm start                                   # http://localhost:3000
 
 | script | does |
 | --- | --- |
-| `npm test` | 180 tests; stubs, no key, no network |
+| `npm test` | 214 tests; stubs, no key, no network |
 | `npm run lifecycle` | one task through every stage (`-- --fake` offline) |
 | `npm run scenario` | recall: 5 planted facts over 15 turns, plus the bill |
 | `npm run compare` | one message against several profiles or rule sets |
@@ -40,6 +40,8 @@ src/
   memoryRoutes.js        the memory and task routes
   mcpRoutes.js           the MCP routes, per server: status, connect, tools, disconnect; the OAuth callback
   agent.js               one conversation: run() → one turn
+  toolLoop.js            model → tools → model, shared by Agent and the runner
+  scheduleRoutes.js      schedule routes; guards for scheduled chats
   agents.js              the agent registry (persona per agent)
   summarizer.js          the digest fold
   context/
@@ -56,6 +58,7 @@ src/
     mcpClient.js         McpClient: connect, listTools (paged), callTool, close
     toolbox.js           McpToolbox: tools as omdb__get_movie, call → { ok, text }
     oauthProvider.js     the SDK's OAuthClientProvider, backed by the store
+  scheduler/             client, ticker, runner, tool scope
   store/
     conversationStore.js record shape, read-time migration, forkFrom
     jsonFileStore.js     data/conversations/<uuid>.json
@@ -126,6 +129,25 @@ and the record wins over the dropdown, so reopening a chat never repoints it.
 A **fork** is a new conversation: new id, the transcript up to the forked
 message, a deep copy of `memory`, and `forkedFrom` for provenance. There are no
 branches.
+---
+
+## Scheduled agents
+
+A `kind: "scheduled"` agent (**Movie picker**) treats each chat as one periodic task,
+backed by [`../scheduler_mcp_server`](../scheduler_mcp_server).
+
+- **Ticker** (`src/scheduler/ticker.js`): every `SCHEDULER_TICK_MS` (15000), no LLM:
+  `claim_due_runs` → runner → `finish_run`. Scheduler down: logged once, tick skipped.
+- **Runner** (`src/scheduler/runner.js`): persona + the chat's prompt, never the
+  history; the shared tool loop (`src/toolLoop.js`, max 5 rounds); appends exactly one
+  message with `toolCalls` and `run: { runId, durationMs, tokens }`. No strategy,
+  lifecycle or extraction.
+- **Tools**: per-agent allowlist; `scheduleId` is hidden from the model and injected
+  by the app (`src/scheduler/scope.js`).
+- **Lifecycle**: creating a chat creates its schedule (off, 60 s, no prompt); deleting
+  it deletes the schedule. `POST /chat` → 400, fork refused.
+- **UI**: no composer, strip or fork; the feed polls every 5 s; the right panel shows
+  the schedule form, Run now, a countdown, the last 10 runs and the aggregate.
 
 ---
 
@@ -138,6 +160,7 @@ through the official `@modelcontextprotocol/sdk` over streamable HTTP:
 | --- | --- | --- | --- |
 | `notion` | Notion | `https://mcp.notion.com/mcp` (`NOTION_MCP_URL`) | `oauth` — SSE fallback, login below |
 | `omdb` | OMDb | `http://127.0.0.1:3001/mcp` (`OMDB_MCP_URL`) | `none` — [`../imdb_mcp_server`](../imdb_mcp_server) |
+| `scheduler` | Scheduler | `http://127.0.0.1:3002/mcp` (`SCHEDULER_MCP_URL`) | `none` — [`../scheduler_mcp_server`](../scheduler_mcp_server) |
 
 A server with `auth: "none"` never produces an `authUrl`. One that cannot be reached
 is `{ ok: false, connected: false, error }` — "is it running?", not a 500.
@@ -190,11 +213,15 @@ Connect button (the callback is a route on the running app).
 | route | does |
 | --- | --- |
 | `POST /chat` | one turn; `agent`, `profile`, `project`, window and ceiling |
+| `POST /conversations` | create a chat for `agent` (and its schedule) |
 | `GET /conversations` | the list; `?agent=` scopes it |
 | `GET /conversations/:id` | transcript and panel |
+| `GET`/`PUT /conversations/:id/schedule` | `{ enabled, intervalSeconds (≥ 15), prompt }` |
+| `POST /conversations/:id/schedule/run-now` | due on the next tick |
+| `GET /conversations/:id/runs` | last runs |
 | `POST /conversations/:id/fork` | split at a message |
 | `GET /conversations/:id/usage` | per-turn and cumulative cost |
-| `DELETE /conversations/:id` | delete it |
+| `DELETE /conversations/:id` | delete it (and its schedule) |
 | `POST /reset` | clear a conversation in place |
 | `GET /agents`, `/profiles`, `/projects` | the pickers, from their owners |
 | `GET /profiles/:id` | one profile, as stored |

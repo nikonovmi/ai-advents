@@ -24,7 +24,7 @@ import { projectOf } from "./invariantStore.js";
  * @typedef {Message & { id: string, tokens?: TurnTokens, strategy?: TurnStrategy }} StoredMessage
  * @typedef {{ totalInputTokens: number, totalOutputTokens: number, totalCostUsd: number, turnCount: number, overheadInputTokens: number, overheadOutputTokens: number, overheadCostUsd: number, overheadCalls: number }} ConversationUsage
  * @typedef {{ conversationId: string, messageId: string }} ForkOrigin
- * @typedef {{ memory?: object, project?: string, agentId?: string, forkedFrom?: ForkOrigin | null }} ConversationExtra
+ * @typedef {{ memory?: object, project?: string, agentId?: string, forkedFrom?: ForkOrigin | null, title?: string }} ConversationExtra
  * @typedef {{ id: string, title: string, createdAt: string, updatedAt: string, usage: ConversationUsage, project: string, agentId: string, forkedFrom: ForkOrigin | null, memory: object, messages: StoredMessage[] }} Conversation
  * @typedef {{ id: string, title: string, updatedAt: string, messageCount: number, agentId: string, forkedFrom: ForkOrigin | null, totalCostUsd: number }} ConversationSummary
  */
@@ -92,6 +92,17 @@ export function isValidSessionId(id) {
 }
 
 const TITLE_MAX = 40;
+
+/**
+ * A title given outright rather than derived — a scheduled chat has no user
+ * message to derive one from, so it is named after its prompt. Cut to the
+ * same length a derived one is.
+ */
+export function explicitTitle(value) {
+  const text = typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
+  if (!text) return null;
+  return text.length > TITLE_MAX ? text.slice(0, TITLE_MAX - 1).trimEnd() + "…" : text;
+}
 
 /**
  * Derive a conversation title from its first user message. Shared by the
@@ -208,6 +219,17 @@ export function normaliseMessages(messages) {
       }));
     }
     if (message.toolRoundsExceeded) stored.toolRoundsExceeded = true;
+    // Which scheduled run posted this message, when a schedule did.
+    if (message.run && typeof message.run === "object") {
+      const { runId, durationMs, tokens, ok, error } = message.run;
+      stored.run = {
+        runId: Number(runId),
+        durationMs: typeof durationMs === "number" ? durationMs : null,
+        tokens: typeof tokens === "number" ? tokens : null,
+        ok: ok !== false,
+        ...(typeof error === "string" && error ? { error } : {}),
+      };
+    }
     if (Array.isArray(message.toolsUnavailable) && message.toolsUnavailable.length) {
       stored.toolsUnavailable = message.toolsUnavailable.map(({ server, error }) => ({ server: String(server), error: String(error) }));
     }

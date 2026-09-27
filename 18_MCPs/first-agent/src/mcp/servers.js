@@ -17,6 +17,7 @@ import { DEFAULT_REDIRECT_URL } from "./oauthProvider.js";
  */
 
 export const OMDB_MCP_URL = "http://127.0.0.1:3001/mcp";
+export const SCHEDULER_MCP_URL = "http://127.0.0.1:3002/mcp";
 
 /**
  * Read at call time, not import time, so `.env` has been loaded by then.
@@ -28,6 +29,9 @@ export function mcpServerDefinitions(env = process.env) {
   return [
     { id: "notion", name: "Notion", url: env.NOTION_MCP_URL || NOTION_MCP_URL, auth: "oauth" },
     { id: "omdb", name: "OMDb", url: env.OMDB_MCP_URL || OMDB_MCP_URL, auth: "none" },
+    // Mostly called by the app's own code (the ticker and the schedule
+    // routes); a scheduled agent's model sees only an allowlisted pair.
+    { id: "scheduler", name: "Scheduler", url: env.SCHEDULER_MCP_URL || SCHEDULER_MCP_URL, auth: "none" },
   ];
 }
 

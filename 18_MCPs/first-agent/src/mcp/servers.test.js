@@ -5,7 +5,7 @@ import express from "express";
 
 import { mcpRoutes } from "../mcpRoutes.js";
 import { MemoryMcpAuthStore } from "../store/mcpAuthStore.js";
-import { McpRegistry, OMDB_MCP_URL, mcpServerDefinitions } from "./servers.js";
+import { McpRegistry, OMDB_MCP_URL, SCHEDULER_MCP_URL, mcpServerDefinitions } from "./servers.js";
 import { McpToolbox, prefixedName } from "./toolbox.js";
 
 /**
@@ -89,17 +89,21 @@ function quietly(t) {
 
 // ---- the registry ----------------------------------------------------------
 
-test("the default registry has Notion (oauth) and OMDb (none), with URL overrides", () => {
+test("the default registry has Notion (oauth), OMDb and Scheduler (none), with URL overrides", () => {
   const defaults = mcpServerDefinitions({});
   assert.deepEqual(
     defaults.map(({ id, name, auth }) => ({ id, name, auth })),
     [
       { id: "notion", name: "Notion", auth: "oauth" },
       { id: "omdb", name: "OMDb", auth: "none" },
+      { id: "scheduler", name: "Scheduler", auth: "none" },
     ]
   );
   assert.equal(defaults[1].url, OMDB_MCP_URL);
+  assert.equal(defaults[2].url, SCHEDULER_MCP_URL);
+  assert.equal(SCHEDULER_MCP_URL, "http://127.0.0.1:3002/mcp");
   assert.equal(mcpServerDefinitions({ OMDB_MCP_URL: "http://127.0.0.1:4000/mcp" })[1].url, "http://127.0.0.1:4000/mcp");
+  assert.equal(mcpServerDefinitions({ SCHEDULER_MCP_URL: "http://127.0.0.1:4002/mcp" })[2].url, "http://127.0.0.1:4002/mcp");
 });
 
 test("a registry refuses the same id twice", () => {

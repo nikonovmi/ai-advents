@@ -2,15 +2,12 @@ import { DEFAULT_AGENT, agentFor, agentOf, isValidAgent } from "./agents.js";
 import { DEFAULT_STRATEGY, createStrategy, isStrategyId } from "./context/index.js";
 import { exchangeStarts, takeLastExchanges } from "./context/boundaries.js";
 import { estimateCost } from "./llm/pricing.js";
-import { LlmError } from "./llm/provider.js";
 import { emptyUsage, memoryOf, nextMessageId } from "./store/conversationStore.js";
+import { completeWithRetry, runToolLoop } from "./toolLoop.js";
 
-const RETRY_DELAYS_MS = [500, 1000, 2000];
-/** Model → tools → model, at most this many times in one turn. */
-export const MAX_TOOL_ROUNDS = 5;
-export const TOOL_ROUNDS_FALLBACK =
-  `I looked things up ${MAX_TOOL_ROUNDS} times without reaching an answer, so I stopped there. ` +
-  "Try a narrower question, or name the exact title (and year) you mean.";
+// Where they have always been imported from; the loop itself now lives in
+// `toolLoop.js`, shared with the scheduled runner.
+export { MAX_TOOL_ROUNDS, TOOL_ROUNDS_FALLBACK } from "./toolLoop.js";
 
 /**
  * A conversational agent: it owns a persona and one conversation's history,
@@ -570,14 +567,10 @@ export class Agent {
    * **One answer, however many model calls it takes.**
    *
    * An agent without MCP servers makes exactly the one call it always made.
-   * One with them offers its tools; while the model stops on `tool_use`, each
-   * requested tool is run, the assistant's blocks and the results go on the
-   * end of *this call's* message list, and the model is asked again. A tool
-   * that failed goes back as `isError`, so the model can say so or try
-   * something else. After `MAX_TOOL_ROUNDS` rounds the loop stops with a
-   * fallback sentence rather than asking forever.
-   *
-   * The extended messages live only here. The history gets the final text.
+   * One with them offers its tools and goes round the shared tool loop
+   * (`toolLoop.js`): tool_use → tool_result → model, at most
+   * `MAX_TOOL_ROUNDS` times. The extended messages live only in there. The
+   * history gets the final text.
    */
   async #answer({ system, messages }) {
     const servers = this.mcpServers;
@@ -586,103 +579,40 @@ export class Agent {
     for (const { server, error } of offered.unavailable) {
       console.warn(`[agent] MCP server "${server}" is unavailable this turn: ${error}`);
     }
-    const tools = offered.tools.length ? offered.tools : undefined;
 
-    let wire = messages;
-    let result = await this.#callWithRetry({ system, messages: wire, tools });
-    const usage = { inputTokens: result.usage?.inputTokens ?? null, outputTokens: result.usage?.outputTokens ?? null };
-    const toolCalls = [];
-    let rounds = 0;
-    let capped = false;
-
-    while (tools && result.stopReason === "tool_use") {
-      const uses = (result.content ?? []).filter((block) => block.type === "tool_use");
-      if (!uses.length) break;
-      if (rounds === MAX_TOOL_ROUNDS) {
-        capped = true;
-        break;
-      }
-      rounds += 1;
-
-      const results = [];
-      for (const use of uses) {
-        const call = await this.#toolbox.call(use.name, use.input);
-        toolCalls.push({
-          server: call.server,
-          tool: call.tool,
-          input: use.input ?? {},
-          ok: call.ok,
-          resultPreview: call.preview,
-          ms: call.ms,
-        });
-        results.push({ type: "tool_result", toolUseId: use.id, content: call.text, ...(call.ok ? {} : { isError: true }) });
-      }
-
-      wire = [...wire, { role: "assistant", content: result.content }, { role: "user", content: results }];
-      result = await this.#callWithRetry({ system, messages: wire, tools });
-      usage.inputTokens = addCounts(usage.inputTokens, result.usage?.inputTokens);
-      usage.outputTokens = addCounts(usage.outputTokens, result.usage?.outputTokens);
-    }
-
-    if (capped) {
-      const said = result.text?.trim();
-      result = { ...result, text: said ? `${said}\n\n${TOOL_ROUNDS_FALLBACK}` : TOOL_ROUNDS_FALLBACK };
-    }
-
-    return {
-      result,
-      usage,
-      toolCalls,
-      toolRounds: rounds,
-      toolsCapped: capped,
-      toolsUnavailable: offered.unavailable,
-    };
+    const loop = await runToolLoop({
+      complete: (request) => this.#callWithRetry(request),
+      system,
+      messages,
+      tools: offered.tools,
+      call: (name, input) => this.#toolbox.call(name, input),
+    });
+    return { ...loop, toolsUnavailable: offered.unavailable };
   }
 
   /**
    * Up to three attempts, backing off on failures that are worth retrying
    * (rate limits and server-side errors). Everything else fails immediately.
    */
-  async #callWithRetry({ system, messages, tools }) {
-    let lastError;
-
-    for (let attempt = 0; attempt < RETRY_DELAYS_MS.length; attempt++) {
-      try {
-        return await this.#provider.complete({
-          system,
-          messages,
-          temperature: this.temperature,
-          maxTokens: this.maxTokens,
-          // Absent unless the agent asks for one, and the provider reads that
-          // as "your default" rather than as a missing argument.
-          model: this.model,
-          // Absent unless the agent opted into MCP servers — the call is then
-          // byte-for-byte the one it was before tools.
-          ...(tools ? { tools } : {}),
-        });
-      } catch (err) {
-        lastError = err;
-        const retryable =
-          err instanceof LlmError && (err.status === 429 || err.status >= 500);
-        const attemptsLeft = attempt < RETRY_DELAYS_MS.length - 1;
-        if (!retryable || !attemptsLeft) throw err;
-        await sleep(RETRY_DELAYS_MS[attempt]);
-      }
-    }
-
-    throw lastError;
+  #callWithRetry({ system, messages, tools }) {
+    return completeWithRetry(this.#provider, {
+      system,
+      messages,
+      temperature: this.temperature,
+      maxTokens: this.maxTokens,
+      // Absent unless the agent asks for one, and the provider reads that
+      // as "your default" rather than as a missing argument.
+      model: this.model,
+      // Absent unless the agent opted into MCP servers — the call is then
+      // byte-for-byte the one it was before tools.
+      ...(tools ? { tools } : {}),
+    });
   }
 }
 
 /** Adds two counts, but only if we actually have both. */
 function sum(a, b) {
   return typeof a === "number" && typeof b === "number" ? a + b : null;
-}
-
-/** Adds two counts where either may be unknown; both unknown stays unknown. */
-function addCounts(a, b) {
-  if (typeof a !== "number" && typeof b !== "number") return null;
-  return (a ?? 0) + (b ?? 0);
 }
 
 /** Subtracts two counts, but only if we actually have both. */
@@ -705,8 +635,4 @@ function mergeUsage(a, b) {
     inputTokens: (a?.inputTokens ?? 0) + (b?.inputTokens ?? 0),
     outputTokens: (a?.outputTokens ?? 0) + (b?.outputTokens ?? 0),
   };
-}
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

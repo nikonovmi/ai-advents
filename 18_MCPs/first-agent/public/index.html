@@ -1309,6 +1309,93 @@
     overflow-wrap: anywhere;
   }
 
+  /* ---- scheduled agents -------------------------------------------------- */
+
+  /* A scheduled agent's chat is a read-only feed of runs: nothing to type, no
+     task to stage, nothing to fork, and none of the controls that decide what
+     a conversation sends. The right column swaps the memory layers for the
+     schedule. One attribute on <body> decides all of it. */
+  body[data-kind="scheduled"] #composer,
+  body[data-kind="scheduled"] #stage-strip,
+  body[data-kind="scheduled"] .meta .fork,
+  body[data-kind="scheduled"] #window-text,
+  body[data-kind="scheduled"] #panel-toggle,
+  body[data-kind="scheduled"] #panel-body,
+  body[data-kind="scheduled"] .topbar .chat-only { display: none !important; }
+
+  .schedule-panel { display: none; }
+  body[data-kind="scheduled"] .schedule-panel {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px 14px 18px;
+    font-size: 11.5px;
+    line-height: 1.45;
+    color: var(--muted);
+  }
+  .schedule-panel .sched-title,
+  .schedule-panel .sched-sub {
+    color: var(--ink);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+  }
+  .schedule-panel .sched-sub { margin-top: 8px; font-size: 10.5px; }
+  .schedule-panel .sched-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .schedule-panel label { display: flex; align-items: center; gap: 6px; color: var(--ink); }
+  .schedule-panel input[type="number"] {
+    width: 72px;
+    font: inherit;
+    color: var(--ink);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 3px 6px;
+  }
+  .schedule-panel textarea {
+    flex: none;
+    max-height: none;
+    min-height: 110px;
+    resize: vertical;
+    font-size: 12px;
+    background: var(--panel);
+  }
+  .schedule-panel .hint { margin: 0; font-size: 10.5px; }
+  .schedule-panel button { font-size: 11px; padding: 4px 10px; }
+  .schedule-panel .note { flex: 1; min-width: 0; }
+  .schedule-panel .note.error { color: #c0392b; }
+  .schedule-panel .next {
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel);
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .schedule-panel .next[data-state="off"] { color: var(--muted); }
+  .schedule-panel .next[data-state="running"] { border-color: var(--accent); }
+  .schedule-panel .aggregate { color: var(--ink); }
+  .schedule-panel .aggregate div + div { color: var(--muted); }
+  .schedule-panel .runs { list-style: none; margin: 0; padding: 0; }
+  .schedule-panel .runs li {
+    display: grid;
+    grid-template-columns: 14px 1fr auto;
+    gap: 2px 6px;
+    padding: 4px 0;
+    border-top: 1px dashed var(--line);
+    font-variant-numeric: tabular-nums;
+  }
+  .schedule-panel .runs li:first-child { border-top: none; }
+  .schedule-panel .runs .status[data-status="ok"] { color: #3a9a5b; }
+  .schedule-panel .runs .status[data-status="error"] { color: #c0392b; }
+  .schedule-panel .runs .status[data-status="running"] { color: var(--accent); }
+  .schedule-panel .runs .error { grid-column: 2 / -1; color: #c0392b; overflow-wrap: anywhere; }
+  .schedule-panel .empty-runs { font-style: italic; }
+
 </style>
 </head>
 <body>
@@ -1328,23 +1415,23 @@
       </h1>
       <span class="sub" id="agent-tagline"></span>
     </div>
-    <label class="picker" for="context-messages" title="How many exchanges are kept verbatim before the oldest are folded into the digest.">Window
+    <label class="picker chat-only" for="context-messages" title="How many exchanges are kept verbatim before the oldest are folded into the digest.">Window
       <input id="context-messages" type="number" min="2" max="100" step="1" value="10">
     </label>
-    <label class="picker" for="max-tokens">Max tokens
+    <label class="picker chat-only" for="max-tokens">Max tokens
       <select id="max-tokens">
         <option value="30">30</option>
         <option value="300">300</option>
         <option value="1024" selected>1024</option>
       </select>
     </label>
-    <div class="picker-group">
+    <div class="picker-group chat-only">
       <label class="picker" for="profile">Profile
         <select id="profile" title="Whose long-term memory this conversation reads and writes."></select>
       </label>
       <button class="picker-delete" id="delete-profile" type="button">&times;</button>
     </div>
-    <div class="picker-group">
+    <div class="picker-group chat-only">
       <label class="picker" for="project">Project
         <select id="project" title="Whose invariants this conversation is subject to. The rules belong to the codebase, not to you."></select>
       </label>
@@ -1387,6 +1474,27 @@
     <span class="badge" id="panel-badge" hidden>just updated</span>
   </button>
   <div class="summary-body" id="panel-body"></div>
+
+  <!-- A scheduled agent's chat: its schedule instead of the memory layers.
+       Every value here comes from the scheduler server, through the app. -->
+  <section class="schedule-panel" id="schedule-panel" aria-label="Schedule">
+    <div class="sched-line"><span class="sched-title">Schedule</span></div>
+    <label><input type="checkbox" id="sched-enabled"> Enabled</label>
+    <label for="sched-interval">Every <input id="sched-interval" type="number" min="15" step="1" value="60"> seconds</label>
+    <p class="hint">Minimum 15. Runs land on the 15-second tick, so an interval that is not a multiple of 15 rounds up: 20 s runs about every 30 s.</p>
+    <label for="sched-prompt">Prompt</label>
+    <textarea id="sched-prompt" rows="6" placeholder="What every run should do. Each run starts fresh: this prompt, the persona and the tools — never the chat history."></textarea>
+    <div class="sched-line">
+      <button id="sched-save" type="button">Save</button>
+      <button id="sched-run-now" type="button">Run now</button>
+      <span class="note" id="sched-note"></span>
+    </div>
+    <div class="next" id="sched-next" data-state="off"></div>
+    <div class="sched-sub">Recorded so far</div>
+    <div class="aggregate" id="sched-aggregate"></div>
+    <div class="sched-sub">Last 10 runs</div>
+    <ol class="runs" id="sched-runs"></ol>
+  </section>
 
   <!-- MCP: one section per registered server, built from /mcp/servers. An
        OAuth server's Connect opens the authorization page in a popup and
@@ -1569,6 +1677,25 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
   let invariantRows = [];
   let invariantDraft = "";
 
+  /**
+   * `chat` or `scheduled` — what the open conversation is, as the server said
+   * when it was painted. A scheduled agent's chat is a read-only feed of runs,
+   * and `<body data-kind>` is what hides the composer, the strip and the forks.
+   */
+  let chatKind = "chat";
+  /** How often an open feed asks for new runs. */
+  const SCHEDULE_POLL_MS = 5000;
+  let schedulePoll = null;
+  let countdownTimer = null;
+  /** The open chat's schedule, its last runs, and how far our clock is from the server's. */
+  let schedule = null;
+  let scheduleRuns = [];
+  let clockOffsetMs = 0;
+  /** Set while the form holds edits that have not been saved, so a poll does not overwrite them. */
+  let scheduleDirty = false;
+  /** How many stored messages the feed has drawn, so a poll appends only the new ones. */
+  let feedCount = 0;
+
   function storedProject() {
     try {
       return localStorage.getItem(PROJECT_KEY) || "default";
@@ -1604,7 +1731,10 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
   }
 
   function showEmptyState() {
-    messages.innerHTML = '<p class="empty">No messages yet — say hello.</p>';
+    messages.innerHTML =
+      chatKind === "scheduled"
+        ? '<p class="empty">No runs yet. Write a prompt, enable the schedule, and every run posts one line here.</p>'
+        : '<p class="empty">No messages yet — say hello.</p>';
   }
 
   function clearEmptyState() {
@@ -1683,6 +1813,8 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
     const { tokens, cost, model, ms } = meta;
     const strategy = strategyOf(meta);
     const parts = [];
+    // A scheduled run says which run it was; the runs list in the panel has the rest.
+    if (meta.run?.runId) parts.push("run #" + meta.run.runId);
     if (tokens?.input != null) {
       parts.push(formatTokens(tokens.input) + " in" + blockNote(strategy, turn));
     }
@@ -1758,7 +1890,8 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
       : "";
     // Forking is offered on the message, not in a dialogue box: "what if I had
     // said something else here" is a question about one specific message.
-    if (!error && id) line.appendChild(forkButton(id));
+    // Never on a scheduled feed: there is no conversation to continue from a run.
+    if (!error && id && chatKind !== "scheduled") line.appendChild(forkButton(id));
     if (!error) row.appendChild(line);
 
     messages.appendChild(row);
@@ -1967,7 +2100,12 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
     }
     renderAgentSelect();
 
+    // A scheduled agent's chats each hold a schedule, so switching to one
+    // opens its latest task instead of minting a new one every time.
+    if (kindOfAgent(agentId) === "scheduled") return openScheduledAgent();
+
     switchTo(crypto.randomUUID());
+    applyKind("chat");
     showEmptyState();
     resetPanel();
     renderPanel();
@@ -3679,6 +3817,11 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
    * so "why is this greyed out" has one answer rather than two that drift.
    */
   function renderStageStrip() {
+    if (chatKind === "scheduled") {
+      stageStrip.hidden = true;
+      stageStrip.innerHTML = "";
+      return;
+    }
     const view = panelView();
     const life = view.kind === "memory" ? view.lifecycle : null;
     if (!life) {
@@ -3961,6 +4104,11 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
   }
 
   function renderPanel() {
+    // A scheduled feed has no memory to draw; its column is the schedule.
+    if (chatKind === "scheduled") {
+      renderStageStrip();
+      return;
+    }
     const view = panelView();
     panelStats.innerHTML = "";
     const label = document.createElement("b");
@@ -4391,7 +4539,8 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
   async function send(prompt) {
     const fromStrip = typeof prompt === "string" && prompt.trim();
     const text = fromStrip ? prompt.trim() : input.value.trim();
-    if (!text || pending) return;
+    // Nothing is sent into a scheduled feed; the server would refuse it anyway.
+    if (!text || pending || chatKind === "scheduled") return;
 
     const userRow = addMessage("user", text, { prompted: Boolean(fromStrip) });
     if (!fromStrip) input.value = "";
@@ -4479,9 +4628,13 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
   });
 
   newButton.addEventListener("click", async () => {
+    // A scheduled agent's chat is created on the server, because creating it
+    // is what creates its schedule.
+    if (kindOfAgent(agentId) === "scheduled") return createScheduledChat();
     // A new conversation is just a new id — the old one stays on the server,
     // reachable from the sidebar. Nothing is reset.
     switchTo(crypto.randomUUID());
+    applyKind("chat");
     showEmptyState();
     resetPanel();
     renderPanel();
@@ -4553,6 +4706,7 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
     try {
       const res = await fetch("/conversations/" + id + pickerQuery());
       if (!res.ok) {
+        applyKind("chat");
         resetPanel();
         renderPanel();
         return showEmptyState();
@@ -4560,6 +4714,7 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
 
       const record = await res.json();
       forkedFrom = record.forkedFrom ?? null;
+      applyKind(record.kind === "scheduled" ? "scheduled" : "chat");
       // A conversation names its own agent, and reopening it follows that
       // rather than dragging it to whichever one the dropdown was left on.
       if (record.agentId && record.agentId !== agentId) {
@@ -4577,6 +4732,15 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
       renderPanel();
 
       const turns = record.messages ?? [];
+      if (chatKind === "scheduled") {
+        feedCount = 0;
+        schedule = null;
+        scheduleDirty = false;
+        loadSchedule({ fillForm: true });
+        if (!turns.length) return showEmptyState();
+        appendFeed(turns);
+        return;
+      }
       if (!turns.length) return showEmptyState();
       for (const turn of turns) {
         // Stored messages carry the counts of the turn that produced them, so
@@ -4594,6 +4758,7 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
       markTransitions(panelState.lifecycle);
       resumeBanner(panelState.lifecycle);
     } catch (err) {
+      applyKind("chat");
       resetPanel();
       renderPanel();
       showEmptyState();
@@ -4667,6 +4832,7 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
           // Refreshing below will show whether it actually went away.
         }
         if (item.id === sessionId) {
+          if (chatKind === "scheduled") return openScheduledAgent();
           switchTo(crypto.randomUUID());
           resetPanel();
           showEmptyState();
@@ -4699,6 +4865,311 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
       localStorage.setItem(CONTROLS_OPEN_KEY, chartPanel.open ? "1" : "0");
     } catch (err) {
       // Not remembering the preference does not break using it.
+    }
+  });
+
+  // ---- scheduled agents ----------------------------------------------------
+  // A scheduled agent's chat is one periodic task. The server's ticker runs
+  // it; this page only configures it and watches: the transcript is polled
+  // every few seconds so new runs appear live, and the right column shows the
+  // schedule, a countdown, the last runs and what has been recorded.
+
+  const schedEnabled = document.getElementById("sched-enabled");
+  const schedInterval = document.getElementById("sched-interval");
+  const schedPrompt = document.getElementById("sched-prompt");
+  const schedSave = document.getElementById("sched-save");
+  const schedRunNow = document.getElementById("sched-run-now");
+  const schedNote = document.getElementById("sched-note");
+  const schedNext = document.getElementById("sched-next");
+  const schedAggregate = document.getElementById("sched-aggregate");
+  const schedRunsList = document.getElementById("sched-runs");
+
+  function kindOfAgent(id) {
+    return agents.find((agent) => agent.id === id)?.kind === "scheduled" ? "scheduled" : "chat";
+  }
+
+  /** Switch the page between a conversation and a feed, and start or stop watching. */
+  function applyKind(kind) {
+    chatKind = kind;
+    document.body.dataset.kind = kind;
+    newButton.querySelector(".full").textContent = kind === "scheduled" ? "New task" : "New conversation";
+    newButton.title = kind === "scheduled" ? "Start another periodic task with this agent" : "Start a new conversation with this agent";
+    clearInterval(schedulePoll);
+    clearInterval(countdownTimer);
+    schedulePoll = null;
+    countdownTimer = null;
+    if (kind === "scheduled") {
+      schedulePoll = setInterval(pollFeed, SCHEDULE_POLL_MS);
+      countdownTimer = setInterval(renderNextRun, 1000);
+    } else {
+      schedule = null;
+      scheduleRuns = [];
+    }
+  }
+
+  /** The agent's most recent task, or a new one if it has none. */
+  async function openScheduledAgent() {
+    let list = [];
+    try {
+      const res = await fetch("/conversations?agent=" + encodeURIComponent(agentId));
+      if (res.ok) list = await res.json();
+    } catch (err) {
+      // Falls through to creating one, which reports its own failure.
+    }
+    if (!list.length) return createScheduledChat();
+    switchTo(list[0].id);
+    resetPanel();
+    await paintTranscript(list[0].id);
+    refreshConversations();
+    refreshUsage();
+  }
+
+  async function createScheduledChat() {
+    try {
+      const res = await fetch("/conversations", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ agent: agentId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return alert(data.error ?? "Could not create the task.");
+      switchTo(data.id);
+      resetPanel();
+      await paintTranscript(data.id);
+      refreshConversations();
+      refreshUsage();
+      schedPrompt.focus();
+    } catch (err) {
+      alert("Could not reach the server.");
+    }
+  }
+
+  /** Draw stored messages the feed has not drawn yet. */
+  function appendFeed(turns) {
+    const fresh = turns.slice(feedCount);
+    if (!fresh.length) return 0;
+    for (const turn of fresh) {
+      addMessage("agent", turn.content, {
+        meta: turn.tokens ? turn : null,
+        id: turn.id,
+        error: turn.run?.ok === false,
+      });
+    }
+    feedCount = turns.length;
+    return fresh.length;
+  }
+
+  /** Every few seconds while a feed is open: new runs, and the panel. */
+  async function pollFeed() {
+    if (chatKind !== "scheduled" || document.hidden) return;
+    const id = sessionId;
+    try {
+      const res = await fetch("/conversations/" + id);
+      if (!res.ok || id !== sessionId || chatKind !== "scheduled") return;
+      const record = await res.json();
+      if (appendFeed(record.messages ?? [])) {
+        refreshUsage();
+        refreshConversations();
+      }
+    } catch (err) {
+      // The next poll will try again.
+    }
+    loadSchedule();
+  }
+
+  /**
+   * The schedule, the last runs and the aggregate, from the server.
+   *
+   * @param {{ fillForm?: boolean }} [options] - Overwrite the form even if it
+   *   has unsaved edits. Only a fresh open does; a poll never throws away
+   *   something half-typed.
+   */
+  async function loadSchedule({ fillForm = false } = {}) {
+    const id = sessionId;
+    try {
+      const [scheduleRes, runsRes] = await Promise.all([
+        fetch(`/conversations/${id}/schedule`),
+        fetch(`/conversations/${id}/runs?limit=10`),
+      ]);
+      if (id !== sessionId || chatKind !== "scheduled") return;
+      const data = await scheduleRes.json().catch(() => ({}));
+      if (!scheduleRes.ok) {
+        note(data.error ?? `Could not load the schedule (${scheduleRes.status}).`, true);
+        return;
+      }
+      schedule = data.schedule;
+      clockOffsetMs = Date.parse(data.now) - Date.now() || 0;
+      scheduleRuns = runsRes.ok ? ((await runsRes.json()).runs ?? []) : [];
+      if (fillForm || !scheduleDirty) fillScheduleForm();
+      if (schedNote.classList.contains("error") && /reach|scheduler/i.test(schedNote.textContent)) note("");
+      renderNextRun();
+      renderAggregate(data.aggregate);
+      renderRuns();
+    } catch (err) {
+      note("Could not reach the server.", true);
+    }
+  }
+
+  function fillScheduleForm() {
+    if (!schedule) return;
+    schedEnabled.checked = schedule.enabled;
+    schedInterval.value = String(schedule.intervalSeconds);
+    schedPrompt.value = schedule.prompt ?? "";
+    scheduleDirty = false;
+    schedRunNow.disabled = !schedule.enabled;
+    schedRunNow.title = schedule.enabled ? "Due now: the next tick runs it" : "Enable the schedule first — only enabled schedules run";
+  }
+
+  function note(text, error = false) {
+    schedNote.textContent = text;
+    schedNote.classList.toggle("error", error);
+  }
+
+  function formatWait(ms) {
+    const seconds = Math.ceil(ms / 1000);
+    if (seconds < 60) return `${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ${String(seconds % 60).padStart(2, "0")}s`;
+    return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
+  }
+
+  function clockTime(iso) {
+    return iso ? new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "";
+  }
+
+  /** The countdown, redrawn every second from the last known nextRunAt. */
+  function renderNextRun() {
+    if (chatKind !== "scheduled" || !schedule) {
+      schedNext.textContent = "";
+      return;
+    }
+    let state = "on";
+    let text;
+    if (!schedule.enabled) {
+      state = "off";
+      text = "Off — no runs are scheduled.";
+    } else if (scheduleRuns[0]?.status === "running") {
+      state = "running";
+      text = `Run #${scheduleRuns[0].id} is running…`;
+    } else {
+      const wait = Date.parse(schedule.nextRunAt) - (Date.now() + clockOffsetMs);
+      text = wait > 0 ? `Next run in ${formatWait(wait)}` : "Due — the next 15 s tick runs it.";
+    }
+    schedNext.dataset.state = state;
+    schedNext.textContent = text;
+  }
+
+  function renderAggregate(aggregate) {
+    schedAggregate.innerHTML = "";
+    if (!aggregate || !aggregate.invocations) {
+      schedAggregate.textContent = aggregate ? "Nothing recorded yet." : "No readout — the scheduler did not answer.";
+      return;
+    }
+    const head = document.createElement("div");
+    head.textContent = `${aggregate.invocations} recorded · ${aggregate.uniqueKeys} unique`;
+    schedAggregate.appendChild(head);
+    const lines = [
+      aggregate.mostRepeated ? `most repeated: ${aggregate.mostRepeated.label} ×${aggregate.mostRepeated.count}` : null,
+      aggregate.first ? `first: ${aggregate.first.label} at ${clockTime(aggregate.first.at)}` : null,
+      aggregate.last ? `last: ${aggregate.last.label} at ${clockTime(aggregate.last.at)}` : null,
+    ].filter(Boolean);
+    for (const line of lines) {
+      const row = document.createElement("div");
+      row.textContent = line;
+      schedAggregate.appendChild(row);
+    }
+  }
+
+  function renderRuns() {
+    schedRunsList.innerHTML = "";
+    if (!scheduleRuns.length) {
+      const empty = document.createElement("li");
+      empty.className = "empty-runs";
+      empty.textContent = "No runs yet.";
+      schedRunsList.appendChild(empty);
+      return;
+    }
+    for (const run of scheduleRuns) {
+      const row = document.createElement("li");
+      const status = document.createElement("span");
+      status.className = "status";
+      status.dataset.status = run.status;
+      status.textContent = run.status === "ok" ? "✓" : run.status === "error" ? "✗" : "…";
+      status.title = run.status;
+      const when = document.createElement("span");
+      when.textContent = `#${run.id} · ${clockTime(run.claimedAt)}`;
+      const facts = document.createElement("span");
+      facts.textContent = [
+        run.durationMs != null ? (run.durationMs / 1000).toFixed(1) + "s" : run.status === "running" ? "running" : null,
+        run.tokens != null ? formatTokens(run.tokens) + " tok" : null,
+      ].filter(Boolean).join(" · ");
+      row.append(status, when, facts);
+      if (run.error) {
+        const error = document.createElement("span");
+        error.className = "error";
+        error.textContent = run.error;
+        row.appendChild(error);
+      }
+      schedRunsList.appendChild(row);
+    }
+  }
+
+  /** Save the whole form. The toggle does the same, with the box's new state. */
+  async function saveSchedule() {
+    const body = {
+      enabled: schedEnabled.checked,
+      intervalSeconds: Math.round(Number(schedInterval.value)),
+      prompt: schedPrompt.value,
+    };
+    const id = sessionId;
+    schedSave.disabled = true;
+    try {
+      const res = await fetch(`/conversations/${id}/schedule`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (id !== sessionId) return;
+      if (!res.ok) {
+        // The box goes back to what the server has; the text stays for fixing.
+        if (schedule) schedEnabled.checked = schedule.enabled;
+        return note(data.error ?? `Could not save (${res.status}).`, true);
+      }
+      schedule = data.schedule;
+      clockOffsetMs = Date.parse(data.now) - Date.now() || 0;
+      fillScheduleForm();
+      note(schedule.enabled ? "Saved — running on schedule." : "Saved — the schedule is off.");
+      renderNextRun();
+      refreshConversations();
+    } catch (err) {
+      note("Could not reach the server.", true);
+    } finally {
+      schedSave.disabled = false;
+    }
+  }
+
+  schedSave.addEventListener("click", saveSchedule);
+  schedEnabled.addEventListener("change", saveSchedule);
+  for (const field of [schedInterval, schedPrompt]) {
+    field.addEventListener("input", () => {
+      scheduleDirty = true;
+      note("Unsaved changes.");
+    });
+  }
+
+  schedRunNow.addEventListener("click", async () => {
+    const id = sessionId;
+    try {
+      const res = await fetch(`/conversations/${id}/schedule/run-now`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (id !== sessionId) return;
+      if (!res.ok) return note(data.error ?? `Could not run it (${res.status}).`, true);
+      schedule = data.schedule;
+      note("Queued — the next tick (within 15 s) runs it.");
+      renderNextRun();
+    } catch (err) {
+      note("Could not reach the server.", true);
     }
   });
 
@@ -4937,7 +5408,15 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
   await loadProjects();
   renderPanel();
   renderWindowBanner();
+  const startingAgent = agentId;
   await paintTranscript(sessionId);
+  // The page was left on a scheduled agent but the stored id is not one of its
+  // chats (a fresh id, never saved): open its latest task instead.
+  if (kindOfAgent(startingAgent) === "scheduled" && chatKind !== "scheduled") {
+    agentId = startingAgent;
+    renderAgentSelect();
+    await openScheduledAgent();
+  }
   refreshConversations();
   refreshUsage();
 </script>

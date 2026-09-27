@@ -2,8 +2,8 @@ import * as z from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 import pkg from "../package.json" with { type: "json" };
-import { CURATED_GENRES, curatedPool } from "./curated.js";
 import { normalizeMovie, normalizeSearch } from "./normalize.js";
+import { TOP500 } from "./top500.js";
 
 /**
  * **The three tools, and the one place they are registered.**
@@ -39,9 +39,7 @@ export const getMovieInput = z
     }
   });
 
-export const randomMovieInput = z.object({
-  genre: z.string().trim().min(1).optional().describe(`Optional genre filter. One of: ${CURATED_GENRES.join(", ")}.`),
-});
+export const randomMovieInput = z.object({});
 
 export async function searchMovies(input, omdb) {
   const { query, year, type, page } = searchMoviesInput.parse(input);
@@ -54,14 +52,35 @@ export async function getMovie(input, omdb) {
   return normalizeMovie(data);
 }
 
-export async function randomMovie(input, omdb, random = Math.random) {
-  const { genre } = randomMovieInput.parse(input ?? {});
-  const pool = curatedPool(genre);
-  if (!pool.length) {
-    throw new Error(`No curated titles for genre "${genre}". Try one of: ${CURATED_GENRES.join(", ")}.`);
-  }
-  const pick = pool[Math.floor(random() * pool.length) % pool.length];
-  return getMovie({ imdbId: pick.imdbId }, omdb);
+/**
+ * **Which film a moment picks.** n = hash(ms) % 500.
+ *
+ * A plain `ms % 500` would repeat: the scheduler ticks every 15 s, a multiple
+ * of 500 ms, so every run would land on the same few films. A multiplicative
+ * hash (Knuth's 2654435761, unsigned) spreads consecutive times out — but its
+ * low bits only depend on the low bits of the input, and a 15 s step never
+ * changes the bottom three, so `% 500` alone would still reach only a quarter
+ * of the list. Folding the high half down first mixes every input bit into
+ * the ones the modulo reads.
+ *
+ * @param {number} ms - Epoch milliseconds.
+ */
+export function pickIndex(ms, size = TOP500.length) {
+  let hash = Math.imul(ms >>> 0, 2654435761);
+  hash ^= hash >>> 16;
+  return (hash >>> 0) % size;
+}
+
+/**
+ * No input: the clock is the randomness, so the pick is reproducible from
+ * `pickedAt` alone and a test can pin it by injecting `now`.
+ */
+export async function randomMovie(input, omdb, now = Date.now) {
+  randomMovieInput.parse(input ?? {});
+  const ms = now();
+  const n = pickIndex(ms);
+  const movie = await getMovie({ imdbId: TOP500[n].imdbId }, omdb);
+  return { n, pickedAt: new Date(ms).toISOString(), ...movie };
 }
 
 /** Data or an error, as MCP wants it back. */
@@ -91,9 +110,10 @@ function readable(err) {
  * A fresh server with the three tools on it. Stateless HTTP builds one per
  * request, which is cheap: registering three tools is a few object writes.
  *
- * @param {{ omdb: ReturnType<typeof import("./omdbClient.js").createOmdbClient> }} deps
+ * @param {{ omdb: ReturnType<typeof import("./omdbClient.js").createOmdbClient>, now?: () => number }} deps -
+ *   `now` is the clock `random_movie` picks by; injected by the tests.
  */
-export function createServer({ omdb }) {
+export function createServer({ omdb, now = Date.now }) {
   const server = new McpServer({ name: "omdb-mcp", version: pkg.version });
 
   server.registerTool(
@@ -132,13 +152,14 @@ export function createServer({ omdb }) {
     {
       title: "Random movie",
       description:
-        "Pick a random well-known film from a curated list of about 30 classics and return the same " +
-        `details as get_movie. Optional genre filter: ${CURATED_GENRES.join(", ")}. ` +
+        "Pick a film from a list of 500 well-known, highly rated titles and return the same details as " +
+        "get_movie, plus n (its index in the list, 0-499) and pickedAt (the time that chose it). No input: " +
+        "the pick is derived from the current time, so two calls a few seconds apart differ. " +
         "Use it for \"suggest something to watch\" style requests.",
       inputSchema: randomMovieInput,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
-    (input) => toolResult(() => randomMovie(input, omdb))
+    (input) => toolResult(() => randomMovie(input, omdb, now))
   );
 
   return server;

@@ -4,10 +4,10 @@ import test from "node:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 
-import { CURATED } from "./curated.js";
 import { createOmdbClient } from "./omdbClient.js";
 import { normalizeMovie, parseRating, parseRuntime, splitList } from "./normalize.js";
-import { createServer, getMovie, randomMovie } from "./tools.js";
+import { createServer, getMovie, pickIndex, randomMovie } from "./tools.js";
+import { TOP500 } from "./top500.js";
 
 /**
  * Everything offline: `fetch` is a stub that records the URL it was asked for
@@ -47,8 +47,8 @@ function omdbWith(answer, options = {}) {
 }
 
 /** A real MCP client talking to the real server over an in-memory pipe. */
-async function connected(t, omdb) {
-  const server = createServer({ omdb });
+async function connected(t, omdb, now) {
+  const server = createServer({ omdb, ...(now ? { now } : {}) });
   const client = new Client({ name: "test", version: "0.0.0" });
   const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverSide), client.connect(clientSide)]);
@@ -229,16 +229,62 @@ test("OMDb errors, network failures and a missing key are isError, never a crash
 
 // ---- random_movie ----------------------------------------------------------
 
-test("random_movie picks from the curated pool and fetches by id", async () => {
-  const { omdb, calls } = omdbWith(INCEPTION);
-  await randomMovie({ genre: "Horror" }, omdb, () => 0);
-  const id = calls[0].searchParams.get("i");
-  assert.ok(CURATED.find((movie) => movie.imdbId === id).genres.includes("horror"));
-  assert.ok(CURATED.length >= 28);
+const T0 = Date.parse("2026-09-27T12:00:00.000Z");
+const TICK = 15_000;
+
+test("the pool is 500 distinct, well-formed IMDb ids", () => {
+  assert.equal(TOP500.length, 500);
+  assert.equal(new Set(TOP500.map((movie) => movie.imdbId)).size, 500);
+  for (const movie of TOP500) assert.match(movie.imdbId, /^tt\d{7,10}$/, movie.title);
 });
 
-test("random_movie with an unknown genre names the ones it has", async () => {
+test("random_movie picks by the injected clock and fetches that film by id", async () => {
   const { omdb, calls } = omdbWith(INCEPTION);
-  await assert.rejects(randomMovie({ genre: "polka" }, omdb), /No curated titles for genre "polka". Try one of: .*sci-fi/);
-  assert.equal(calls.length, 0);
+  const movie = await randomMovie({}, omdb, () => T0);
+  const n = pickIndex(T0);
+  assert.equal(movie.n, n);
+  assert.equal(movie.pickedAt, "2026-09-27T12:00:00.000Z");
+  assert.equal(calls[0].searchParams.get("i"), TOP500[n].imdbId);
+  // The rest is get_movie's answer, unchanged.
+  assert.equal(movie.title, "Inception");
+  assert.equal(movie.runtimeMinutes, 148);
+  // Same moment, same pick: the time is the whole of the randomness.
+  assert.equal((await randomMovie({}, omdb, () => T0)).n, n);
+});
+
+test("n is always in range", () => {
+  for (let i = 0; i < 5000; i++) {
+    const n = pickIndex(T0 + i * 7919);
+    assert.ok(Number.isInteger(n) && n >= 0 && n < 500, `n=${n}`);
+  }
+  for (const ms of [0, 1, 2 ** 32 - 1, 2 ** 32, Number.MAX_SAFE_INTEGER]) {
+    const n = pickIndex(ms);
+    assert.ok(n >= 0 && n < 500, `ms=${ms} n=${n}`);
+  }
+});
+
+test("n spreads across consecutive 15 s ticks, where ms % 500 would not", () => {
+  const picks = Array.from({ length: 200 }, (_, i) => pickIndex(T0 + i * TICK));
+  // 200 uniform draws from 500 give ~165 distinct values; a stuck hash gives a handful.
+  assert.ok(new Set(picks).size >= 140, `only ${new Set(picks).size} distinct picks`);
+  // Every residue mod 4 turns up: the low bits are not frozen by the 15 s step.
+  assert.equal(new Set(picks.map((n) => n % 4)).size, 4);
+  // No two neighbouring ticks pick the same film.
+  for (let i = 1; i < picks.length; i++) assert.notEqual(picks[i], picks[i - 1], `tick ${i}`);
+  // The naive version, for contrast: one value, forever.
+  assert.equal(new Set(Array.from({ length: 200 }, (_, i) => (T0 + i * TICK) % 500)).size, 1);
+});
+
+test("random_movie over MCP takes no input and returns n and pickedAt", async (t) => {
+  const { omdb } = omdbWith(INCEPTION);
+  const client = await connected(t, omdb, () => T0 + TICK);
+  const { tools } = await client.listTools();
+  const random = tools.find((tool) => tool.name === "random_movie");
+  assert.deepEqual(Object.keys(random.inputSchema.properties ?? {}), []);
+
+  const result = await client.callTool({ name: "random_movie", arguments: {} });
+  assert.equal(result.isError, undefined);
+  assert.equal(result.structuredContent.n, pickIndex(T0 + TICK));
+  assert.equal(result.structuredContent.pickedAt, new Date(T0 + TICK).toISOString());
+  assert.equal(result.structuredContent.imdbId, "tt1375666");
 });
