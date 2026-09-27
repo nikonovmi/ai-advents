@@ -1,5 +1,7 @@
 # Day 20 — MCP orchestration
 
+https://github.com/user-attachments/assets/be711d68-1255-40fb-ac61-d11645b58893
+
 A Pipeline chat takes a **goal**. A planner turns it into steps across every connected
 MCP server (OMDb, scheduler, Notion); you accept the proposal; the runner executes it,
 once or every N seconds, always on the same accepted plan. A failed run leaves a repair
