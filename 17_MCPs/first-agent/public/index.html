@@ -1,0 +1,4945 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>first-agent</title>
+<style>
+  :root {
+    --bg: #f6f6f4;
+    --panel: #ffffff;
+    --ink: #1d1d1b;
+    --muted: #7a7a72;
+    --line: #e3e3dd;
+    --user: #1d1d1b;
+    --user-ink: #ffffff;
+    --agent: #efefea;
+    --accent: #b8552f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16161a;
+      --panel: #1d1d22;
+      --ink: #ececea;
+      --muted: #8f8f96;
+      --line: #2c2c33;
+      --user: #ececea;
+      --user-ink: #16161a;
+      --agent: #26262d;
+      --accent: #e08b63;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  /* The document is exactly one viewport tall and never scrolls. Everything
+     that can grow — the transcript, the conversation list, the summary — is a
+     scroll container of its own, so the composer and the controls stay put. */
+  html { height: 100%; }
+
+  body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+    display: flex;
+    justify-content: center;
+  }
+
+  .shell {
+    width: 100%;
+    max-width: 1320px;
+    display: flex;
+    height: 100%;
+    min-height: 0;
+    background: var(--panel);
+    border-left: 1px solid var(--line);
+    border-right: 1px solid var(--line);
+  }
+
+  /* The chat and the summary travel together: side by side when there is
+     room, stacked when there is not. Wrapping them in one box is what lets
+     the summary sit *below* the chat on a narrow screen without the flex
+     rows of `.shell` deciding how tall each of them gets. */
+  .main {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+  }
+
+  .app {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 260px;
+    flex: none;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--line);
+    background: var(--bg);
+  }
+  .sidebar h2 {
+    margin: 0;
+    padding: 20px 16px 12px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+  #conversations {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 8px 16px;
+  }
+  .conversation {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .conversation:hover { background: var(--agent); }
+  .conversation.active { background: var(--agent); }
+  .conversation.active .title { font-weight: 600; }
+  .conversation .text { flex: 1; min-width: 0; }
+  .conversation .title {
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .conversation .when { font-size: 12px; color: var(--muted); }
+  .conversation .remove {
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    padding: 2px 6px;
+    line-height: 1;
+    font-size: 15px;
+    opacity: 0;
+  }
+  .conversation:hover .remove,
+  .conversation .remove:focus { opacity: 1; }
+  .conversation .remove:hover { color: var(--accent); }
+  .sidebar .empty { padding: 0 10px; font-size: 13px; color: var(--muted); }
+
+  /* Below this width the third column would squeeze the messages, so the
+     summary goes under the chat instead of beside it. It is reference
+     material: it may scroll out of sight, but it may not crowd the thing it
+     is reference *for*. */
+  @media (max-width: 1080px) {
+    .main { flex-direction: column; }
+    .summary-panel {
+      width: auto;
+      max-height: 50vh;
+      border-left: none;
+      border-top: 1px solid var(--line);
+    }
+    #window-text { padding: 12px 24px; }
+  }
+
+  @media (max-width: 720px) {
+    .shell { flex-direction: column; }
+    .sidebar {
+      width: 100%;
+      flex: 0 0 auto;
+      max-height: 22vh;
+      border-right: none;
+      border-bottom: 1px solid var(--line);
+    }
+    .summary-panel { max-height: 44vh; }
+    /* On a phone every fixed row above the transcript is height the
+       transcript does not get, so the ones that can be smaller are. */
+    .chart svg { height: 80px; }
+  }
+
+  /* The name, the totals and the one action share a single row: the title is
+     a label, not a landmark, and a row of its own was a row the transcript
+     did not get. */
+  .topbar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    /* Wrapping is the safety net, not the intent. Everything here is
+       `flex: none` because none of it reads correctly half-width, so without a
+       wrap the last control — the one that starts a conversation — is the one
+       that gets pushed off the edge. */
+    flex-wrap: wrap;
+    gap: 18px;
+    row-gap: 10px;
+    padding: 10px 24px;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg);
+  }
+  .topbar .brand {
+    flex: none;
+    padding-right: 18px;
+    border-right: 1px solid var(--line);
+  }
+  .topbar .brand h1 { margin: 0; font-size: 15px; letter-spacing: -0.01em; }
+  /* The agent is the title, so it is styled as one: a select that reads as a
+     heading until you go near it, rather than a heading with a control beside
+     it. The chevron is the only standing hint that it is switchable. */
+  .topbar .brand h1 select {
+    appearance: none;
+    max-width: 200px;
+    padding: 1px 18px 1px 0;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+                      linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-size: 5px 5px, 5px 5px;
+    background-position: right 6px center, right 2px center;
+    background-repeat: no-repeat;
+    color: var(--ink);
+    font: inherit;
+    cursor: pointer;
+  }
+  .topbar .brand h1 select:hover { background-color: color-mix(in srgb, var(--ink) 7%, transparent); }
+  .topbar .brand h1 select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .topbar .brand .sub { display: block; color: var(--muted); font-size: 11px; }
+
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  /* Hugs the right when the row has room, and is still whole when it does not. */
+  .topbar #new-conversation { flex: none; margin-left: auto; white-space: nowrap; }
+  /* The long label is the first thing worth giving up — the button is beside a
+     list of conversations, so "New" is not ambiguous. */
+  .topbar #new-conversation .short { display: none; }
+  /* After the rule above, so it wins. The row is tight on a phone and the
+     tagline is the first thing worth spending: the totals are not decorative. */
+  @media (max-width: 900px) {
+    .topbar #new-conversation .full { display: none; }
+    .topbar #new-conversation .short { display: inline; }
+    .topbar .brand h1 select { max-width: 140px; }
+  }
+  @media (max-width: 720px) {
+    .topbar { gap: 12px; padding: 8px 14px; }
+    .topbar .brand { padding-right: 12px; }
+    .topbar .brand .sub { display: none; }
+  }
+
+  button {
+    font: inherit;
+    cursor: pointer;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--ink);
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+  button:hover:not(:disabled) { border-color: var(--muted); }
+  button:disabled { opacity: 0.45; cursor: default; }
+
+  #messages {
+    flex: 1 1 auto;
+    /* Without this a flex child refuses to shrink past its content, and the
+       transcript pushes the composer off the bottom instead of scrolling. */
+    min-height: 0;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .row { display: flex; flex-direction: column; max-width: 82%; }
+  .row.user { align-self: flex-end; align-items: flex-end; }
+  .row.agent { align-self: flex-start; align-items: flex-start; }
+
+  .bubble {
+    padding: 10px 14px;
+    border-radius: 14px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  /* ---- a rendered reply --------------------------------------------------- */
+
+  /* Markdown brings its own block elements, which bring their own margins. The
+     `pre-wrap` above is for text; once there are real paragraphs it would add a
+     blank line at every newline in the source, so a rendered bubble turns it
+     off and lets the elements do the spacing. */
+  .bubble.md { white-space: normal; }
+  .bubble.md > :first-child { margin-top: 0; }
+  .bubble.md > :last-child { margin-bottom: 0; }
+  .bubble.md p { margin: 0 0 10px; }
+  .bubble.md h1,
+  .bubble.md h2,
+  .bubble.md h3,
+  .bubble.md h4,
+  .bubble.md h5,
+  .bubble.md h6 {
+    margin: 14px 0 6px;
+    font-size: 1em;
+    font-weight: 650;
+    line-height: 1.35;
+  }
+  .bubble.md h1 { font-size: 1.15em; }
+  .bubble.md h2 { font-size: 1.08em; }
+  .bubble.md ul,
+  .bubble.md ol { margin: 0 0 10px; padding-left: 22px; }
+  .bubble.md li { margin: 2px 0; }
+  .bubble.md li > ul,
+  .bubble.md li > ol { margin: 2px 0; }
+  .bubble.md blockquote {
+    margin: 0 0 10px;
+    padding: 2px 0 2px 12px;
+    border-left: 2px solid var(--line);
+    color: var(--muted);
+  }
+  .bubble.md a { color: var(--accent); }
+  .bubble.md hr { margin: 12px 0; border: 0; border-top: 1px solid var(--line); }
+  /* Inline code is tinted; a fenced block is a panel. `overflow-x` rather than
+     wrapping, because a wrapped line of code is a line of code that lies about
+     where it ends. */
+  .bubble.md code {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.92em;
+    background: color-mix(in srgb, var(--ink) 9%, transparent);
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+  }
+  .bubble.md pre {
+    margin: 0 0 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--ink) 7%, transparent);
+    overflow-x: auto;
+  }
+  .bubble.md pre code {
+    display: block;
+    padding: 0;
+    background: none;
+    border-radius: 0;
+    white-space: pre;
+    overflow-wrap: normal;
+  }
+  .bubble.md table {
+    margin: 0 0 10px;
+    border-collapse: collapse;
+    font-size: 0.95em;
+    /* A wide table scrolls with the bubble rather than stretching it. */
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .bubble.md th,
+  .bubble.md td {
+    border: 1px solid var(--line);
+    padding: 4px 8px;
+    text-align: left;
+    vertical-align: top;
+  }
+  .bubble.md th { font-weight: 600; background: color-mix(in srgb, var(--ink) 5%, transparent); }
+  .user .bubble {
+    background: var(--user);
+    color: var(--user-ink);
+    border-bottom-right-radius: 4px;
+  }
+  .agent .bubble {
+    background: var(--agent);
+    border-bottom-left-radius: 4px;
+  }
+  .agent.error .bubble {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+  }
+
+  .meta {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 5px;
+    padding: 0 4px;
+  }
+
+  /* A turn the strip took for you. It is a real user turn — stored as one,
+     read by the model as one — and it should not look like a sentence you
+     sat down and typed. */
+  .row.user.prompted .bubble {
+    background: transparent;
+    color: var(--muted);
+    border: 1px dashed var(--line);
+  }
+  .row.user.prompted .bubble::before {
+    content: "▶ ";
+    color: var(--accent);
+  }
+
+  .empty {
+    margin: auto;
+    color: var(--muted);
+    font-size: 14px;
+    text-align: center;
+  }
+
+  .dots span {
+    display: inline-block;
+    animation: blink 1.2s infinite both;
+  }
+  .dots span:nth-child(2) { animation-delay: 0.2s; }
+  .dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes blink { 0%, 80%, 100% { opacity: 0.25; } 40% { opacity: 1; } }
+
+  /* ---- the stage strip --------------------------------------------------- */
+
+  /* Above the composer, always visible while the memory strategy is loaded.
+     It is the highest-value element on the page because it answers "whose
+     turn is it" *before* the user types, rather than after they have typed
+     something the agent was not waiting for. */
+  .stage-strip {
+    flex: none;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    padding: 10px 24px;
+    border-top: 1px solid var(--line);
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .stage-strip[hidden] { display: none; }
+
+  .stage-dots { display: flex; align-items: center; gap: 6px; }
+  .stage-dots .dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    border: 1.5px solid var(--line);
+  }
+  /* Past solid, current filled and ringed, future hollow. The ring is what
+     makes "here" readable at a glance in a row of four small circles. */
+  .stage-dots .dot.past { background: var(--muted); border-color: var(--muted); }
+  .stage-dots .dot.now {
+    background: var(--ink);
+    border-color: var(--ink);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 16%, transparent);
+  }
+  .stage-dots .name {
+    margin-left: 4px;
+    color: var(--ink);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  .stage-strip .step { color: var(--ink); }
+  .stage-strip .step .lead { color: var(--muted); }
+
+  /* Styled distinctly by actor, because the whole job of the line is to be
+     read without being read: your turn and its turn should not look alike. */
+  .stage-strip .awaiting {
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  .stage-strip .awaiting.user {
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .stage-strip .awaiting.agent { color: var(--muted); font-style: italic; }
+
+  .stage-strip .edges { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+  .stage-strip .edges button { padding: 4px 10px; font-size: 12px; }
+  .stage-strip .edges button.warned { border-color: var(--accent); color: var(--accent); }
+  /* The one button in the row that spends money, so it is the one that looks
+     like an action rather than a navigation. */
+  .stage-strip .edges button.go {
+    background: var(--user);
+    color: var(--user-ink);
+    border-color: var(--user);
+  }
+  .stage-strip .suggestion {
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px dashed var(--accent);
+    color: var(--accent);
+    font-size: 11px;
+  }
+  .stage-strip .refused { color: var(--accent); }
+
+  /* The handoff, while it is still a proposal. It takes the whole strip
+     because it is the only thing that can happen next. */
+  .stage-strip .brief {
+    flex: 1 1 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .stage-strip .brief .head { font-size: 12px; color: var(--muted); }
+  .stage-strip .brief .head b { color: var(--ink); }
+  .stage-strip .brief textarea {
+    font-size: 12.5px;
+    line-height: 1.55;
+    max-height: 340px;
+    min-height: 140px;
+  }
+  .stage-strip .brief .acts { display: flex; gap: 8px; }
+  .stage-strip .brief .acts button { padding: 6px 14px; font-size: 13px; }
+  .stage-strip .brief .acts button.go {
+    background: var(--user);
+    color: var(--user-ink);
+    border-color: var(--user);
+  }
+
+  /* ---- the transition divider and the resume banner ---------------------- */
+
+  /* Thin, and drawn from the log rather than from anything the painter
+     remembers: reopening a conversation puts the dividers back in the same
+     places, which is the point of deriving the stage from an append-only log
+     in the first place. */
+  .stage-divider {
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--muted);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+  }
+  .stage-divider::before,
+  .stage-divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+  .resume {
+    align-self: stretch;
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 12.5px;
+    color: var(--muted);
+    background: var(--agent);
+  }
+  .resume b { color: var(--ink); }
+  .resume .what { display: block; margin-top: 3px; color: var(--ink); }
+
+  form#composer {
+    flex: none;
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    padding: 16px 24px 20px;
+    border-top: 1px solid var(--line);
+  }
+
+  textarea {
+    flex: 1;
+    resize: none;
+    font: inherit;
+    line-height: 1.5;
+    color: var(--ink);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    max-height: 180px;
+  }
+  textarea:focus { outline: 2px solid var(--muted); outline-offset: -1px; }
+
+  #send {
+    background: var(--user);
+    color: var(--user-ink);
+    border-color: var(--user);
+    padding: 10px 18px;
+    font-size: 14px;
+  }
+
+  /* ---- usage strip ------------------------------------------------------ */
+
+  /* Sits between the name and the button, and takes whatever room is left:
+     it is the one thing in the row that can usefully scroll. */
+  /* The running totals, under the sentence that says what is being sent.
+     They were a horizontal strip in the topbar, which is the one place in this
+     layout where width is scarce and height is shared with everything else. In
+     a fixed-width column they are a grid instead: two per row, no scrolling,
+     and the numbers line up with each other. */
+  /* Compact: label and number side by side, flowing onto as few lines as the
+     column allows. The full label is on hover. */
+  .usage {
+    flex: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1px 10px;
+    padding: 5px 14px;
+    border-bottom: 1px solid var(--line);
+    font-size: 10px;
+    line-height: 1.35;
+  }
+  .stat { min-width: 0; white-space: nowrap; }
+  .stat .label { color: var(--muted); margin-right: 3px; }
+  .stat .value { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .stat .value .unit { color: var(--muted); }
+
+  /* ---- cost chart ------------------------------------------------------- */
+
+  .chart {
+    flex: none;
+    border-bottom: 1px solid var(--line);
+    padding: 8px 24px 10px;
+  }
+  .chart > summary {
+    cursor: pointer;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--muted);
+    list-style: none;
+  }
+  .chart > summary::before { content: "▾ "; }
+  .chart:not([open]) > summary::before { content: "▸ "; }
+  .chart svg { display: block; width: 100%; height: 100px; margin-top: 8px; }
+
+  .row.outside .bubble { opacity: 0.45; }
+
+  .warning {
+    margin-top: 6px;
+    padding: 8px 12px;
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    color: var(--accent);
+    font-size: 12px;
+    line-height: 1.5;
+    max-width: 100%;
+  }
+
+  /* ---- the active-summary panel ----------------------------------------- */
+
+  /* Reference material, not conversation: smaller, quieter and tighter than
+     the transcript, so it reads as something the model is working *from*
+     rather than something that was said. */
+  /* Everything about *what is being sent*, in one column: the sentence that
+     names the three zones, the summary itself, and the panel that puts all
+     three ways of asking side by side. The chat column is left to be a chat. */
+  .summary-panel {
+    width: 340px;
+    flex: none;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    /* Nothing escapes the column: each section inside it scrolls or is
+       capped, so the column's own height is the last word. */
+    overflow: hidden;
+    border-left: 1px solid var(--line);
+    background: var(--bg);
+  }
+
+  /* The three-zone sentence. */
+  #window-text {
+    flex: none;
+    margin: 0;
+    padding: 18px 14px 14px;
+    border-bottom: 1px solid var(--line);
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+  #window-text strong { color: var(--ink); }
+  #window-text .dropped { color: var(--accent); font-weight: 600; }
+
+  /* The flash on compression stays on the summary itself rather than washing
+     over the whole column, which would say "everything here changed". */
+  .summary-panel > .head,
+  .summary-panel > .summary-body { transition: background-color 0.6s ease; }
+  .summary-panel.flash > .head,
+  .summary-panel.flash > .summary-body {
+    background: color-mix(in srgb, var(--accent) 14%, var(--bg));
+  }
+
+  .summary-panel > .head {
+    flex: none;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    width: 100%;
+    padding: 16px 14px 10px;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    text-align: left;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.4;
+  }
+  .summary-panel > .head:hover { border-color: transparent; color: var(--ink); }
+  .summary-panel > .head .caret { flex: none; }
+  .summary-panel > .head .stats { flex: 1; min-width: 0; }
+  .summary-panel > .head .stats b {
+    color: var(--ink);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+  }
+  .summary-panel > .head .badge {
+    flex: none;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--panel);
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .summary-body {
+    /* Its own scroll container: a long summary must never push the chat off
+       the screen. Beside the chat it fills its column; stacked underneath it
+       is capped at 40vh by the breakpoint above. */
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0 14px 18px;
+    font-size: 11.5px;
+    line-height: 1.45;
+    color: var(--muted);
+  }
+  .summary-body .sh {
+    margin: 10px 0 3px;
+    color: var(--ink);
+    font-weight: 600;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .summary-body .sh:first-child { margin-top: 0; }
+  .summary-body .si { padding-left: 10px; text-indent: -10px; }
+  .summary-body .sp { margin: 4px 0; }
+  .summary-body .placeholder { font-style: italic; }
+  .summary-panel[data-open="false"] .summary-body { display: none; }
+
+  /* ---- the boundary in the transcript ----------------------------------- */
+
+  details.boundary {
+    align-self: stretch;
+    border: 1px dashed var(--accent);
+    border-radius: 10px;
+    padding: 8px 12px;
+    color: var(--accent);
+    font-size: 11px;
+    line-height: 1.5;
+  }
+  details.boundary > summary {
+    cursor: pointer;
+    list-style: none;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+  }
+  details.boundary > summary::-webkit-details-marker { display: none; }
+  details.boundary > summary::before { content: "▸ "; }
+  details.boundary[open] > summary::before { content: "▾ "; }
+  details.boundary .summary-body {
+    max-height: 34vh;
+    padding: 8px 0 2px;
+    color: var(--muted);
+  }
+
+  /* ---- compression notes on a turn -------------------------------------- */
+
+  .folded {
+    margin-top: 6px;
+    padding: 6px 10px;
+    border-left: 2px solid var(--accent);
+    color: var(--muted);
+    font-size: 11.5px;
+    line-height: 1.5;
+  }
+  .folded b { color: var(--accent); font-weight: 600; }
+
+  /* ---- a forked conversation, in the list --------------------------------- */
+
+  /* A fork is a conversation, so it is a row like any other. The marker says
+     where it came from, because "why are there two of these" is the question
+     a list of near-identical titles provokes. */
+  .conversation .forked {
+    color: var(--accent);
+    opacity: 0.85;
+  }
+
+  /* ---- forking from a message -------------------------------------------- */
+
+  .meta .fork {
+    border: none;
+    background: transparent;
+    color: var(--accent);
+    font: inherit;
+    font-size: 11px;
+    padding: 0 0 0 8px;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .row:hover .meta .fork,
+  .meta .fork:focus { opacity: 1; }
+
+  /* ---- the three-layer memory panel --------------------------------------- */
+
+  /* Three sections, drawn as three sections. The layers differ in *lifetime*
+     rather than in content, and nothing about a flat list of keys would tell
+     you that the middle one is about to be cleared and the top one never is —
+     so each section says out loud how long the things under it live. */
+  .memory { font-size: 11px; line-height: 1.4; }
+  .memory .layer { margin-top: 14px; }
+  .memory .layer:first-child { margin-top: 0; }
+  .memory .layer > h3 {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin: 0 0 4px;
+    color: var(--ink);
+    font-weight: 600;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .memory .layer > h3 .lifetime {
+    flex: 1;
+    color: var(--muted);
+    font-weight: 400;
+    font-size: 9.5px;
+    letter-spacing: 0.02em;
+    text-align: right;
+    text-transform: none;
+  }
+  .memory .entry {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 3px 6px;
+    margin: 0 -6px;
+    border-radius: 6px;
+    transition: background-color 0.6s ease;
+  }
+  .memory .entry .body { flex: 1; min-width: 0; }
+  .memory .entry .k {
+    color: var(--muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px;
+  }
+  .memory .entry .v { color: var(--ink); overflow-wrap: anywhere; }
+  .memory .entry .was { display: block; color: var(--accent); font-size: 10px; }
+  .memory .entry .churn { color: var(--accent); }
+  .memory .entry .origin { color: var(--muted); }
+  .memory .entry.contested .v { opacity: 0.6; text-decoration: line-through; }
+  .memory .entry.legacy .v { text-decoration: none; opacity: 1; }
+  .memory .entry.changed { background: color-mix(in srgb, var(--accent) 14%, var(--bg)); }
+
+  /* The row buttons stay out of the way until the row is under the cursor.
+     Every one of them is destructive or permanent, and a panel of small red
+     verbs reads as a control surface rather than as a memory. */
+  .memory .acts { display: flex; gap: 4px; flex: none; opacity: 0; transition: opacity 0.15s ease; }
+  .memory .entry:hover .acts,
+  .memory .acts:focus-within { opacity: 1; }
+  .memory button.act,
+  .memory button.finish {
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--muted);
+    border-radius: 999px;
+    padding: 1px 7px;
+    font: inherit;
+    font-size: 9.5px;
+    cursor: pointer;
+  }
+  .memory button.act:hover { color: var(--accent); border-color: var(--accent); }
+  .memory button.finish {
+    width: 100%;
+    margin-top: 6px;
+    padding: 5px;
+    border-radius: 7px;
+    font-size: 10.5px;
+  }
+  .memory button.finish:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+  .memory button:disabled { opacity: 0.45; cursor: default; }
+
+  /* A proposal is not memory yet. It is drawn as a form, because that is what
+     it is: an editable sentence with a yes and a no, and nothing is written
+     anywhere until one of them is pressed. */
+  .memory .proposal {
+    border: 1px dashed color-mix(in srgb, var(--accent) 55%, var(--line));
+    border-radius: 7px;
+    padding: 6px 7px;
+    margin: 6px 0;
+  }
+  .memory .proposal textarea {
+    width: 100%;
+    margin: 3px 0;
+    padding: 4px 5px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: var(--bg);
+    color: var(--ink);
+    font: inherit;
+    font-size: 11px;
+    resize: vertical;
+  }
+  .memory .proposal .acts { opacity: 1; }
+  .memory .proposal.answered { opacity: 0.55; border-style: solid; }
+  .memory .past { margin: 4px 0; color: var(--muted); }
+  .memory .past summary { cursor: pointer; }
+  .memory .past .entry { color: var(--muted); }
+  .memory .discarded { color: var(--muted); font-style: italic; }
+  .memory .discarded code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-style: normal;
+  }
+  .memory .none { color: var(--muted); font-style: italic; }
+  .memory .digest { margin-top: 4px; }
+
+  /* ---- invariants ---------------------------------------------------------
+     Drawn first, because that is where they are on the wire and because they
+     outrank everything under them. The left rule is the only ornament: it is
+     the one section whose rows are not a claim about what is true but a claim
+     about what is allowed. */
+  .memory .layer.rules { border-left: 2px solid var(--accent); padding-left: 7px; }
+  .memory .rule-row { padding: 4px 0; border-bottom: 1px dashed var(--line); }
+  .memory .rule-row:last-of-type { border-bottom: 0; }
+  .memory .rule-row .k {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px;
+    color: var(--muted);
+  }
+  .memory .rule-row .v { margin-top: 1px; }
+  .memory .rule-row .check {
+    display: block;
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 10px;
+  }
+  /* A refusal is the visible artefact of the whole feature, so it is drawn on
+     the rule that caused it rather than in a list somewhere else. */
+  .memory .refusal {
+    margin-top: 4px;
+    padding: 4px 6px;
+    border-left: 2px solid color-mix(in srgb, var(--accent) 60%, var(--line));
+    background: color-mix(in srgb, var(--accent) 6%, transparent);
+    border-radius: 0 5px 5px 0;
+    font-size: 10.5px;
+  }
+  .memory .refusal .alt { display: block; margin-top: 2px; color: var(--muted); }
+  .memory .refusal .dead { display: block; margin-top: 2px; color: var(--accent); }
+  .memory .rules textarea {
+    width: 100%;
+    margin-top: 4px;
+    padding: 4px 5px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: var(--bg);
+    color: var(--ink);
+    font: inherit;
+    font-size: 11px;
+    resize: vertical;
+  }
+  .memory .draft { margin: 6px 0; }
+  .memory .draft .row-key {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px;
+  }
+  .memory .draft .tag {
+    display: inline-block;
+    margin-right: 4px;
+    padding: 0 5px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .memory .draft .tag.amend { border-color: var(--accent); color: var(--accent); }
+  .memory .draft .tag.reject { opacity: 0.7; }
+  .stage-strip .brief .open { margin-top: 6px; }
+  .stage-strip .brief .open .head {
+    color: var(--muted);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .stage-strip .brief .open .pair {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    padding: 2px 0;
+    font-size: 11px;
+  }
+  .stage-strip .brief .open .pair span { flex: 1; }
+  .stage-strip .brief .open .pair em { color: var(--accent); font-style: normal; font-size: 10px; }
+  .stage-strip .brief .open .pair button {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    cursor: pointer;
+  }
+  .stage-strip .brief .open .pair button:hover { color: var(--accent); border-color: var(--accent); }
+
+  .memory .draft input {
+    width: 100%;
+    margin-top: 3px;
+    padding: 4px 5px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: var(--bg);
+    color: var(--ink);
+    font: inherit;
+    font-size: 11px;
+  }
+
+  /* A picker and its delete button are one control, so they are grouped rather
+     than sitting 18px apart in the topbar's own gap. */
+  .topbar .picker-group { flex: none; display: flex; align-items: center; gap: 4px; }
+  .topbar .picker-delete {
+    flex: none;
+    padding: 2px 6px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  /* Same colour the sidebar's × uses, for the same kind of action. */
+  .topbar .picker-delete:hover:not(:disabled) {
+    border-color: var(--line);
+    color: var(--accent);
+  }
+  .topbar .picker-delete:disabled { opacity: 0.35; cursor: default; }
+
+  /* ---- the profile picker, the editor and the comparison ------------------ */
+
+  /* The picker sits in the topbar rather than in the panel because it is not a
+     fact about this conversation: the same conversation can be asked the same
+     question as two different people, which is the entire demonstration. */
+  .topbar .picker {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: none;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--muted);
+  }
+  .topbar .picker select,
+  .topbar .picker input {
+    font: inherit;
+    font-size: 12px;
+    text-transform: none;
+    letter-spacing: 0;
+    max-width: 170px;
+    color: var(--ink);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 4px 8px;
+  }
+  /* A two-digit number needs nothing like the room a profile name does. */
+  .topbar .picker input#context-messages { width: 56px; }
+  .topbar .picker select#max-tokens { width: 72px; }
+  /* It wraps rather than hides. The subtitle beside the brand can disappear on
+     a narrow window because it says nothing; this is the only control for
+     *whose* long-term memory is on the wire, and a control you cannot reach is
+     the same as a feature that is not there. */
+  @media (max-width: 900px) {
+    .topbar { flex-wrap: wrap; gap: 10px 14px; }
+    .topbar .picker { font-size: 9.5px; }
+    .topbar .picker select { max-width: 130px; }
+  }
+  /* One column of totals once the panel is under the chat rather than beside
+     it: full width there, so two columns would strand the numbers far apart. */
+  @media (max-width: 1080px) {
+    .usage { padding: 5px 24px; }
+  }
+
+  /* A declared row is one you wrote down on purpose. It is the flag that
+     decides whether a model may overwrite it and whether the task in hand may
+     displace it on the wire, so it is marked rather than left to be inferred
+     from a store nobody reads. */
+  .memory .entry.declared { border-left: 2px solid var(--accent); padding-left: 6px; margin-left: -8px; }
+  .memory .entry.declared .origin { color: var(--accent); }
+  .memory .entry.declared .v { text-decoration: none; opacity: 1; }
+  .memory .entry .pending {
+    display: block;
+    margin-top: 2px;
+    color: var(--accent);
+    font-size: 10px;
+  }
+
+  /* The editor is a form, drawn as a form. Everything in it is written to the
+     profile store the moment you press Save — there is no proposal step,
+     because you are the person a proposal would be addressed to. */
+  .memory .editor { margin: 4px 0 0; }
+  .memory .editor > summary { cursor: pointer; color: var(--muted); }
+  .memory .editor label {
+    display: block;
+    margin-top: 7px;
+    color: var(--muted);
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .memory .editor input,
+  .memory .editor textarea {
+    width: 100%;
+    margin-top: 2px;
+    padding: 4px 5px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: var(--bg);
+    color: var(--ink);
+    font: inherit;
+    font-size: 11px;
+    resize: vertical;
+  }
+  .memory .editor .pair { display: flex; gap: 4px; align-items: center; margin-top: 4px; }
+  .memory .editor .pair input.key {
+    flex: 0 0 38%;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px;
+  }
+  .memory .editor .pair input.val { flex: 1; }
+  .memory .editor .pair button {
+    flex: none;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--muted);
+    border-radius: 999px;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .memory .editor .pair button:hover { color: var(--accent); border-color: var(--accent); }
+  .memory .editor .hint { margin: 3px 0 0; color: var(--muted); font-size: 9.5px; font-style: italic; }
+
+  /* What each layer costs, per turn, as three numbers. The third is the one
+     that is easy to forget: it is not a call, it is the block riding in the
+     input of every single turn. */
+
+  dialog.compare {
+    width: min(1180px, 94vw);
+    max-height: 88vh;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--panel);
+    color: var(--ink);
+  }
+  dialog.compare::backdrop { background: rgba(0, 0, 0, 0.45); }
+  dialog.compare .head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+  }
+  dialog.compare .head h2 { margin: 0; font-size: 14px; }
+  dialog.compare .head .note { flex: 1; color: var(--muted); font-size: 11px; }
+  dialog.compare .setup { padding: 12px 18px; border-bottom: 1px solid var(--line); }
+  dialog.compare .setup textarea {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--bg);
+    color: var(--ink);
+    font: inherit;
+    font-size: 13px;
+    resize: vertical;
+  }
+  dialog.compare .setup .who { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 8px; font-size: 12px; }
+  dialog.compare .setup .who label { display: flex; align-items: center; gap: 4px; color: var(--muted); }
+  dialog.compare .setup .who .spacer { flex: 1; }
+  dialog.compare .results {
+    display: flex;
+    gap: 0;
+    overflow: auto;
+    max-height: 56vh;
+    padding: 0 6px 12px;
+  }
+  dialog.compare .arm {
+    flex: 1 0 320px;
+    min-width: 0;
+    padding: 12px;
+    border-right: 1px solid var(--line);
+  }
+  dialog.compare .arm:last-child { border-right: none; }
+  dialog.compare .arm h3 {
+    margin: 0 0 2px;
+    font-size: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  dialog.compare .arm .who { color: var(--muted); font-size: 10.5px; }
+  dialog.compare .arm details { margin: 6px 0; }
+  dialog.compare .arm details summary { cursor: pointer; color: var(--muted); font-size: 10.5px; }
+  dialog.compare .arm pre {
+    margin: 4px 0 0;
+    padding: 6px;
+    background: var(--bg);
+    border-radius: 6px;
+    font-size: 10px;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  dialog.compare .run { margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 6px; }
+  dialog.compare .run .label { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
+  dialog.compare .run .body { font-size: 12.5px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+  dialog.compare .foot { padding: 10px 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }
+  dialog.compare .placeholder { padding: 24px 18px; color: var(--muted); font-size: 12px; }
+
+  /* MCP: a footer to the column, never taller than a third of it, with one
+     section per registered server. */
+  .mcp-servers {
+    flex: none;
+    max-height: 34vh;
+    overflow-y: auto;
+    border-top: 1px solid var(--line);
+  }
+  .mcp {
+    display: flex;
+    flex-direction: column;
+    padding: 10px 14px 12px;
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+  .mcp + .mcp { border-top: 1px dashed var(--line); }
+  .mcp .row { display: flex; align-items: center; gap: 8px; }
+  .mcp .title {
+    color: var(--ink);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+  }
+  .mcp .state { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mcp .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+  .mcp .dot[data-state="connected"] { background: #3a9a5b; }
+  .mcp .dot[data-state="pending"] { background: var(--accent); animation: mcp-pulse 1.2s ease-in-out infinite; }
+  .mcp .dot[data-state="error"] { background: #c0392b; }
+  @keyframes mcp-pulse { 50% { opacity: 0.35; } }
+  .mcp button { flex: none; font-size: 11px; padding: 3px 9px; }
+  .mcp .show-tools { margin-top: 6px; align-self: flex-start; }
+
+  /* A reply that used tools: one collapsible row per call. Plain text — the
+     input is ours, the result is the tool's, and neither is Markdown. */
+  .tool-calls { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; max-width: 100%; }
+  .tool-call {
+    font-size: 12px;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 3px 8px;
+  }
+  .tool-call summary { cursor: pointer; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .tool-call.failed summary { color: #c0392b; }
+  .tool-call .label { margin-top: 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .tool-call pre {
+    margin: 2px 0 4px;
+    font-size: 11.5px;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    max-height: 240px;
+    overflow-y: auto;
+    color: var(--ink);
+  }
+  .tool-note { margin-top: 6px; font-size: 12px; color: var(--muted); }
+
+  dialog.mcp-tools {
+    width: min(760px, 94vw);
+    max-height: 86vh;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--panel);
+    color: var(--ink);
+  }
+  dialog.mcp-tools[open] { display: flex; flex-direction: column; }
+  dialog.mcp-tools::backdrop { background: rgba(0, 0, 0, 0.45); }
+  dialog.mcp-tools .head {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+  }
+  dialog.mcp-tools .head h2 { margin: 0; font-size: 14px; }
+  dialog.mcp-tools .head .note { flex: 1; color: var(--muted); font-size: 11px; }
+  dialog.mcp-tools .tools { margin: 0; padding: 4px 18px 14px; list-style: none; overflow-y: auto; min-height: 0; }
+  dialog.mcp-tools .tools li { padding: 10px 0; border-top: 1px dashed var(--line); }
+  dialog.mcp-tools .tools li:first-child { border-top: none; }
+  dialog.mcp-tools .tools code { font-size: 12.5px; font-weight: 600; }
+  dialog.mcp-tools .tools .desc {
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+</style>
+</head>
+<body>
+<div class="shell">
+<aside class="sidebar">
+  <h2>Conversations</h2>
+  <div id="conversations"></div>
+</aside>
+
+<div class="main">
+<div class="app">
+  <div class="topbar">
+    <div class="brand">
+      <h1>
+        <label class="visually-hidden" for="agent">Agent</label>
+        <select id="agent" title="Which agent answers. Each one has its own persona and its own list of chats."></select>
+      </h1>
+      <span class="sub" id="agent-tagline"></span>
+    </div>
+    <label class="picker" for="context-messages" title="How many exchanges are kept verbatim before the oldest are folded into the digest.">Window
+      <input id="context-messages" type="number" min="2" max="100" step="1" value="10">
+    </label>
+    <label class="picker" for="max-tokens">Max tokens
+      <select id="max-tokens">
+        <option value="30">30</option>
+        <option value="300">300</option>
+        <option value="1024" selected>1024</option>
+      </select>
+    </label>
+    <div class="picker-group">
+      <label class="picker" for="profile">Profile
+        <select id="profile" title="Whose long-term memory this conversation reads and writes."></select>
+      </label>
+      <button class="picker-delete" id="delete-profile" type="button">&times;</button>
+    </div>
+    <div class="picker-group">
+      <label class="picker" for="project">Project
+        <select id="project" title="Whose invariants this conversation is subject to. The rules belong to the codebase, not to you."></select>
+      </label>
+      <button class="picker-delete" id="delete-project" type="button">&times;</button>
+    </div>
+    <button id="new-conversation" type="button" title="Start a new conversation with this agent"><span class="full">New conversation</span><span class="short">New</span></button>
+  </div>
+
+  <!-- Just the curve. The controls that decide the payload live in the topbar
+       and the running totals live in the right-hand column, under the sentence
+       that says what is being sent — three things that used to be stacked above
+       the transcript, each costing it height. -->
+  <details class="chart" id="chart-panel" open>
+    <summary>Cost</summary>
+    <svg id="chart" viewBox="0 0 600 140" preserveAspectRatio="none" role="img"
+         aria-label="Cumulative cost by turn"></svg>
+  </details>
+
+
+  <div id="messages" aria-live="polite"></div>
+
+  <!-- Above the composer and outside it: the answer to "whose turn is it"
+       belongs where you look before typing, not in the panel you may have
+       collapsed. -->
+  <div class="stage-strip" id="stage-strip" hidden></div>
+
+  <form id="composer">
+    <textarea id="input" rows="1" placeholder="Say something… (Enter to send, Shift+Enter for a newline)" autofocus></textarea>
+    <button id="send" type="submit">Send</button>
+  </form>
+</div>
+
+<aside class="summary-panel" id="context-panel" data-open="true">
+  <p class="text" id="window-text"></p>
+  <div class="usage" id="usage"></div>
+
+  <button class="head" id="panel-toggle" type="button" aria-expanded="true" aria-controls="panel-body">
+    <span class="caret">▾</span>
+    <span class="stats" id="panel-stats"><b>Context</b></span>
+    <span class="badge" id="panel-badge" hidden>just updated</span>
+  </button>
+  <div class="summary-body" id="panel-body"></div>
+
+  <!-- MCP: one section per registered server, built from /mcp/servers. An
+       OAuth server's Connect opens the authorization page in a popup and
+       polls the status; the tool list is plain text, never rendered Markdown. -->
+  <div class="mcp-servers" id="mcp-servers"></div>
+</aside>
+</div>
+</div>
+
+<dialog class="mcp-tools" id="mcp-tools-dialog">
+  <div class="head">
+    <h2 id="mcp-tools-title">MCP tools</h2>
+    <span class="note" id="mcp-tools-note"></span>
+    <button id="mcp-tools-close" type="button">Close</button>
+  </div>
+  <ul class="tools" id="mcp-tools"></ul>
+</dialog>
+
+<dialog class="compare" id="compare-dialog">
+  <div class="head">
+    <h2>Same question, different people</h2>
+    <span class="note" id="compare-note">Read-only: nothing here is written to a profile or to this conversation.</span>
+    <button id="compare-close" type="button">Close</button>
+  </div>
+  <div class="setup">
+    <textarea id="compare-message" rows="2" placeholder="One question, asked of every profile…"></textarea>
+    <div class="who" id="compare-who"></div>
+  </div>
+  <div class="results" id="compare-results">
+    <p class="placeholder">Pick two or more profiles and run it.</p>
+  </div>
+  <p class="foot" id="compare-foot"></p>
+</dialog>
+
+<script type="module">
+  // The formatters and the price table come from the server's own module, so a
+  // number in the UI is formatted by exactly the code that priced it.
+  import { formatCost, formatTokens, pricingFor } from "/pricing.js";
+import { marked } from "/vendor/marked.js";
+import DOMPurify from "/vendor/purify.js";
+import { createMarkdown } from "/markdown.js";
+
+// The parser and the sanitizer are resolved here and handed to the renderer, so
+// the allowlist that decides what a reply may contain lives in one file that a
+// person can read in one screen.
+const renderMarkdown = createMarkdown({ marked, DOMPurify });
+
+  const SESSION_KEY = "first-agent.sessionId";
+  // Which agent the page is on. Remembered like the profile and for the same
+  // reason: it is not a property of any one conversation — each conversation
+  // records its own — it is where the next new chat will go.
+  const AGENT_KEY = "first-agent.agent";
+  const PANEL_OPEN_KEY = "first-agent.panelOpen";
+  // The merged strategy-and-cost row remembers whether you closed it, for the
+  // same reason the right-hand panel does: a thing you collapsed once and have
+  // to collapse again on every reload is a thing you stop collapsing.
+  const CONTROLS_OPEN_KEY = "first-agent.controlsOpen";
+  // Which profile the topbar is pointing at. It lives beside the session id
+  // rather than in the conversation because it is not a property of the
+  // conversation: the same chat can be continued as someone else, and that is
+  // the whole point of the picker.
+  const PROFILE_KEY = "first-agent.profile";
+  // The project is remembered the same way and for a different reason: which
+  // codebase you are working in is not a property of any one chat either, and
+  // opening a new conversation in the same repository should not mean losing
+  // its rules until you remember to pick them again. The conversation record
+  // holds the answer too, and it wins when the two disagree.
+  const PROJECT_KEY = "first-agent.project";
+  /** The value the picker uses for "make one that does not exist yet". */
+  const NEW_PROFILE = "\u0000new";
+  // How long the panel stays lit after the strategy changed something. Long
+  // enough to notice on the turn it happened, short enough not to still be
+  // shouting two turns later.
+  const FLASH_MS = 4000;
+  // What the "% of the window" figure is measured against. The real number
+  // comes from the model that actually answered; 200K is the stand-in until
+  // one has.
+  const DEFAULT_CONTEXT_WINDOW = 200000;
+
+  // The id lives in localStorage, not in a page variable: a fresh random id on
+  // every load would look like amnesia even with the server persisting fine.
+  let sessionId = localStorage.getItem(SESSION_KEY);
+  if (!sessionId) {
+    sessionId = crypto.randomUUID();
+    localStorage.setItem(SESSION_KEY, sessionId);
+  }
+
+  const deleteProfileButton = document.getElementById("delete-profile");
+  const deleteProjectButton = document.getElementById("delete-project");
+  const agentSelect = document.getElementById("agent");
+  const agentTagline = document.getElementById("agent-tagline");
+  const messages = document.getElementById("messages");
+  const conversations = document.getElementById("conversations");
+  const form = document.getElementById("composer");
+  const input = document.getElementById("input");
+  const sendButton = document.getElementById("send");
+  const newButton = document.getElementById("new-conversation");
+  const usageStrip = document.getElementById("usage");
+  const chart = document.getElementById("chart");
+  const windowText = document.getElementById("window-text");
+  const contextInput = document.getElementById("context-messages");
+  const maxTokensSelect = document.getElementById("max-tokens");
+  const contextPanel = document.getElementById("context-panel");
+  const panelToggle = document.getElementById("panel-toggle");
+  const panelStats = document.getElementById("panel-stats");
+  const panelBadge = document.getElementById("panel-badge");
+  const panelBody = document.getElementById("panel-body");
+  const chartPanel = document.getElementById("chart-panel");
+  const profileSelect = document.getElementById("profile");
+  const projectSelect = document.getElementById("project");
+  const stageStrip = document.getElementById("stage-strip");
+  const compareDialog = document.getElementById("compare-dialog");
+  const compareMessage = document.getElementById("compare-message");
+  const compareWho = document.getElementById("compare-who");
+  const compareResults = document.getElementById("compare-results");
+  const compareFoot = document.getElementById("compare-foot");
+  const compareNote = document.getElementById("compare-note");
+
+  let pending = false;
+  /** How many replies have been drawn, so a turn can be named while painting. */
+  let paintedTurns = 0;
+  /** Where this conversation was split off from, or null. Provenance only. */
+  let forkedFrom = null;
+  /** Every agent, from the registry, and which one the page is on. */
+  let agents = [];
+  let agentId = readAgentId();
+  /**
+   * Whatever the strategy says about its own state: `{ kind, … }`. The page
+   * never reads a field belonging to the strategy without first looking at
+   * `kind`, which is the same discipline the server keeps.
+   */
+  let panelState = { kind: "none", title: "", note: "" };
+  /** The previous row values, so a changed row can say what it used to say. */
+  let previousRows = new Map();
+  let changedKeys = new Set();
+  let windowState = {
+    contextMessages: Number(contextInput.value),
+    droppedCount: 0,
+    storedMessages: 0,
+    verbatimExchanges: 0,
+  };
+  let lastSentTokens = null;
+  let lastModel = null;
+  let flashTimer = null;
+  /** Every profile the store knows about, for the picker and the comparison. */
+  let profiles = [];
+  /**
+   * The id each list route calls its default. Seeded with the same value the
+   * stored-preference fallbacks use and then corrected by the fetch, so the one
+   * place that decides what "default" means is still the server.
+   */
+  let defaultProfileId = "local";
+  let defaultProjectId = "default";
+  /** Whose long-term memory the next turn reads and writes. */
+  let profileId = storedProfile();
+  /**
+   * The selected profile **as the store holds it now**, for the editor.
+   *
+   * Deliberately not the panel's profile rows: those are what was *sent* on
+   * the last turn of this branch, stamped and branch-local. A form seeded from
+   * them would be editing a snapshot, and on a fork it would be editing a
+   * snapshot several turns out of date.
+   */
+  let profileEntries = [];
+  /** Which arms the comparison dialog will run, across openings. */
+  let compareWith = new Set();
+  /** Every project with a rule set, for the picker. */
+  let projects = [];
+  /** Which project's invariants this conversation is subject to. */
+  let projectId = storedProject();
+  /**
+   * The rows the last *Propose* call came back with, and the prose that
+   * produced them.
+   *
+   * They live in the page and nowhere else, which is the point: a proposal is
+   * not memory, and until a row is accepted there is nothing on the server
+   * that knows it was ever drafted. A failed call leaves the typed text
+   * exactly where it was.
+   */
+  let invariantRows = [];
+  let invariantDraft = "";
+
+  function storedProject() {
+    try {
+      return localStorage.getItem(PROJECT_KEY) || "default";
+    } catch (err) {
+      return "default";
+    }
+  }
+
+  function storedProfile() {
+    try {
+      return localStorage.getItem(PROFILE_KEY) || "local";
+    } catch (err) {
+      return "local";
+    }
+  }
+
+  /** The pickers, as a query string. */
+  /**
+   * Which pickers the page is on, as a query string.
+   *
+   * The two ids ride along because the panel answers *what would the next turn
+   * be sent* — and the next turn is sent whatever the topbar currently says,
+   * not whatever the last one happened to use. Without them a conversation
+   * nobody has spoken in yet has no snapshot to draw from and comes back with
+   * an empty rule set and an empty profile.
+   */
+  function pickerQuery() {
+    const params = new URLSearchParams();
+    if (profileId) params.set("profile", profileId);
+    if (projectId) params.set("project", projectId);
+    const query = params.toString();
+    return query ? "?" + query : "";
+  }
+
+  function showEmptyState() {
+    messages.innerHTML = '<p class="empty">No messages yet — say hello.</p>';
+  }
+
+  function clearEmptyState() {
+    messages.querySelector(".empty")?.remove();
+  }
+
+  /** `claude-haiku-4-5-20251001` → `haiku-4.5`. The date is noise in a counter. */
+  function shortModel(model) {
+    if (!model) return "";
+    const match = /^claude-([a-z]+)-(\d+)-(\d+)/.exec(model);
+    return match ? `${match[1]}-${match[2]}.${match[3]}` : model;
+  }
+
+  /**
+   * A turn's strategy facts, wherever they came from: a live `meta` carries
+   * them under `strategy` and a stored message carries them at the top level.
+   *
+   * A message written by Day 9 carries them under `compression` instead, from
+   * when there was only one strategy and it did not have a name. Those numbers
+   * describe a strategy this app no longer has, so the turn is drawn without a
+   * block note rather than labelled with one that cannot be true.
+   */
+  function strategyOf(meta) {
+    if (!meta) return null;
+    return meta.strategy ?? null;
+  }
+
+  /**
+   * `(140 profile, 98 task)` — the blocks called out **inside** the input
+   * figure, not added to it.
+   *
+   * The total is measured: the server counted the request twice, once with the
+   * blocks and once without. The split across them is not — it is that
+   * measured total apportioned by the size of each block on the turn it was
+   * sent, which the strategy records in its own state as it builds them. An
+   * exact per-block count would need three more count calls per turn to answer
+   * a question about proportions, which is not worth three network round trips.
+   *
+   * Turns taken before the strategy started recording, and turns on some other
+   * branch, have no row: those fall back to the single total.
+   */
+  function blockNote(strategy, turn) {
+    const total = strategy?.blockTokens;
+    if (!total) return "";
+
+    const row = (panelState.kind === "memory" ? panelState.attribution ?? [] : []).find(
+      (entry) => entry.turn === turn
+    );
+    const parts = [
+      ["profile", row?.profile ?? 0],
+      ["task", row?.working ?? 0],
+      ["digest", row?.digest ?? 0],
+    ].filter(([, size]) => size > 0);
+    const characters = parts.reduce((sum, [, size]) => sum + size, 0);
+    if (!characters) return ` (${formatTokens(total)} memory)`;
+
+    return (
+      " (" +
+      parts
+        .map(([label, size]) => `${formatTokens(Math.round((total * size) / characters))} ${label}`)
+        .join(", ") +
+      ")"
+    );
+  }
+
+  /**
+   * The line under a reply: real billed tokens, what they cost, how long it
+   * took, and which model said it.
+   *
+   * The strategy's block is called out inside the input figure rather than
+   * added to it. It is not extra tokens on top of the request — it *is* part
+   * of the request, and the interesting question is how much of the input it
+   * accounts for.
+   */
+  function agentMetaLine(meta, turn) {
+    const { tokens, cost, model, ms } = meta;
+    const strategy = strategyOf(meta);
+    const parts = [];
+    if (tokens?.input != null) {
+      parts.push(formatTokens(tokens.input) + " in" + blockNote(strategy, turn));
+    }
+    if (tokens?.output != null) parts.push(formatTokens(tokens.output) + " out");
+    if (cost?.total != null) parts.push(formatCost(cost.total));
+    if (ms != null) parts.push((ms / 1000).toFixed(1) + "s");
+    if (model) parts.push(shortModel(model));
+    return parts.join(" · ");
+  }
+
+  /**
+   * The turn where the strategy did some work, with its own bill attached.
+   * Hiding that cost would make context management look free, and the whole
+   * reason to measure it is that it is not.
+   */
+  function overheadNote(strategy) {
+    const box = document.createElement("div");
+    box.className = "folded";
+    const lead = document.createElement("b");
+    lead.textContent = strategy.note || "the strategy ran";
+    box.appendChild(lead);
+
+    const bill = [];
+    if (strategy.overheadTokens) bill.push(formatTokens(strategy.overheadTokens) + " overhead tokens");
+    if (strategy.overheadCost != null) bill.push(formatCost(strategy.overheadCost));
+    if (strategy.overheadMs != null) bill.push((strategy.overheadMs / 1000).toFixed(1) + "s");
+    if (bill.length) box.append(" · " + bill.join(" · "));
+    return box;
+  }
+
+  function addMessage(who, text, { meta = null, error = false, id = null, prompted = false } = {}) {
+    clearEmptyState();
+
+    const strategy = strategyOf(meta);
+
+    // Which exchange this is, counted as it is drawn. The per-turn counter
+    // needs it to look up what the blocks cost on that particular turn.
+    if (who !== "user" && !error) paintedTurns += 1;
+    const turn = paintedTurns;
+
+    const row = document.createElement("div");
+    // A turn the strip took on your behalf is still your turn — it is stored
+    // as one and the model reads it as one — but it should not read in the
+    // transcript as a sentence you typed.
+    row.className = "row " + who + (error ? " error" : "") + (prompted ? " prompted" : "");
+
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    // **Replies are Markdown; everything else is text.** A model writes lists,
+    // headings and fenced code, and `textContent` showed all of it as literal
+    // asterisks and backticks. What the *user* typed is left alone — echoing
+    // their own asterisks back as bold is surprising and occasionally wrong —
+    // and an error string is not Markdown either.
+    if (who === "user" || error) {
+      bubble.textContent = text;
+    } else {
+      bubble.classList.add("md");
+      bubble.innerHTML = renderMarkdown(text);
+    }
+    row.appendChild(bubble);
+
+    if (meta?.truncated) row.appendChild(truncationWarning());
+    if (who !== "user" && strategy?.overheadCalls) row.appendChild(overheadNote(strategy));
+    if (who !== "user" && meta?.toolCalls?.length) row.appendChild(toolCallRows(meta.toolCalls));
+    if (who !== "user" && meta?.toolsUnavailable?.length) row.appendChild(toolsUnavailableNote(meta.toolsUnavailable));
+
+    const line = document.createElement("div");
+    line.className = "meta";
+    line.textContent = meta
+      ? who === "user"
+        ? userMetaLine(meta)
+        : agentMetaLine(meta, turn)
+      : "";
+    // Forking is offered on the message, not in a dialogue box: "what if I had
+    // said something else here" is a question about one specific message.
+    if (!error && id) line.appendChild(forkButton(id));
+    if (!error) row.appendChild(line);
+
+    messages.appendChild(row);
+    messages.scrollTop = messages.scrollHeight;
+    return row;
+  }
+
+  /**
+   * "🔧 omdb.get_movie (230 ms)", one collapsible row per call, opening to the
+   * input and a preview of the result. Everything is `textContent`: a tool
+   * result is somebody else's text, and it is not Markdown.
+   */
+  function toolCallRows(calls) {
+    const box = document.createElement("div");
+    box.className = "tool-calls";
+    for (const call of calls) {
+      const details = document.createElement("details");
+      details.className = "tool-call" + (call.ok ? "" : " failed");
+      const summary = document.createElement("summary");
+      const ms = typeof call.ms === "number" ? ` (${call.ms} ms)` : "";
+      summary.textContent = `🔧 ${call.server}.${call.tool}${ms}${call.ok ? "" : " — failed"}`;
+      details.appendChild(summary);
+      for (const [label, text] of [
+        ["input", JSON.stringify(call.input ?? {}, null, 2)],
+        [call.ok ? "result" : "error", call.resultPreview ?? ""],
+      ]) {
+        const heading = document.createElement("div");
+        heading.className = "label";
+        heading.textContent = label;
+        const pre = document.createElement("pre");
+        pre.textContent = text;
+        details.append(heading, pre);
+      }
+      box.appendChild(details);
+    }
+    return box;
+  }
+
+  function toolsUnavailableNote(unavailable) {
+    const note = document.createElement("div");
+    note.className = "tool-note";
+    note.textContent = "⚠ Answered without tools — " + unavailable.map((each) => `${each.server}: ${each.error}`).join("; ");
+    return note;
+  }
+
+  function forkButton(messageId) {
+    const button = document.createElement("button");
+    button.className = "fork";
+    button.type = "button";
+    button.textContent = "Fork from here";
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      forkFrom(messageId);
+    });
+    return button;
+  }
+
+  function userMetaLine(meta) {
+    const count = meta.tokens?.request;
+    return count == null ? "" : formatTokens(count) + " tokens";
+  }
+
+  function truncationWarning() {
+    const box = document.createElement("div");
+    box.className = "warning";
+    box.textContent =
+      "Cut off: the reply hit the max_tokens ceiling and stopped mid-sentence. " +
+      "It was still saved to history exactly as it arrived, so on the next turn " +
+      "the model will read its own unfinished sentence as something it meant to say.";
+    return box;
+  }
+
+  function addThinking() {
+    clearEmptyState();
+    const row = document.createElement("div");
+    row.className = "row agent";
+    row.innerHTML =
+      '<div class="bubble">thinking<span class="dots">' +
+      "<span>.</span><span>.</span><span>.</span></span></div>";
+    messages.appendChild(row);
+    messages.scrollTop = messages.scrollHeight;
+    return row;
+  }
+
+  function setPending(value) {
+    pending = value;
+    sendButton.disabled = value;
+    newButton.disabled = value;
+    // Deleting a profile or a rule set mid-turn would pull the ground out from
+    // under the turn that is being answered against it.
+    deleteProfileButton.disabled = value;
+    deleteProjectButton.disabled = value;
+    // The panel's own buttons write to memory, and so do the strip's. A second
+    // click while the first is in flight would be applied to a state the page
+    // has not seen yet.
+    for (const button of panelBody.querySelectorAll("button")) button.disabled = value;
+    for (const button of stageStrip.querySelectorAll("button")) button.disabled = value;
+  }
+
+  function autoGrow() {
+    input.style.height = "auto";
+    input.style.height = Math.min(input.scrollHeight, 180) + "px";
+  }
+
+  // ---- the right-hand column -----------------------------------------------
+
+  /**
+   * Render the summary's Markdown-ish structure: `## Section` headers become
+   * small bold labels and `- item` lines become bullets. At 11.5px the
+   * structure is the only thing that makes it scannable, so it is worth the
+   * fifteen lines it takes to draw.
+   */
+  function renderSummaryInto(target, text) {
+    target.innerHTML = "";
+    if (!text) return;
+
+    for (const raw of String(text).split("\n")) {
+      const line = raw.trim();
+      if (!line) continue;
+      const node = document.createElement("div");
+      if (line.startsWith("#")) {
+        node.className = "sh";
+        node.textContent = line.replace(/^#+\s*/, "");
+      } else if (line.startsWith("- ") || line.startsWith("* ")) {
+        node.className = "si";
+        node.textContent = "• " + line.slice(2);
+      } else {
+        node.className = "sp";
+        node.textContent = line;
+      }
+      target.appendChild(node);
+    }
+  }
+
+  // ---- the profile picker ---------------------------------------------------
+
+  /**
+   * The picker is built from the store, never from a list in this file.
+   *
+   * Same rule as the strategy selector: a second list of what exists is a
+   * second list that can be wrong, and this one would be wrong the moment
+   * anybody added a profile by dropping a file into `data/memory/`.
+   */
+  /**
+   * Which agent the page was on last time, if any.
+   *
+   * Read before the registry has loaded, so it cannot be validated yet — an id
+   * that no longer exists is corrected by `renderAgentSelect` once the list
+   * arrives, and the server coerces an unknown one to the default regardless.
+   */
+  function readAgentId() {
+    try {
+      return localStorage.getItem(AGENT_KEY) || null;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  async function loadAgents() {
+    try {
+      const res = await fetch("/agents");
+      if (res.ok) {
+        const data = await res.json();
+        agents = data.agents ?? [];
+        if (!agents.some((agent) => agent.id === agentId)) agentId = data.default ?? agents[0]?.id ?? null;
+      }
+    } catch (err) {
+      // A dropdown we cannot fill still answers as whichever agent the server
+      // decides, which is the default. Nothing here is load-bearing.
+    }
+    renderAgentSelect();
+  }
+
+  function renderAgentSelect() {
+    agentSelect.innerHTML = "";
+    for (const agent of agents) {
+      const option = document.createElement("option");
+      option.value = agent.id;
+      option.textContent = agent.name;
+      agentSelect.appendChild(option);
+    }
+    if (agentId) agentSelect.value = agentId;
+    agentTagline.textContent = agents.find((agent) => agent.id === agentSelect.value)?.tagline ?? "";
+  }
+
+  /**
+   * Switching agent switches which chats you are looking at, and starts a new
+   * one.
+   *
+   * It does **not** move the conversation you were in: that transcript was
+   * answered by the agent it was answered by, and it stays in that agent's list.
+   * So the only honest thing a switch can do is show you the other list and give
+   * you somewhere to start talking — which is what clicking "New conversation"
+   * does, aimed at a different agent.
+   */
+  agentSelect.addEventListener("change", async () => {
+    if (pending) {
+      agentSelect.value = agentId;
+      return;
+    }
+    agentId = agentSelect.value;
+    try {
+      localStorage.setItem(AGENT_KEY, agentId);
+    } catch (err) {
+      // Not remembering which agent you were on is survivable.
+    }
+    renderAgentSelect();
+
+    switchTo(crypto.randomUUID());
+    showEmptyState();
+    resetPanel();
+    renderPanel();
+    refreshConversations();
+    refreshUsage();
+    input.focus();
+    await refreshPanel();
+  });
+
+  async function loadProfiles() {
+    try {
+      const res = await fetch("/profiles");
+      if (res.ok) {
+        const data = await res.json();
+        profiles = data.profiles ?? [];
+        if (data.default) defaultProfileId = data.default;
+      }
+    } catch (err) {
+      // A picker we cannot fill still has the profile we are already on.
+    }
+    if (!profiles.some((profile) => profile.id === profileId)) {
+      profiles = [...profiles, { id: profileId, entryCount: 0, updatedAt: null }];
+    }
+    renderProfileSelect();
+    await loadProfileEntries();
+  }
+
+  function renderProfileSelect() {
+    profileSelect.innerHTML = "";
+    for (const profile of profiles) {
+      const option = document.createElement("option");
+      option.value = profile.id;
+      option.textContent =
+        profile.id + (profile.entryCount ? ` (${profile.entryCount})` : "");
+      profileSelect.appendChild(option);
+    }
+    const create = document.createElement("option");
+    create.value = NEW_PROFILE;
+    create.textContent = "New profile…";
+    profileSelect.appendChild(create);
+    profileSelect.value = profileId;
+    deleteProfileButton.title = profileId === defaultProfileId
+      ? `Clear the profile "${profileId}" — it is always offered, so it comes back empty`
+      : `Delete the profile "${profileId}"`;
+  }
+
+  /** What the store holds for the selected profile, for the editor to edit. */
+  async function loadProfileEntries() {
+    try {
+      const res = await fetch("/profiles/" + encodeURIComponent(profileId));
+      profileEntries = res.ok ? (await res.json()).entries ?? [] : [];
+    } catch (err) {
+      profileEntries = [];
+    }
+  }
+
+  profileSelect.addEventListener("change", async () => {
+    if (profileSelect.value === NEW_PROFILE) {
+      const name = String(window.prompt("A name for the new profile", "") ?? "")
+        .trim()
+        .toLowerCase();
+      // The same rule the store enforces, said here so the answer is instant
+      // and the user is not told about a filesystem they never asked about.
+      if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(name)) {
+        profileSelect.value = profileId;
+        if (name) memoryNote("A profile name is lowercase letters, digits, dash or underscore.");
+        return;
+      }
+      if (!profiles.some((profile) => profile.id === name)) {
+        // It has no file yet, and will not have one until something is
+        // declared in it. That is correct: an empty profile is a profile
+        // nobody has said anything about.
+        profiles = [...profiles, { id: name, entryCount: 0, updatedAt: null }];
+      }
+      profileId = name;
+    } else {
+      profileId = profileSelect.value;
+    }
+
+    try {
+      localStorage.setItem(PROFILE_KEY, profileId);
+    } catch (err) {
+      // A browser that will not remember it still uses it for this session.
+    }
+    renderProfileSelect();
+    await loadProfileEntries();
+    renderPanel();
+    renderWindowBanner();
+    // The panel's rows are whose profile the *next* turn will use, so they
+    // follow the picker rather than waiting for a turn to prove it.
+    await refreshPanel();
+  });
+
+  /**
+   * Delete a stored profile, or a project's rule set.
+   *
+   * **The default id is emptied rather than removed**, because both list routes
+   * always offer it — so the question asked is the one that is actually about to
+   * happen. Either way it names the count first: "delete the profile" and
+   * "delete the eleven things this profile knows about you" are the same click
+   * and very different decisions.
+   *
+   * @param {object} params
+   * @param {string} params.route - `/profiles` or `/projects`.
+   * @param {string} params.id - Which one.
+   * @param {string} params.noun - What to call it in the question.
+   * @param {number} params.count - How many entries it holds.
+   * @param {boolean} params.isDefault - Whether it will come back empty.
+   * @returns {Promise<boolean>} Whether anything was deleted.
+   */
+  async function deleteScoped({ route, id, noun, count, isDefault }) {
+    const holds = count
+      ? `It holds ${count} entr${count === 1 ? "y" : "ies"}`
+      : "It holds nothing yet";
+    const question = isDefault
+      ? `Clear the ${noun} "${id}"? ${holds}, and it will come back empty.`
+      : `Delete the ${noun} "${id}"? ${holds}, and this cannot be undone.`;
+    if (!window.confirm(question)) return false;
+
+    try {
+      const res = await fetch(`${route}/${encodeURIComponent(id)}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        memoryNote(data.error ?? `Could not delete that ${noun}.`);
+        return false;
+      }
+      memoryNote(data.emptied ? `Cleared the ${noun} "${id}".` : `Deleted the ${noun} "${id}".`);
+      return true;
+    } catch (err) {
+      memoryNote("Could not reach the server.");
+      return false;
+    }
+  }
+
+  /** What the picker currently says about the selected entry. */
+  function selectedEntry(list, id) {
+    return list.find((entry) => entry.id === id) ?? { id, entryCount: 0 };
+  }
+
+  deleteProfileButton.addEventListener("click", async () => {
+    if (pending) return;
+    const entry = selectedEntry(profiles, profileId);
+    const isDefault = profileId === defaultProfileId;
+    if (!await deleteScoped({
+      route: "/profiles",
+      id: profileId,
+      noun: "profile",
+      count: entry.entryCount ?? 0,
+      isDefault,
+    })) return;
+
+    // A profile that is gone cannot stay selected, so the picker falls back to
+    // the default — which is always offered, even when it holds nothing.
+    if (!isDefault) {
+      profiles = profiles.filter((profile) => profile.id !== profileId);
+      profileId = defaultProfileId;
+      try {
+        localStorage.setItem(PROFILE_KEY, profileId);
+      } catch (err) {
+        // Not remembering the fallback is survivable.
+      }
+    }
+    await loadProfiles();
+    renderPanel();
+    renderWindowBanner();
+    // The panel's rows are what the next turn would be sent, and that just
+    // changed — so it is re-read rather than left showing what is now gone.
+    await refreshPanel();
+  });
+
+  deleteProjectButton.addEventListener("click", async () => {
+    if (pending) return;
+    const entry = selectedEntry(projects, projectId);
+    const isDefault = projectId === defaultProjectId;
+    if (!await deleteScoped({
+      route: "/projects",
+      id: projectId,
+      noun: "project",
+      count: entry.entryCount ?? 0,
+      isDefault,
+    })) return;
+
+    if (!isDefault) {
+      projects = projects.filter((project) => project.id !== projectId);
+      projectId = defaultProjectId;
+      try {
+        localStorage.setItem(PROJECT_KEY, projectId);
+      } catch (err) {
+        // Not remembering the fallback is survivable.
+      }
+    }
+    // A draft was typed against the rule set that just went away.
+    invariantRows = [];
+    await loadProjects();
+    renderPanel();
+    renderWindowBanner();
+    await refreshPanel();
+  });
+
+  /**
+   * Which projects have rules — the second picker, built from the store.
+   *
+   * Same discipline as the profile list: it comes from the thing that owns it,
+   * never from a second list here that can quietly disagree.
+   */
+  async function loadProjects() {
+    try {
+      const res = await fetch("/projects");
+      if (res.ok) {
+        const data = await res.json();
+        projects = data.projects ?? [];
+        if (data.default) defaultProjectId = data.default;
+      }
+    } catch (err) {
+      // A picker we cannot fill still has the project we are already on.
+    }
+    if (!projects.some((project) => project.id === projectId)) {
+      projects = [...projects, { id: projectId, entryCount: 0, updatedAt: null }];
+    }
+    renderProjectSelect();
+  }
+
+  function renderProjectSelect() {
+    projectSelect.innerHTML = "";
+    for (const project of projects) {
+      const option = document.createElement("option");
+      option.value = project.id;
+      option.textContent = project.id + (project.entryCount ? ` (${project.entryCount})` : "");
+      projectSelect.appendChild(option);
+    }
+    const create = document.createElement("option");
+    create.value = NEW_PROFILE;
+    create.textContent = "New project\u2026";
+    projectSelect.appendChild(create);
+    projectSelect.value = projectId;
+    deleteProjectButton.title = projectId === defaultProjectId
+      ? `Clear the rules of "${projectId}" — it is always offered, so it comes back empty`
+      : `Delete the rules of "${projectId}"`;
+  }
+
+  projectSelect.addEventListener("change", async () => {
+    if (projectSelect.value === NEW_PROFILE) {
+      const name = String(window.prompt("A name for the new project", "") ?? "").trim().toLowerCase();
+      if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(name)) {
+        projectSelect.value = projectId;
+        if (name) memoryNote("A project name is lowercase letters, digits, dash or underscore.");
+        return;
+      }
+      // No file until a rule is written into it. An empty project is a
+      // codebase nobody has stated a rule about yet, which is a real state.
+      if (!projects.some((project) => project.id === name)) {
+        projects = [...projects, { id: name, entryCount: 0, updatedAt: null }];
+      }
+      projectId = name;
+    } else {
+      projectId = projectSelect.value;
+    }
+
+    try {
+      localStorage.setItem(PROJECT_KEY, projectId);
+    } catch (err) {
+      // A browser that will not remember it still uses it for this session.
+    }
+    // A draft belongs to the project it was typed against, so switching throws
+    // it away rather than letting you accept a rule into the wrong codebase.
+    invariantRows = [];
+    renderProjectSelect();
+    renderPanel();
+    // The rules below belong to the project, so they change when the picker
+    // does. Re-reading is what makes that true rather than leaving last
+    // turn's snapshot on screen under a new project's name.
+    await refreshPanel();
+  });
+
+  /**
+   * The three-layer panel: profile, the task in hand, what was thrown away.
+   *
+   * Every row is addressable — *forget* on all of them, *promote* on the ones
+   * the routing table marks promotable — and every button goes through the
+   * same `applyOps` path on the server that the extractor's patch does. A
+   * button that could change memory in a way a patch cannot express would be a
+   * second code path with no test behind it.
+   *
+   * `interactive` is false where the panel is drawn inside the transcript, at
+   * the context boundary: that copy is a caption, and a caption with buttons
+   * in it is a trap.
+   */
+  function renderMemoryInto(target, panel, { interactive = true } = {}) {
+    target.innerHTML = "";
+    const root = document.createElement("div");
+    root.className = "memory";
+
+    // **First, because that is where it is on the wire and because it outranks
+    // everything under it.** The panel's job is to make the payload legible,
+    // and a section drawn below the profile would say the opposite of what the
+    // precedence line in the block says.
+    //
+    // The caption copy drawn inside the transcript leaves it out when there
+    // are no rules: the panel's empty state is an invitation to write one, and
+    // an invitation in a caption is a button you cannot press.
+    if (interactive || panel.invariants?.length) {
+      root.appendChild(memoryInvariants(panel, interactive));
+    }
+
+    const profileLayer = memoryLayer({
+      title: "Profile",
+      lifetime: interactive ? `never expires · ${profileId}` : "never expires",
+      rows: panel.profile ?? [],
+      prefix: "profile:",
+      empty: interactive
+        ? `Nothing has been sent from ${profileId} on this branch yet. The editor below shows what it holds.`
+        : "Nothing about you has been kept yet.",
+      actions: interactive
+        ? (row) => [actButton("forget", () => memoryOps([{ op: "delete", key: row.key, from: "profile" }]))]
+        : null,
+    });
+
+    // The rows above are what was *sent* on the last turn of this branch. If
+    // the picker has moved since, they are the other profile's — saying so is
+    // cheaper than silently relabelling them, and a panel that quietly shows
+    // one profile's entries under another profile's name is the exact bug the
+    // picker makes possible.
+    if (interactive && panel.user && panel.user !== profileId) {
+      const moved = document.createElement("div");
+      moved.className = "none";
+      moved.textContent =
+        `Above: what was sent last turn, as ${panel.user}. The next turn will use ${profileId}.`;
+      profileLayer.appendChild(moved);
+    }
+    if (interactive) {
+      profileLayer.appendChild(profileEditor());
+      // Beside the editor rather than down with the numbers: comparing
+      // profiles is an action on the profile store, and it has to be reachable
+      // before a single turn has been taken — which is exactly when you most
+      // want to know whether these two profiles actually answer differently.
+      // The caption copy drawn inside the transcript gets neither, because a
+      // caption with buttons in it is a trap.
+      profileLayer.appendChild(compareButton());
+    }
+    root.appendChild(profileLayer);
+
+    const task = memoryLayer({
+      title: "Current task",
+      lifetime: "cleared when it reaches done",
+      rows: panel.task ?? [],
+      prefix: "task:",
+      empty: "No keys yet — whatever you say next fills this in.",
+      actions: interactive
+        ? (row) => [
+            row.promotable
+              ? actButton("promote", () => memoryOps([{ op: "promote", key: row.key }]))
+              : null,
+            actButton("forget", () => memoryOps([{ op: "delete", key: row.key, from: "working" }])),
+          ].filter(Boolean)
+        : null,
+      // The stage goes above the keys here for the same reason it goes above
+      // them in the block: it is the thing that says how to read the rest.
+      // The buttons are not repeated — they live in the strip, where they are
+      // visible without opening this panel.
+      lead: panel.lifecycle ? stageSummary(panel.lifecycle) : null,
+    });
+    // **Why the reply you just read is not in here yet.**
+    //
+    // Memory is extracted before the model answers, over the exchange ending
+    // with the message you sent — which is what makes a preference stated now
+    // shape the answer now, and what leaves anything the *assistant* says one
+    // turn behind. The case that reads as a bug is planning: it asks six
+    // questions and the task shows nothing open until you say something else.
+    // There is no second call to close that with, so it is said out loud.
+    if (interactive && panel.lifecycle?.stage === "planning" && panel.reads?.pending) {
+      const lag = document.createElement("div");
+      lag.className = "none";
+      lag.textContent =
+        "The reply above has not been read into memory yet — that happens on your next message. " +
+        "Anything it asked shows up here then, as open.* questions.";
+      task.appendChild(lag);
+    }
+    root.appendChild(task);
+
+    if (panel.lifecycle?.brief?.status === "accepted") root.appendChild(memoryBrief(panel.lifecycle.brief));
+    if (panel.proposals?.length) root.appendChild(memoryProposals(panel.proposals, interactive));
+    if (panel.pastTasks?.length) root.appendChild(memoryPastTasks(panel.pastTasks));
+    if (panel.discarded?.length) root.appendChild(memoryDiscarded(panel.discarded));
+    if (panel.digest?.text) root.appendChild(memoryDigest(panel.digest));
+
+    target.appendChild(root);
+  }
+
+
+  /**
+   * **The rules, the box you type them in, and what was refused under them.**
+   *
+   * Three things in one section because they are one loop: you read what the
+   * project already has, you type what else is true, and you see what the
+   * assistant turned down because of it. Splitting them would mean the rules
+   * you already have are somewhere other than the box where you would retype
+   * them, which is how people end up with four rows saying the same thing.
+   */
+  function memoryInvariants(panel, interactive) {
+    const rows = panel.invariants ?? [];
+    const section = document.createElement("div");
+    section.className = "layer rules";
+
+    const heading = document.createElement("h3");
+    heading.textContent = `Invariants (${rows.length})`;
+    const life = document.createElement("span");
+    life.className = "lifetime";
+    life.textContent = interactive
+      ? `the project's, not yours · ${panel.project ?? projectId}`
+      : "the project's, not yours";
+    heading.appendChild(life);
+    section.appendChild(heading);
+
+    if (!rows.length) {
+      const none = document.createElement("div");
+      none.className = "none";
+      none.textContent = interactive
+        ? "No rules yet. Anything you write here is sent on every turn, in every stage, above everything else in memory."
+        : "No rules for this project.";
+      section.appendChild(none);
+    }
+
+    for (const row of rows) {
+      const entry = document.createElement("div");
+      entry.className = "rule-row";
+
+      const key = document.createElement("div");
+      key.className = "k";
+      key.textContent = row.subject || row.key;
+      if (row.amended) {
+        const flag = document.createElement("span");
+        flag.className = "origin";
+        flag.textContent = " · amended";
+        flag.title =
+          "This rule has been changed. Every sentence it has had is kept below — an " +
+          "invariant that changed without a trace is worse than not having one.";
+        key.appendChild(flag);
+      }
+
+      const value = document.createElement("div");
+      value.className = "v";
+      value.textContent = row.text;
+
+      const check = document.createElement("span");
+      check.className = "check";
+      check.textContent = "check: " + row.check;
+
+      entry.append(key, value, check);
+
+      // What it used to say. This is the amendment path made visible: the value
+      // of the mechanism is that it is stable, so every change stays readable.
+      for (const old of row.previous ?? []) {
+        const was = document.createElement("span");
+        was.className = "was";
+        was.textContent = "was: " + old.text;
+        entry.appendChild(was);
+      }
+
+      // **The refusals, on the rule that caused them.** This is the artefact
+      // the whole feature exists to produce: "what happens when a request
+      // conflicts" becomes a line you can point at rather than a paragraph
+      // somebody has to go and find in the transcript.
+      for (const refusal of row.refusals ?? []) {
+        entry.appendChild(refusalRow(refusal));
+      }
+
+      if (interactive) {
+        const acts = document.createElement("div");
+        acts.className = "acts";
+        acts.appendChild(
+          actButton("forget", () => {
+            if (!confirm(`Withdraw "${row.text}"?\n\nIt stops being sent from the next turn. The wording is kept.`)) return;
+            memoryOps([{ op: "delete", key: row.key }]);
+          })
+        );
+        entry.appendChild(acts);
+      }
+      section.appendChild(entry);
+    }
+
+    // Refusals citing a rule this project no longer has. Kept rather than
+    // dropped: "we turned that down under a rule we have since changed" is
+    // exactly the thing worth being able to find afterwards.
+    for (const refusal of panel.orphanRefusals ?? []) {
+      const orphan = refusalRow(refusal);
+      orphan.append(document.createTextNode(" "));
+      const gone = document.createElement("span");
+      gone.className = "alt";
+      gone.textContent = `— ${refusal.invariant} is no longer a rule of this project`;
+      orphan.appendChild(gone);
+      section.appendChild(orphan);
+    }
+
+    if (interactive) section.appendChild(invariantAuthor());
+    return section;
+  }
+
+  function refusalRow(refusal) {
+    const box = document.createElement("div");
+    box.className = "refusal";
+    const lead = document.createElement("b");
+    lead.textContent = "refused: ";
+    box.append(lead, refusal.request);
+
+    if (refusal.alternative) {
+      const alt = document.createElement("span");
+      alt.className = "alt";
+      alt.textContent = "offered instead: " + refusal.alternative;
+      box.appendChild(alt);
+    } else {
+      // **A dead end is a bad refusal.** Saying nothing here would hide the
+      // one thing worth noticing: the rule was applied and nothing was offered
+      // in its place, which is the shape of refusal people route around.
+      const dead = document.createElement("span");
+      dead.className = "dead";
+      dead.textContent = "nothing was offered in its place — the rule can be amended above";
+      box.appendChild(dead);
+    }
+    return box;
+  }
+
+  /**
+   * **Typed prose in, structured proposals out.**
+   *
+   * The button is the whole design. This costs a model call, and a cost you
+   * did not press is a cost you press four times by accident — so nothing here
+   * rides on a turn, and the draft it produces is a proposal that writes
+   * nothing until a row is accepted. That accept is what keeps the namespace
+   * person-only: the model drafts, you decide, and your click is the write.
+   */
+  function invariantAuthor() {
+    const box = document.createElement("details");
+    box.className = "editor";
+    box.open = invariantRows.length > 0;
+    const label = document.createElement("summary");
+    label.textContent = "Write a rule";
+    box.appendChild(label);
+
+    const field = document.createElement("textarea");
+    field.rows = 3;
+    field.value = invariantDraft;
+    field.placeholder = "we're never moving off Postgres, no ORM, deploys go through CI only";
+    field.addEventListener("input", () => { invariantDraft = field.value; });
+    box.appendChild(field);
+    hint(
+      box,
+      "One sentence per rule is enough — three rules in one sentence comes back as three rows. " +
+        "Nothing is written until you accept a row."
+    );
+
+    const propose = document.createElement("button");
+    propose.type = "button";
+    propose.className = "finish";
+    propose.textContent = "Propose";
+    propose.disabled = pending;
+    propose.title = "One model call. It drafts; nothing is written until you accept a row.";
+    propose.addEventListener("click", () => {
+      if (pending) return;
+      invariantDraft = field.value;
+      proposeInvariants(field.value);
+    });
+    box.appendChild(propose);
+
+    for (const row of invariantRows) box.appendChild(invariantDraftRow(row));
+    return box;
+  }
+
+  /**
+   * One drafted row, fully editable before it is accepted.
+   *
+   * Key, text and check are all inputs, because the model is guessing at all
+   * three and this is the last moment anybody will look. Accept and reject are
+   * per row rather than all-or-nothing: three rules came out of one sentence,
+   * and two of them being right is the common case.
+   */
+  function invariantDraftRow(row) {
+    const box = document.createElement("div");
+    box.className = "proposal draft";
+
+    const head = document.createElement("div");
+    head.className = "row-key";
+    const tag = document.createElement("span");
+    tag.className = "tag " + row.action;
+    tag.textContent = row.action;
+    tag.title =
+      row.action === "amend"
+        ? "This subject already has a rule. Accepting replaces it and keeps the old wording."
+        : row.action === "reject"
+          ? "No usable check could be written for this, so it is not an invariant."
+          : "Nothing is stored for this subject yet.";
+    head.append(tag, row.key);
+    box.appendChild(head);
+
+    // **A rejection is a row, not a silence.** It says why, and it offers the
+    // place the thing does belong — otherwise the only signal is a rule that
+    // quietly did not appear.
+    if (row.action === "reject") {
+      const why = document.createElement("div");
+      why.className = "was";
+      why.textContent = row.reason || "this is a preference, not an invariant";
+      box.appendChild(why);
+
+      if (row.suggest) {
+        const suggestion = document.createElement("div");
+        suggestion.className = "v";
+        suggestion.textContent = `${row.suggest.key}: ${row.suggest.value}`;
+        box.appendChild(suggestion);
+
+        const acts = document.createElement("div");
+        acts.className = "acts";
+        acts.append(
+          actButton("keep it as that", () => {
+            drop(row);
+            memoryOps([{ op: "set", key: row.suggest.key, value: row.suggest.value }], { declared: true });
+          }),
+          actButton("discard", () => { drop(row); renderPanel(); })
+        );
+        box.appendChild(acts);
+      } else {
+        const acts = document.createElement("div");
+        acts.className = "acts";
+        acts.appendChild(actButton("discard", () => { drop(row); renderPanel(); }));
+        box.appendChild(acts);
+      }
+      return box;
+    }
+
+    // An amendment shows what it replaces, so the box can be read as a diff
+    // rather than as a rule appearing from nowhere on top of another one.
+    if (row.current) {
+      const was = document.createElement("div");
+      was.className = "was";
+      was.textContent = "replaces: " + row.current;
+      box.appendChild(was);
+    }
+
+    const keyInput = ruleField(box, row.key, "invariant.database");
+    const textInput = ruleField(box, row.text, "Stays on Postgres.");
+    const checkInput = ruleField(box, row.check, "any proposal introducing another engine");
+
+    // **Collisions are reported, never resolved.** These are the entries
+    // already in memory on this subject. Nothing here decides between them —
+    // accepting the rule sweeps them into proposals of their own, and you
+    // answer those one at a time.
+    for (const collision of row.collisions ?? []) {
+      const clash = document.createElement("div");
+      clash.className = "was";
+      clash.textContent = `already on this subject — ${collision.key}: ${collision.value}`;
+      box.appendChild(clash);
+    }
+
+    const acts = document.createElement("div");
+    acts.className = "acts";
+    acts.append(
+      actButton(row.action === "amend" ? "amend it" : "accept", () => {
+        const key = keyInput.value.trim().toLowerCase();
+        const text = textInput.value.trim();
+        const check = checkInput.value.trim();
+        if (!key || !text || !check) return memoryNote("A rule needs a key, a sentence and a check.");
+        drop(row);
+        // The accept is the write, and it goes through `/memory/ops` like
+        // everything else — one write path, marked as coming from a person.
+        memoryOps([{ op: "set", key, value: text, check, supersedes: row.supersedes ?? undefined }]);
+      }),
+      actButton("discard", () => { drop(row); renderPanel(); })
+    );
+    box.appendChild(acts);
+    return box;
+  }
+
+  function ruleField(parent, value, placeholder) {
+    const field = document.createElement("input");
+    field.value = value ?? "";
+    field.placeholder = placeholder;
+    parent.appendChild(field);
+    return field;
+  }
+
+  /** Answering a row takes it out of the box. Unanswered ones stay. */
+  function drop(row) {
+    invariantRows = invariantRows.filter((other) => other !== row);
+  }
+
+  /**
+   * The one new model call in the whole feature, and it fires here.
+   *
+   * A failure leaves the typed text where it is and writes nothing — there is
+   * no partial result to half-apply, because nothing is applied until a row is
+   * accepted.
+   */
+  async function proposeInvariants(text) {
+    if (!text.trim()) return memoryNote("Type the rules first — one sentence each is enough.");
+    setPending(true);
+    try {
+      const res = await fetch(`/conversations/${sessionId}/memory/invariants/propose`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ profile: profileId, project: projectId, text }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        memoryNote(data.error || `Could not draft the rules (${res.status}).`);
+        return;
+      }
+      invariantRows = data.rows ?? [];
+      panelState = data.panel ?? panelState;
+      renderPanel();
+      if (data.note) memoryNote(data.note);
+      flashPanel();
+    } catch (err) {
+      memoryNote("Could not reach the server.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  /**
+   * The profile editor: the fields that had nowhere durable to live.
+   *
+   * It writes through the **same** `/memory/ops` route the panel's *forget*
+   * and *promote* buttons use, with one extra flag saying the sentences came
+   * from a person. That flag is the whole of what `declared` means, and a form
+   * with its own endpoint would be a second write path into long-term memory
+   * with no test behind it.
+   *
+   * There is no proposal step here and there should not be: a proposal is a
+   * question addressed to you, and you are the one typing.
+   */
+  function profileEditor() {
+    const box = document.createElement("details");
+    box.className = "editor";
+    const label = document.createElement("summary");
+    label.textContent = `Edit ${profileId}`;
+    box.appendChild(label);
+
+    const valueOf = (key) => profileEntries.find((entry) => entry.key === key)?.value ?? "";
+    const rules = profileEntries.filter((entry) => entry.key.startsWith("rule."));
+    const rest = profileEntries.filter(
+      (entry) => !entry.key.startsWith("rule.") && entry.key !== "preference.style" && entry.key !== "preference.format"
+    );
+
+    const style = field(box, "Style — how to talk to you", valueOf("preference.style"), "Terse. Assume I know the basics.");
+    const format = field(box, "Format — what an answer looks like", valueOf("preference.format"), "Bullets, code first, under ten lines.");
+
+    const rulesField = field(
+      box,
+      "Rules — one per line, absolute",
+      rules.map((entry) => entry.value).join("\n"),
+      "Never use em-dashes",
+      3
+    );
+    const learned = rules.filter((entry) => entry.source !== "declared").length;
+    hint(
+      box,
+      learned
+        ? `${learned} of these was learned from a conversation — saving declares it, and the extractor stops being able to overwrite it.`
+        : "Saving declares these. A model may then propose a change, but may not make one."
+    );
+
+    // Free-form, for everything that is not style, format or a rule. The keys
+    // are the same keys the extractor uses, because there is one namespace and
+    // one routing table, not a separate vocabulary for the form.
+    const pairs = document.createElement("div");
+    const label2 = document.createElement("label");
+    label2.textContent = "Anything else — key and value";
+    box.append(label2, pairs);
+    for (const entry of rest) pairs.appendChild(pairRow(entry.key, entry.value));
+    pairs.appendChild(pairRow("", ""));
+
+    const add = document.createElement("button");
+    add.type = "button";
+    add.className = "act";
+    add.textContent = "another";
+    add.addEventListener("click", () => pairs.appendChild(pairRow("", "")));
+
+    const save = document.createElement("button");
+    save.type = "button";
+    save.className = "finish";
+    save.textContent = "Save to " + profileId;
+    save.disabled = pending;
+    save.addEventListener("click", () => {
+      if (pending) return;
+      const ops = declaredOps({ style: style.value, format: format.value, rulesText: rulesField.value, pairs, rest, ruleEntries: rules });
+      if (!ops.length) return memoryNote("Nothing changed.");
+      memoryOps(ops, { declared: true });
+    });
+
+    const acts = document.createElement("div");
+    acts.className = "acts";
+    acts.style.opacity = "1";
+    acts.appendChild(add);
+    box.append(acts, save);
+    return box;
+  }
+
+  function field(parent, text, value, placeholder, rows = 0) {
+    const label = document.createElement("label");
+    label.textContent = text;
+    const input = rows ? document.createElement("textarea") : document.createElement("input");
+    if (rows) input.rows = rows;
+    input.value = value;
+    input.placeholder = placeholder;
+    parent.append(label, input);
+    return input;
+  }
+
+  function hint(parent, text) {
+    const note = document.createElement("p");
+    note.className = "hint";
+    note.textContent = text;
+    parent.appendChild(note);
+  }
+
+  function pairRow(key, value) {
+    const row = document.createElement("div");
+    row.className = "pair";
+    const keyInput = document.createElement("input");
+    keyInput.className = "key";
+    keyInput.value = key;
+    keyInput.placeholder = "profile.role";
+    const valueInput = document.createElement("input");
+    valueInput.className = "val";
+    valueInput.value = value;
+    valueInput.placeholder = "what is true about you";
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.title = "Clear this row — saving then forgets the key";
+    remove.textContent = "×";
+    remove.addEventListener("click", () => { valueInput.value = ""; });
+    row.append(keyInput, valueInput, remove);
+    return row;
+  }
+
+  /**
+   * The form's contents as a patch — the same `{op, key, value}` shape the
+   * extractor emits, because the UI must not be able to express a change the
+   * patch format cannot.
+   *
+   * An emptied field is a `delete`, which is what makes the form able to take
+   * something back. Long-term deletes are refused from a model and allowed
+   * from a person, and this is a person.
+   */
+  function declaredOps({ style, format, rulesText, pairs, rest, ruleEntries }) {
+    const ops = [];
+    const held = new Map(profileEntries.map((entry) => [entry.key, entry.value]));
+
+    for (const [key, text] of [["preference.style", style], ["preference.format", format]]) {
+      const value = text.trim();
+      if (value && value !== held.get(key)) ops.push({ op: "set", key, value });
+      else if (!value && held.has(key)) ops.push({ op: "delete", key, from: "profile" });
+    }
+
+    // Rules are keyed by a slug of their own text, so the panel reads
+    // `rule.never-use-em-dashes` rather than `rule.r3`. Editing a rule's
+    // wording therefore moves it to a new key, and the old one is deleted —
+    // which is why the deletes are computed from the keys that survived.
+    const kept = new Set();
+    const used = new Set();
+    for (const line of rulesText.split("\n").map((text) => text.trim()).filter(Boolean)) {
+      let key = "rule." + slug(line);
+      let n = 2;
+      while (used.has(key)) key = `rule.${slug(line)}-${n++}`;
+      used.add(key);
+      kept.add(key);
+      if (held.get(key) !== line) ops.push({ op: "set", key, value: line });
+    }
+    for (const entry of ruleEntries) {
+      if (!kept.has(entry.key)) ops.push({ op: "delete", key: entry.key, from: "profile" });
+    }
+
+    const seen = new Set();
+    for (const row of pairs.querySelectorAll(".pair")) {
+      const key = row.querySelector(".key").value.trim().toLowerCase();
+      const value = row.querySelector(".val").value.trim();
+      if (!key) continue;
+      seen.add(key);
+      if (value && value !== held.get(key)) ops.push({ op: "set", key, value });
+      else if (!value && held.has(key)) ops.push({ op: "delete", key, from: "profile" });
+    }
+    for (const entry of rest) {
+      if (!seen.has(entry.key)) ops.push({ op: "delete", key: entry.key, from: "profile" });
+    }
+
+    return ops;
+  }
+
+  /** `Never use em-dashes` → `never-use-em-dashes`, inside the key grammar. */
+  function slug(text) {
+    const words = text
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim()
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 5)
+      .join("-")
+      .slice(0, 28)
+      .replace(/-+$/, "");
+    return /^[a-z0-9]/.test(words) ? words : "r" + (words || Date.now().toString(36));
+  }
+
+  function memoryLayer({ title, lifetime, rows, prefix, empty, actions, lead = null }) {
+    const section = document.createElement("div");
+    section.className = "layer";
+
+    const heading = document.createElement("h3");
+    heading.textContent = `${title} (${rows.length})`;
+    const life = document.createElement("span");
+    life.className = "lifetime";
+    life.textContent = lifetime;
+    heading.appendChild(life);
+    section.appendChild(heading);
+    if (lead) section.appendChild(lead);
+
+    if (!rows.length) {
+      const none = document.createElement("div");
+      none.className = "none";
+      none.textContent = empty;
+      section.appendChild(none);
+      return section;
+    }
+
+    for (const row of rows) {
+      const entry = document.createElement("div");
+      entry.className = "entry" + (changedKeys.has(prefix + row.key) ? " changed" : "");
+
+      const body = document.createElement("div");
+      body.className = "body";
+      const key = document.createElement("div");
+      key.className = "k";
+      key.textContent = row.key;
+      if (row.rewrites) {
+        // Drift is the failure this block cannot show by itself: every version
+        // of a rewritten key looks right, because every version agrees with
+        // whatever was said last.
+        const churn = document.createElement("span");
+        churn.className = "churn";
+        churn.textContent = ` ⟲${row.rewrites}`;
+        churn.title =
+          `Overwritten ${row.rewrites} time${row.rewrites === 1 ? "" : "s"} since it was first established.`;
+        key.appendChild(churn);
+      }
+      const value = document.createElement("div");
+      value.className = "v";
+      value.textContent = row.value;
+      body.append(key, value);
+
+      const was = changedKeys.has(prefix + row.key) ? row.previous?.[0] : null;
+      if (was) {
+        const before = document.createElement("span");
+        before.className = "was";
+        before.textContent = "was: " + was;
+        body.appendChild(before);
+      }
+      if (row.source) {
+        // Who decided this. `declared` means you wrote it in the form, and it
+        // is the flag that makes the row untouchable by a model and immune to
+        // being shadowed by the task in hand. `learned` means the extractor
+        // proposed it and the routing table put it there, or you approved a
+        // promotion — either way, nobody typed it. Long-term never expires, so
+        // the difference is worth being able to see months later.
+        const origin = document.createElement("span");
+        origin.className = "origin";
+        origin.textContent =
+          row.source === "declared" ? " · you declared this" : " · learned from a conversation";
+        key.appendChild(origin);
+      }
+      if (row.declared) entry.className += " declared";
+      if (row.proposal) {
+        // The correction, on the row it is about. One waiting in a list you
+        // have to scroll to is one answered without looking at what it would
+        // replace.
+        const waiting = document.createElement("span");
+        waiting.className = "pending";
+        waiting.textContent =
+          (row.proposal.reason === "frozen"
+            ? "held back by the freeze: "
+            : row.declared
+              ? "the conversation suggests: "
+              : "the task says: ") + row.proposal.value;
+        body.appendChild(waiting);
+      }
+      if (row.governedBy) {
+        // **A rule owns this subject.** The row is written — working memory
+        // takes these rather than asking about each one — but it is outranked,
+        // and saying so is what keeps the collision visible without turning it
+        // into a question. Most of the time this is the task agreeing with the
+        // rule; when it is not, both sentences are on screen together.
+        const owned = document.createElement("span");
+        owned.className = "origin";
+        owned.textContent = " · " + row.governedBy + " outranks this";
+        owned.title =
+          "A project invariant owns this subject. It is sent above this row and outranks it; " +
+          "if the two disagree, the agent is told to say so rather than quietly pick one.";
+        key.appendChild(owned);
+      }
+      if (row.frozen) {
+        // The task has been committed to, so this key is no longer freely
+        // writable by a model. Marking it is the difference between "the
+        // extractor stopped proposing a new goal" and "the extractor keeps
+        // proposing one and the machine keeps refusing it".
+        const lock = document.createElement("span");
+        lock.className = "origin";
+        lock.textContent = " · 🔒 frozen";
+        lock.title =
+          "Frozen when the task left planning. A model op on it becomes a correction " +
+          "proposal; you can still change it yourself, and going back to planning thaws it.";
+        key.appendChild(lock);
+      }
+      if (row.legacy) {
+        entry.className += " contested legacy";
+        const note = document.createElement("span");
+        note.className = "was";
+        note.textContent =
+          "older key shape — anything new about you lands beside this, not over it";
+        body.appendChild(note);
+      }
+      if (row.contested) {
+        // The task in hand holds the same key with a different value. Which of
+        // the two is on the wire is the whole difference declared makes: a
+        // learned row loses to the more recent statement, a declared one does
+        // not, because you wrote it down on purpose and the other half was
+        // inferred from one exchange.
+        entry.className += " contested";
+        const flag = document.createElement("span");
+        flag.className = "was";
+        flag.textContent = row.sent
+          ? "the current task contradicts this — you declared it, so it is still being sent"
+          : "the current task contradicts this — not being sent";
+        body.appendChild(flag);
+      }
+
+      entry.appendChild(body);
+      if (actions) {
+        const acts = document.createElement("div");
+        acts.className = "acts";
+        for (const button of actions(row)) acts.appendChild(button);
+        entry.appendChild(acts);
+      }
+      section.appendChild(entry);
+    }
+
+    return section;
+  }
+
+  function actButton(label, onClick) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "act";
+    button.textContent = label;
+    button.disabled = pending;
+    button.addEventListener("click", () => {
+      if (pending) return;
+      onClick();
+    });
+    return button;
+  }
+
+  /**
+   * The stage, in the panel — read-only, and above the keys.
+   *
+   * Deliberately no buttons: the edges are in the strip, where they are
+   * visible without opening a panel, and two sets of them would be two places
+   * that can disagree about which edge is legal.
+   */
+  function stageSummary(life) {
+    const box = document.createElement("div");
+    box.className = "none";
+
+    const stage = document.createElement("div");
+    const lead = document.createElement("b");
+    lead.textContent = "stage: " + life.stage;
+    stage.appendChild(lead);
+    if (life.step) stage.append(" · " + life.step);
+    box.appendChild(stage);
+
+    const actor = life.expectedAction?.actor === "agent" ? "the agent" : "you";
+    const awaiting = document.createElement("div");
+    awaiting.textContent =
+      `awaiting: ${actor}` + (life.expectedAction?.what ? ` — ${life.expectedAction.what}` : "");
+    box.appendChild(awaiting);
+
+    // How it got here. Four entries of `execution → validation → execution`
+    // say more about a task than any summary of it would.
+    if (life.log?.length) {
+      const route = document.createElement("div");
+      route.className = "was";
+      route.textContent =
+        "route: " + [life.log[0].from, ...life.log.map((entry) => entry.to)].join(" → ");
+      box.appendChild(route);
+    }
+    if (life.previous) {
+      const previous = document.createElement("div");
+      previous.className = "was";
+      previous.textContent = "resumes the task closed before it";
+      box.appendChild(previous);
+    }
+    return box;
+  }
+
+  function memoryProposals(proposals, interactive) {
+    const section = document.createElement("div");
+    section.className = "layer";
+    const pending_ = proposals.filter((p) => p.status === "pending").length;
+
+    const corrections = proposals.filter((p) => p.status === "pending" && p.kind === "correction").length;
+    const heading = document.createElement("h3");
+    heading.textContent = corrections
+      ? `Waiting for you (${pending_})`
+      : `Proposed for long-term (${pending_})`;
+    const life = document.createElement("span");
+    life.className = "lifetime";
+    life.textContent = "nothing is written until you say so";
+    heading.appendChild(life);
+    section.appendChild(heading);
+
+    for (const proposal of proposals) {
+      const box = document.createElement("div");
+      box.className = "proposal" + (proposal.status === "pending" ? "" : " answered");
+
+      const key = document.createElement("div");
+      key.className = "k";
+      key.textContent =
+        proposal.key +
+        (proposal.kind === "correction" ? " · correction" : proposal.kind === "collision" ? " · collision" : "") +
+        (proposal.status === "pending" ? "" : " · " + proposal.status);
+      box.appendChild(key);
+
+      // **Which rule refused this, what it says, and how you would know it had
+      // been broken.** All three on the row, because a refusal whose reason
+      // you cannot read is one you answer by clicking whichever button is
+      // nearer — and one of these two buttons forgets something.
+      if (proposal.invariant) {
+        const rule = document.createElement("div");
+        rule.className = "was";
+        rule.textContent =
+          (proposal.kind === "collision"
+            ? `${proposal.invariant} now owns this subject: `
+            : `${proposal.invariant} says: `) + (proposal.rule ?? "");
+        box.appendChild(rule);
+        if (proposal.check) {
+          const check = document.createElement("div");
+          check.className = "was";
+          check.textContent = "check: " + proposal.check;
+          box.appendChild(check);
+        }
+      }
+
+      if (proposal.was) {
+        const stale = document.createElement("div");
+        stale.className = "was";
+        // Two different disagreements wear the same shape, and they do not
+        // read the same. One is long-term going stale against the work in
+        // hand; the other is the work in hand arguing with a goal that was
+        // frozen when the task was committed to.
+        stale.textContent =
+          (proposal.reason === "frozen" ? "the goal is frozen at: " : "long-term still says: ") + proposal.was;
+        box.appendChild(stale);
+      }
+
+      if (!interactive || proposal.status !== "pending") {
+        const value = document.createElement("div");
+        value.className = "v";
+        value.textContent = proposal.value;
+        box.append(value);
+        section.appendChild(box);
+        continue;
+      }
+
+      // Editable, because the rephrasing is the part most likely to be wrong
+      // and this is the last moment anyone will look at it. A collision row is
+      // the exception: it is not proposing new words, it is asking about words
+      // that are already stored, so editing them would be a third thing the
+      // two buttons might mean.
+      const field = document.createElement("textarea");
+      field.rows = 3;
+      field.value = proposal.value;
+      if (proposal.kind === "collision") field.readOnly = true;
+
+      const acts = document.createElement("div");
+      acts.className = "acts";
+      // **A collision asks the opposite question**, so its buttons say the
+      // opposite words. A correction asks *should this say the new thing?* and
+      // approving writes it. A collision asks *a rule owns this subject now;
+      // does this entry still belong?* and approving forgets it. One pair of
+      // labels for both would be two meanings behind one word.
+      const yes =
+        proposal.kind === "collision"
+          ? "forget it"
+          : proposal.kind === "correction"
+            ? proposal.reason === "invariant"
+              ? "write it anyway"
+              : "update it"
+            : "keep it";
+      const no =
+        proposal.kind === "collision"
+          ? "keep it"
+          : proposal.kind === "correction"
+            ? "leave it"
+            : "discard";
+      acts.append(
+        actButton(yes, () =>
+          memoryRequest(`proposals/${encodeURIComponent(proposal.id)}`, {
+            action: "approve",
+            value: field.value,
+          })
+        ),
+        actButton(no, () =>
+          memoryRequest(`proposals/${encodeURIComponent(proposal.id)}`, { action: "reject" })
+        )
+      );
+
+      box.append(field, acts);
+      section.appendChild(box);
+    }
+
+    return section;
+  }
+
+  /**
+   * The accepted brief, in the panel.
+   *
+   * It sits with the layers rather than with the digest because it is not a
+   * compression of what was said — it is the agreed statement of what the work
+   * *is*, and the only reason the planning messages can be left off the wire.
+   */
+  function memoryBrief(brief) {
+    const section = document.createElement("div");
+    section.className = "layer";
+    const heading = document.createElement("h3");
+    heading.textContent = "The brief";
+    const life = document.createElement("span");
+    life.className = "lifetime";
+    life.textContent =
+      `stands in for ${brief.through} message${brief.through === 1 ? "" : "s"}` + (brief.edited ? " · you edited it" : "");
+    heading.appendChild(life);
+    section.appendChild(heading);
+
+    const block = document.createElement("details");
+    block.className = "past";
+    const label = document.createElement("summary");
+    label.textContent = "what execution is working from";
+    const body = document.createElement("div");
+    body.className = "digest";
+    body.textContent = brief.text;
+    body.style.whiteSpace = "pre-wrap";
+    block.append(label, body);
+    section.appendChild(block);
+    return section;
+  }
+
+  /** Cleared, not deleted: a closed task is still here, it just stops being sent. */
+  function memoryPastTasks(tasks) {
+    const section = document.createElement("div");
+    section.className = "layer";
+
+    const heading = document.createElement("h3");
+    heading.textContent = `Past tasks (${tasks.length})`;
+    const life = document.createElement("span");
+    life.className = "lifetime";
+    life.textContent = "kept, not sent";
+    heading.appendChild(life);
+    section.appendChild(heading);
+
+    for (const task of [...tasks].reverse()) {
+      const block = document.createElement("details");
+      block.className = "past";
+      const label = document.createElement("summary");
+      label.textContent =
+        `closed after turn ${task.turn} · ${task.stage ?? "closed"} · ` +
+        `${task.entries.length} entr${task.entries.length === 1 ? "y" : "ies"}` +
+        (task.promoted ? ` · ${task.promoted} promoted` : "");
+      block.appendChild(label);
+
+      // The route it took to get there, which is the part worth reading later:
+      // a task that went through validation twice was a different piece of
+      // work from one that went straight through.
+      if (task.transitions?.length) {
+        const route = document.createElement("div");
+        route.className = "discarded";
+        route.textContent =
+          [task.transitions[0].from, ...task.transitions.map((entry) => entry.to)].join(" → ");
+        block.appendChild(route);
+      }
+
+      if (task.brief) {
+        // Of everything a closed task leaves behind this is the most readable,
+        // and "what was that one about?" is answered by it and nothing else.
+        const brief = document.createElement("div");
+        brief.className = "digest";
+        brief.style.whiteSpace = "pre-wrap";
+        brief.textContent = task.brief;
+        block.appendChild(brief);
+      }
+
+      for (const entry of task.entries) {
+        const row = document.createElement("div");
+        row.className = "entry";
+        const body = document.createElement("div");
+        body.className = "body";
+        const key = document.createElement("div");
+        key.className = "k";
+        key.textContent = entry.key;
+        const value = document.createElement("div");
+        value.className = "v";
+        value.textContent = entry.value;
+        body.append(key, value);
+        row.appendChild(body);
+        block.appendChild(row);
+      }
+      section.appendChild(block);
+    }
+
+    return section;
+  }
+
+  /**
+   * What the extractor proposed and the routing table refused.
+   *
+   * Without this line, a key discarded for having a namespace nobody
+   * recognises looks exactly like an extraction that found nothing — and the
+   * two call for opposite fixes.
+   */
+  function memoryDiscarded(rows) {
+    const section = document.createElement("div");
+    section.className = "layer";
+    const heading = document.createElement("h3");
+    heading.textContent = "Proposed, not stored";
+    section.appendChild(heading);
+
+    for (const row of [...rows].reverse()) {
+      const line = document.createElement("div");
+      line.className = "discarded";
+      const code = document.createElement("code");
+      // A row with no key has an op and nothing else, and that op is the whole
+      // of what went wrong — printing "(no key)" and stopping described every
+      // malformed patch identically.
+      code.textContent = row.key === "(no key)" && row.op ? `op: ${row.op}` : row.key;
+      line.append(code, ` — ${row.reason}`);
+      // What it would have stored. A refusal you cannot read is one you cannot
+      // judge: the whole point of showing this list is that you can tell a key
+      // worth rescuing by hand from one that was never worth keeping.
+      if (row.value) {
+        const dropped = document.createElement("span");
+        dropped.className = "was";
+        dropped.textContent = "dropped: " + row.value;
+        line.appendChild(dropped);
+      }
+      section.appendChild(line);
+    }
+    return section;
+  }
+
+  /** The digest is compressed short-term, not a fourth layer — so it is last. */
+  function memoryDigest(digest) {
+    const section = document.createElement("div");
+    section.className = "layer";
+    const heading = document.createElement("h3");
+    heading.textContent = "Digest";
+    const life = document.createElement("span");
+    life.className = "lifetime";
+    life.textContent = `covers ${digest.covers} message${digest.covers === 1 ? "" : "s"}`;
+    heading.appendChild(life);
+    section.appendChild(heading);
+
+    const block = document.createElement("details");
+    block.className = "past";
+    const label = document.createElement("summary");
+    label.textContent = "what was discussed, compressed";
+    const body = document.createElement("div");
+    body.className = "digest";
+    renderSummaryInto(body, digest.text);
+    block.append(label, body);
+    section.appendChild(block);
+    return section;
+  }
+
+  // ---- the comparison ------------------------------------------------------
+
+  /**
+   * **Same message, same history, N profiles, side by side.**
+   *
+   * The evidence that personalization is doing anything, and the only kind
+   * available: two profiles answering the same question differently. Nothing
+   * here asks the model which preferences it used, because it would make that
+   * up — what it shows instead is the block that went in and the answer that
+   * came back, three times each.
+   */
+  function compareButton() {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "finish";
+    button.textContent = "Compare profiles";
+    button.title = "Ask the same question as two different people. Nothing is written.";
+    button.addEventListener("click", openCompare);
+    return button;
+  }
+
+  function openCompare() {
+    // A question worth comparing is usually the one already typed, or the last
+    // one asked. Either beats an empty box.
+    const lastUser = [...messages.querySelectorAll(".row.user .bubble")].at(-1);
+    compareMessage.value = input.value.trim() || lastUser?.textContent?.trim() || "";
+
+    if (!compareWith.size) {
+      compareWith = new Set([profileId, ...profiles.map((p) => p.id).filter((id) => id !== profileId)].slice(0, 2));
+    }
+    renderCompareSetup();
+    compareResults.innerHTML = '<p class="placeholder">Pick two or more profiles and run it.</p>';
+    compareFoot.textContent = "";
+    compareDialog.showModal();
+  }
+
+  function renderCompareSetup() {
+    compareWho.innerHTML = "";
+    for (const profile of profiles) {
+      const label = document.createElement("label");
+      const box = document.createElement("input");
+      box.type = "checkbox";
+      box.checked = compareWith.has(profile.id);
+      box.addEventListener("change", () => {
+        if (box.checked) compareWith.add(profile.id);
+        else compareWith.delete(profile.id);
+      });
+      label.append(box, profile.id + (profile.entryCount ? ` (${profile.entryCount})` : ""));
+      compareWho.appendChild(label);
+    }
+
+    const spacer = document.createElement("span");
+    spacer.className = "spacer";
+
+    const samples = document.createElement("label");
+    const select = document.createElement("select");
+    for (const n of [1, 2, 3, 4, 5]) {
+      const option = document.createElement("option");
+      option.value = String(n);
+      option.textContent = `${n} run${n === 1 ? "" : "s"} each`;
+      if (n === 3) option.selected = true;
+      select.appendChild(option);
+    }
+    samples.appendChild(select);
+
+    const run = document.createElement("button");
+    run.type = "button";
+    run.textContent = "Run";
+    run.addEventListener("click", () => runCompare(Number(select.value)));
+
+    compareWho.append(spacer, samples, run);
+  }
+
+  async function runCompare(samples) {
+    const message = compareMessage.value.trim();
+    if (!message) return void (compareNote.textContent = "Type the question first.");
+    if (compareWith.size < 2) return void (compareNote.textContent = "Pick at least two profiles.");
+
+    compareNote.textContent = `Running ${compareWith.size * samples} turns…`;
+    compareResults.innerHTML = '<p class="placeholder">Running…</p>';
+    compareFoot.textContent = "";
+
+    try {
+      const res = await fetch(`/conversations/${sessionId}/memory/compare`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          message,
+          profiles: [...compareWith],
+          samples,
+          contextMessages: Number(contextInput.value),
+          maxTokens: Number(maxTokensSelect.value),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        compareResults.innerHTML = "";
+        compareResults.appendChild(placeholder(data.error || `The comparison failed (${res.status}).`));
+        return;
+      }
+      renderCompare(data);
+    } catch (err) {
+      compareResults.innerHTML = "";
+      compareResults.appendChild(placeholder("Could not reach the server."));
+    } finally {
+      compareNote.textContent =
+        "Read-only: nothing here is written to a profile or to this conversation.";
+    }
+  }
+
+  function renderCompare(data) {
+    compareResults.innerHTML = "";
+    for (const arm of data.arms ?? []) {
+      const column = document.createElement("div");
+      column.className = "arm";
+
+      const name = document.createElement("h3");
+      name.textContent = arm.user;
+      const who = document.createElement("div");
+      who.className = "who";
+      who.textContent =
+        `${arm.entryCount} entr${arm.entryCount === 1 ? "y" : "ies"}, ${arm.declaredCount} declared · ` +
+        `${formatTokens(arm.usage.inputTokens + arm.usage.outputTokens)} tokens · ${formatCost(arm.usage.costUsd)}`;
+      column.append(name, who);
+
+      // What actually went in. The claim is structural, so the payload is part
+      // of the result rather than a debugging aid tucked away somewhere.
+      if (arm.runs[0]?.profileBlock) {
+        const block = document.createElement("details");
+        const label = document.createElement("summary");
+        label.textContent = "what was sent";
+        const pre = document.createElement("pre");
+        pre.textContent = arm.runs[0].profileBlock;
+        block.append(label, pre);
+        column.appendChild(block);
+      }
+
+      for (const run of arm.runs) {
+        const box = document.createElement("div");
+        box.className = "run";
+        const label = document.createElement("div");
+        label.className = "label";
+        label.textContent = `run ${run.run}` + (run.ok ? "" : " — failed");
+        const body = document.createElement("div");
+        body.className = "body";
+        body.textContent = run.ok ? run.reply : run.error;
+        box.append(label, body);
+        column.appendChild(box);
+      }
+
+      compareResults.appendChild(column);
+    }
+
+    const meta = data.meta ?? {};
+    compareFoot.textContent =
+      `${meta.calls ?? 0} calls · ${formatTokens((meta.inputTokens ?? 0) + (meta.outputTokens ?? 0))} tokens · ` +
+      `${formatCost(meta.costUsd)} · ${((meta.ms ?? 0) / 1000).toFixed(1)}s — billed to this comparison and to nothing ` +
+      "else. No ops were applied, no digest folded, and neither the profiles nor this conversation were written to.";
+  }
+
+  function placeholder(text) {
+    const node = document.createElement("p");
+    node.className = "placeholder";
+    node.textContent = text;
+    return node;
+  }
+
+  document.getElementById("compare-close").addEventListener("click", () => compareDialog.close());
+
+  /** `forget`, `promote` and the editor's Save — all of it as one patch. */
+  function memoryOps(ops, { declared = false, acknowledged = [] } = {}) {
+    return memoryRequest("ops", { ops, declared, acknowledged });
+  }
+
+  /**
+   * Every memory action is the same request: post it, take the panel that
+   * comes back as the new truth, and redraw. The server answers with the whole
+   * panel rather than with what changed, so the page can never hold a view of
+   * memory that the store disagrees with.
+   */
+  async function memoryRequest(path, body) {
+    setPending(true);
+    try {
+      const res = await fetch(`/conversations/${sessionId}/memory/${path}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ profile: profileId, project: projectId, ...body }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        memoryNote(data.error || `Could not change memory (${res.status}).`);
+        return;
+      }
+      // Anything that can change long-term memory can change what the editor
+      // should be showing, so its copy is re-read rather than patched. One
+      // round trip on a button press, against a form that silently disagrees
+      // with the store.
+      await loadProfileEntries();
+      panelState = data.panel ?? panelState;
+      diffMemory(panelState);
+      renderPanel();
+      renderWindowBanner();
+      // A transition adds a line to the log, and the log is what the dividers
+      // are drawn from — so the one that was just clicked appears at the
+      // bottom of the transcript immediately rather than on the next reload.
+      markTransitions(panelState.lifecycle);
+      markContextBoundary(windowState.droppedCount);
+      if (data.note) memoryNote(data.note);
+      flashPanel();
+    } catch (err) {
+      memoryNote("Could not reach the server.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  /** One line under the panel's heading, for what just happened to memory. */
+  function memoryNote(text) {
+    const line = document.createElement("div");
+    line.className = "none";
+    line.textContent = text;
+    panelBody.prepend(line);
+  }
+
+  function panelPlaceholder() {
+    const node = document.createElement("div");
+    node.className = "placeholder";
+    node.textContent = panelState.note || "Nothing to show yet.";
+    return node;
+  }
+
+  /** `Known facts · 7 facts · 3 namespaces`, or the summary's own headline. */
+  function panelHeadline(panelState = panelView()) {
+    if (panelState.kind === "memory") {
+      const profile = panelState.profile?.length ?? 0;
+      const task = panelState.task?.length ?? 0;
+      const waiting = (panelState.proposals ?? []).filter((p) => p.status === "pending").length;
+      const rules = panelState.invariants?.length ?? 0;
+      const parts = [
+        rules ? `${rules} invariant${rules === 1 ? "" : "s"}` : null,
+        `${profile} in profile`,
+        `${task} in this task`,
+        panelState.digest?.text ? "digest" : null,
+        waiting ? `${waiting} to approve` : null,
+      ].filter(Boolean);
+      return parts.join(" · ");
+    }
+    return "nothing rides along";
+  }
+
+  /**
+   * What the panel should draw, which is not always what the server last sent.
+   *
+   * Every other strategy's panel describes something that only exists once a
+   * turn has been taken — there is no summary before the first fold and no
+   * facts before the first extraction, so "nothing yet" is the honest thing to
+   * show. The profile is different in kind: it is long-term memory, it lives
+   * outside every conversation, and it is there before this branch has said a
+   * word. Making the form that edits it wait for a turn on one particular
+   * strategy had it exactly backwards — you would have had to talk to the
+   * assistant before you could tell it how to talk to you.
+   *
+   * So when the selector says `memory` and the branch has no memory state yet,
+   * the panel is drawn from an empty one. The layers are empty because nothing
+   * has been sent; the editor and the picker are not, because they are about
+   * the store rather than about this turn.
+   */
+  /**
+   * The panel to draw, and the placeholder for when there is not one yet.
+   *
+   * The fallback below is a **placeholder, not an answer**: it is what the
+   * strip and the panel need in order to draw something true about a branch
+   * the server has not described yet — the stage, and the one legal edge out
+   * of it, both of which are knowable without asking. Its empty layers are
+   * *unknown*, not *none*, which is why everything that changes what the
+   * server would say — the strategy, the profile, the project — refetches
+   * rather than settling for this.
+   */
+  function panelView() {
+    if (panelState.kind === "memory") return panelState;
+    return {
+      kind: "memory",
+      title: "Memory",
+      user: null,
+      project: null,
+      invariants: [],
+      orphanRefusals: [],
+      // A conversation with no state is already in `planning` — there is no
+      // null/no-task state, so the strip has something true to draw before a
+      // word has been said. The one legal edge out is blocked, and the guard's
+      // sentence is what the disabled button says.
+      lifecycle: {
+        id: null,
+        previous: null,
+        stage: "planning",
+        stages: ["planning", "execution", "validation", "done"],
+        step: "working out what the task is",
+        expectedAction: { actor: "user", what: "say what the task is" },
+        edges: [
+          { to: "execution", allowed: false, reason: "Nothing is recorded as the goal yet — say what the task is first.", warning: null },
+        ],
+        suggestion: null,
+        refused: [],
+        log: [],
+        frozen: [],
+        updatedAt: null,
+      },
+      profile: [],
+      task: [],
+      proposals: [],
+      pastTasks: [],
+      discarded: [],
+      digest: { text: null, covers: 0, updatedAt: null },
+      usage: null,
+      note: "Nothing is being carried yet — every block is omitted from the system prompt until it has something in it.",
+    };
+  }
+
+  // ---- the stage strip -----------------------------------------------------
+
+  /**
+   * **Whose turn is it, before you type.**
+   *
+   * Four dots, the step line, the actor line and a button per legal edge — and
+   * every one of them is read straight out of stored state. The buttons are
+   * `TRANSITIONS` filtered by the current stage, which is why the UI cannot
+   * offer an edge the machine does not have: there is no second list of them
+   * here to fall out of step with the table.
+   *
+   * A disabled button carries the guard's own sentence as its tooltip. The
+   * rule lives in `guardFor` and the tooltip is that function quoting itself,
+   * so "why is this greyed out" has one answer rather than two that drift.
+   */
+  function renderStageStrip() {
+    const view = panelView();
+    const life = view.kind === "memory" ? view.lifecycle : null;
+    if (!life) {
+      // Only the memory strategy has a task. Showing a stage for one that does
+      // not keep one would be inventing state, so the strip goes away.
+      stageStrip.hidden = true;
+      stageStrip.innerHTML = "";
+      return;
+    }
+
+    stageStrip.hidden = false;
+    stageStrip.innerHTML = "";
+
+    const current = life.stages.indexOf(life.stage);
+    const dots = document.createElement("div");
+    dots.className = "stage-dots";
+    life.stages.forEach((name, index) => {
+      const dot = document.createElement("span");
+      dot.className = "dot" + (index < current ? " past" : index === current ? " now" : "");
+      dot.title = name;
+      dots.appendChild(dot);
+    });
+    const name = document.createElement("span");
+    name.className = "name";
+    name.textContent = life.stage;
+    dots.appendChild(name);
+    stageStrip.appendChild(dots);
+
+    if (life.step) {
+      const step = document.createElement("span");
+      step.className = "step";
+      const lead = document.createElement("span");
+      lead.className = "lead";
+      lead.textContent = "step: ";
+      step.append(lead, life.step);
+      stageStrip.appendChild(step);
+    }
+
+    const actor = life.expectedAction?.actor === "agent" ? "agent" : "user";
+    const awaiting = document.createElement("span");
+    awaiting.className = "awaiting " + actor;
+    awaiting.textContent =
+      `awaiting: ${actor === "agent" ? "the agent" : "you"}` +
+      (life.expectedAction?.what ? ` — ${life.expectedAction.what}` : "");
+    // There is no blocked state and there does not need to be: blocked is
+    // `actor: 'user'`, said in a way the next turn can act on.
+    //
+    // The agent half has to say *and nothing has happened yet*. A transition
+    // changes the instruction on the next reply; it does not produce one, and
+    // an "awaiting: the agent" that reads as "the agent is doing it" earns
+    // exactly one thing: three more clicks on the arrows while you wait.
+    awaiting.title =
+      actor === "user"
+        ? "The work cannot go further until you say or do this."
+        : "Nothing is running. Send a message — or press ▶ — and the reply comes back under this stage's instruction.";
+    stageStrip.appendChild(awaiting);
+
+    // **A pending brief is the only thing between planning and execution**, so
+    // while one is waiting the strip stops offering anything else. Rendering
+    // the arrows beside it would invite a click that skips the one step the
+    // whole handoff exists for.
+    if (life.brief?.status === "pending") {
+      stageStrip.appendChild(briefEditor(life));
+      return;
+    }
+
+    const edges = document.createElement("div");
+    edges.className = "edges";
+
+    // What the model thinks the next edge is — beside the button, and never
+    // instead of it. It is told what stage it is in; it is not consulted.
+    if (life.suggestion) {
+      const chip = document.createElement("span");
+      chip.className = "suggestion";
+      chip.textContent = `the agent suggests → ${life.suggestion.to}`;
+      chip.title = life.suggestion.reason || "No reason given. It changes nothing until you click.";
+      edges.appendChild(chip);
+    }
+
+    const last = life.refused?.[life.refused.length - 1];
+    if (last) {
+      const refused = document.createElement("span");
+      refused.className = "refused";
+      refused.textContent = `refused: ${last.from} → ${last.to}`;
+      refused.title = last.reason;
+      edges.appendChild(refused);
+    }
+
+    for (const edge of life.edges ?? []) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = "→ " + edge.to;
+      button.disabled = pending || !edge.allowed;
+      // The warning case proceeds; only the guard blocks. The two must not
+      // look alike, so one greys the button out and the other colours it.
+      if (edge.warning) button.className = "warned";
+      button.title = edge.allowed
+        ? edge.warning
+          ? edge.warning + " You can go ahead anyway."
+          : `Move this task to ${edge.to}.`
+        : edge.reason;
+      if (life.suggestion?.to === edge.to) button.style.fontWeight = "600";
+      button.addEventListener("click", () => {
+        if (pending) return;
+        // Warns, does not block. The open questions are named in the text, so
+        // the choice is made looking at what is actually unanswered.
+        if (edge.warning && !confirm(`${edge.warning}\n\nMove to ${edge.to} anyway?`)) return;
+        memoryRequest("transition", { to: edge.to });
+      });
+      edges.appendChild(button);
+    }
+
+    // **The thing that makes a stage run rather than merely be set.**
+    //
+    // A transition changes the instruction on the next reply; it does not
+    // produce one, because the agent only ever answers a message. So when the
+    // stage is waiting on the agent, the strip offers to send that message —
+    // and the message it sends is `expectedAction.what`, which is why that
+    // field holds a sentence rather than a flag.
+    //
+    // It is a button of its own rather than something the arrows do quietly:
+    // it costs a model call, and a cost you did not press is a cost you
+    // press four times by accident.
+    if (actor === "agent" && life.stage !== "done") {
+      const go = document.createElement("button");
+      go.type = "button";
+      go.className = "go";
+      go.textContent = "▶ let it continue";
+      go.disabled = pending;
+      go.title = `Send “${life.expectedAction.what}” as the next turn, under the ${life.stage} instruction.`;
+      go.addEventListener("click", () => {
+        if (pending) return;
+        send(life.expectedAction.what);
+      });
+      edges.appendChild(go);
+    }
+
+    // `done` is terminal, so the only thing left is the successor task.
+    if (!life.edges?.length && life.stage === "done") {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = "Start a new task";
+      button.disabled = pending;
+      button.title = "This one is closed for good. The new task records that it follows this one.";
+      button.addEventListener("click", () => {
+        if (pending) return;
+        memoryRequest("new-task", {});
+      });
+      edges.appendChild(button);
+    }
+
+    stageStrip.appendChild(edges);
+  }
+
+  /**
+   * The handoff, before it takes effect.
+   *
+   * Everything planning established is about to become these words and only
+   * these words — the conversation above stops being sent the moment they are
+   * accepted. So they are shown in a box you can type in, and execution starts
+   * when you say the box is right. It is the same discipline as every other
+   * write in this app: the model proposes, a person decides.
+   */
+  function briefEditor(life) {
+    const box = document.createElement("div");
+    box.className = "brief";
+
+    const heading = document.createElement("div");
+    heading.className = "head";
+    const title = document.createElement("b");
+    title.textContent = "The task, as understood";
+    const hint = document.createElement("span");
+    hint.textContent =
+      " — everything above is replaced by this. Fix anything it got wrong before starting.";
+    heading.append(title, hint);
+    box.appendChild(heading);
+
+    const field = document.createElement("textarea");
+    field.rows = 12;
+    field.value = life.brief.text;
+    box.appendChild(field);
+
+    /**
+     * **What planning did not answer, about to become keys.**
+     *
+     * The brief has been saying this in prose all along, and prose is read
+     * once and then gone: nothing downstream could see it, so the task held no
+     * record of it and the edges that warn about unanswered questions had
+     * nothing to read. These are the same questions in the form the machine
+     * can keep, and accepting the brief is what writes them.
+     *
+     * Every one is droppable, because the box above is editable and you may
+     * have just answered one in it.
+     */
+    const dropped = new Set();
+    const questions = life.brief.open ?? [];
+    if (questions.length) {
+      const list = document.createElement("div");
+      list.className = "open";
+      const raised = questions.filter((row) => !row.recorded).length;
+      const lead = document.createElement("div");
+      lead.className = "head";
+      lead.textContent =
+        `${questions.length} question${questions.length === 1 ? "" : "s"} nobody answered — recorded with the task when you start` +
+        (raised ? ` · ${raised} the brief is raising, not quoting` : "");
+      list.appendChild(lead);
+
+      for (const row of questions) {
+        const item = document.createElement("div");
+        item.className = "pair";
+        const label = document.createElement("span");
+        label.textContent = row.question;
+        if (!row.recorded) {
+          // **Planning did not write this one down.** A `Still open` heading
+          // is a box, and a model asked to fill one will write the sensible
+          // questions it *would* ask rather than the ones anybody did. Code
+          // cannot tell those apart, so it says which ones were recorded and
+          // leaves the judgement — and the × — to you.
+          const flag = document.createElement("em");
+          flag.textContent = " · not asked during planning";
+          flag.title =
+            "Planning recorded no open question matching this. The brief may be raising it " +
+            "on its own — drop it unless it is something that genuinely went unanswered.";
+          label.appendChild(flag);
+        }
+        const drop = document.createElement("button");
+        drop.type = "button";
+        drop.title = "Answered already, or not worth keeping — leave it out.";
+        drop.textContent = "×";
+        drop.addEventListener("click", () => {
+          const off = dropped.has(row.key);
+          off ? dropped.delete(row.key) : dropped.add(row.key);
+          item.style.opacity = off ? "1" : "0.4";
+          label.style.textDecoration = off ? "none" : "line-through";
+        });
+        item.append(label, drop);
+        list.appendChild(item);
+      }
+      box.appendChild(list);
+    }
+
+    const acts = document.createElement("div");
+    acts.className = "acts";
+
+    const start = document.createElement("button");
+    start.type = "button";
+    start.className = "go";
+    start.textContent = "start execution";
+    start.disabled = pending;
+    start.title = "Accept this brief, leave planning, and stop sending the conversation above it.";
+    start.addEventListener("click", () => {
+      if (pending) return;
+      const keep = questions.filter((row) => !dropped.has(row.key));
+      // **The last cheap moment.** Leaving planning freezes the goal and drops
+      // the conversation off the wire, and these stop being things the agent
+      // asks about. Saying so here is the whole reason the handoff waits for a
+      // person rather than moving on the click.
+      if (keep.length) {
+        const list = keep.map((row) => "· " + row.question).join("\n");
+        if (!confirm(`${keep.length} question${keep.length === 1 ? " is" : "s are"} still unanswered:\n\n${list}\n\nStart execution anyway? They will be recorded with the task.`)) return;
+      }
+      // Only what you pressed × on. Sending what to *keep* meant any mismatch
+      // between this list and the server's silently recorded nothing.
+      memoryRequest("brief", { action: "accept", text: field.value, drop: [...dropped] });
+    });
+
+    const back = document.createElement("button");
+    back.type = "button";
+    back.textContent = "keep planning";
+    back.disabled = pending;
+    back.title = "Throw this away and stay in planning. Nothing moves and nothing is dropped.";
+    back.addEventListener("click", () => {
+      if (pending) return;
+      memoryRequest("brief", { action: "discard" });
+    });
+
+    acts.append(start, back);
+    box.appendChild(acts);
+    return box;
+  }
+
+  function renderPanel() {
+    const view = panelView();
+    panelStats.innerHTML = "";
+    const label = document.createElement("b");
+    label.textContent = view.title || "Context";
+    panelStats.append(label, " ", panelHeadline(view));
+
+    if (view.kind === "memory") {
+      // Always drawn, even when every layer is empty: the sections are what
+      // explain the three lifetimes, and the button that ends a task has to be
+      // reachable before there is anything to show under it.
+      renderMemoryInto(panelBody, view);
+    } else {
+      panelBody.innerHTML = "";
+      panelBody.appendChild(panelPlaceholder());
+    }
+
+    renderStageStrip();
+  }
+
+  /**
+   * The same idea across two layers: a profile row and a working row can share
+   * a key without being the same thing, so each one is diffed under its own
+   * prefix. Promoting a decision lights up the profile row, not the task row
+   * it came from.
+   */
+  function diffMemory(panel) {
+    const rows = [
+      ...(panel.profile ?? []).map((row) => ["profile:" + row.key, row.value]),
+      ...(panel.task ?? []).map((row) => ["task:" + row.key, row.value]),
+    ];
+    changedKeys = new Set();
+    for (const [key, value] of rows) {
+      if (!previousRows.has(key) || previousRows.get(key) !== value) changedKeys.add(key);
+    }
+    previousRows = new Map(rows);
+    return changedKeys.size;
+  }
+
+  /** Light the panel up on the turn the model's memory of the past changed. */
+  function flashPanel() {
+    contextPanel.classList.add("flash");
+    panelBadge.hidden = false;
+    clearTimeout(flashTimer);
+    flashTimer = setTimeout(() => {
+      contextPanel.classList.remove("flash");
+      panelBadge.hidden = true;
+    }, FLASH_MS);
+  }
+
+  function setPanelOpen(open) {
+    contextPanel.dataset.open = String(open);
+    panelToggle.setAttribute("aria-expanded", String(open));
+    panelToggle.querySelector(".caret").textContent = open ? "▾" : "▸";
+    try {
+      localStorage.setItem(PANEL_OPEN_KEY, open ? "1" : "0");
+    } catch (err) {
+      // A browser that will not remember the preference still shows the panel.
+    }
+  }
+
+  panelToggle.addEventListener("click", () => {
+    setPanelOpen(contextPanel.dataset.open !== "true");
+  });
+
+  // ---- forking -------------------------------------------------------------
+
+  /**
+   * Fork a message into a conversation of its own.
+   *
+   * **A fork is a new chat, not a second thread inside this one.** The server
+   * copies everything up to that message plus the memory state under a fresh
+   * id; the page then simply switches to it, the way clicking a row in the
+   * sidebar does. There is nothing to switch back to and nothing to delete
+   * separately, because what came out is an ordinary conversation.
+   */
+  async function forkFrom(messageId) {
+    if (pending) return;
+
+    try {
+      const res = await fetch(`/conversations/${sessionId}/fork`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ fromMessageId: messageId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return alert(data.error ?? "Could not fork there.");
+
+      switchTo(data.id);
+      resetPanel();
+      await paintTranscript(data.id);
+      refreshConversations();
+      refreshUsage();
+    } catch (err) {
+      alert("Could not reach the server.");
+    }
+  }
+
+  // ---- the context window --------------------------------------------------
+
+  /**
+   * Draw the line between what the model can still see and what it cannot —
+   * and, at that line, what it has instead.
+   *
+   * The block is collapsible and holds whatever the strategy put in the system
+   * prompt. Seeing the exact words the model is working from, at the point
+   * where the verbatim messages stop, is the single most useful thing this UI
+   * can show: it turns "the old turns are gone" into "the old turns are *this*".
+   */
+  function markContextBoundary(droppedCount) {
+    const wasOpen = messages.querySelector("details.boundary")?.open ?? false;
+    messages.querySelector("details.boundary")?.remove();
+    for (const row of messages.querySelectorAll(".row.outside")) {
+      row.classList.remove("outside");
+    }
+    if (!droppedCount) return;
+
+    const rows = [...messages.querySelectorAll(".row")];
+    if (droppedCount >= rows.length) return;
+
+    for (let i = 0; i < droppedCount; i++) rows[i].classList.add("outside");
+
+    const block = document.createElement("details");
+    block.className = "boundary";
+    block.open = wasOpen;
+
+    const label = document.createElement("summary");
+    label.textContent = boundaryLabel(droppedCount);
+
+    const body = document.createElement("div");
+    body.className = "summary-body";
+    if (panelState.kind === "memory") renderMemoryInto(body, panelState, { interactive: false });
+    else body.appendChild(panelPlaceholder());
+
+    block.append(label, body);
+    messages.insertBefore(block, rows[droppedCount]);
+  }
+
+  /**
+   * A thin line in the transcript at every stage change, drawn **from the
+   * log** rather than from anything the painter remembers.
+   *
+   * That is the whole reason the stage is derived from an append-only record
+   * instead of being a field: reopening the conversation a week later puts the
+   * dividers back in exactly the same places, for free, with nothing to
+   * reconstruct and nothing to ask a model.
+   */
+  function markTransitions(life) {
+    for (const old of messages.querySelectorAll(".stage-divider")) old.remove();
+    if (!life?.log?.length) return;
+
+    const userRows = [...messages.querySelectorAll(".row.user")];
+
+    // Several clicks with nothing said between them all belong at the same
+    // point in the transcript, and three lines stacked there read as nothing
+    // having moved. Grouped, the run says what it actually was: you went to
+    // execution, looked, went to validation, came back.
+    for (const [turn, run] of groupBy(life.log, (entry) => entry.turn)) {
+      const divider = document.createElement("div");
+      divider.className = "stage-divider";
+      divider.textContent =
+        [run[0].from, ...run.map((entry) => entry.to)].join(" → ") +
+        (run.every((entry) => entry.by === "user") ? "" : " · not all by you") +
+        (run.at(-1).reason ? ` · ${run.at(-1).reason}` : "");
+      divider.title = run
+        .map((entry) => `${entry.from} → ${entry.to}${entry.at ? " · " + new Date(entry.at).toLocaleString() : ""}`)
+        .join("\n");
+
+      // The entries are stamped with the number of exchanges that had happened
+      // when they were clicked, so the run belongs immediately before the next
+      // message — or at the end, when nothing has been said since.
+      const next = userRows[turn];
+      if (next) messages.insertBefore(divider, next);
+      else messages.appendChild(divider);
+    }
+  }
+
+  /** `[[key, rows], …]`, keeping the order the rows came in. */
+  function groupBy(rows, keyOf) {
+    const groups = new Map();
+    for (const row of rows ?? []) {
+      const key = keyOf(row);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(row);
+    }
+    return groups;
+  }
+
+  /**
+   * **"You were here."** Composed from state, with no model call.
+   *
+   * The stage says where the work is and `expectedAction` says what to do
+   * about it, which between them is the whole of what a person needs after a
+   * week away — and asking a model to reconstruct it would be paying for a
+   * worse answer than the one already stored.
+   */
+  function resumeBanner(life) {
+    if (!life?.log?.length || life.stage === "done") return;
+    if (!messages.querySelector(".row")) return;
+
+    const box = document.createElement("div");
+    box.className = "resume";
+
+    const head = document.createElement("b");
+    head.textContent = `You were here — ${life.stage}`;
+    box.append(head);
+    if (life.updatedAt) box.append(` · last moved ${relativeTime(life.updatedAt)}`);
+    if (life.step) box.append(document.createElement("br"), "in progress: " + life.step);
+
+    const actor = life.expectedAction?.actor === "agent" ? "the agent" : "you";
+    const what = document.createElement("span");
+    what.className = "what";
+    what.textContent =
+      `next: ${actor}` + (life.expectedAction?.what ? ` — ${life.expectedAction.what}` : "");
+    box.appendChild(what);
+
+    messages.appendChild(box);
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  function boundaryLabel(dropped) {
+    if (panelState.kind === "memory") {
+      const task = panelState.task?.length ?? 0;
+      const stage = panelState.lifecycle?.stage;
+      const brief = panelState.lifecycle?.brief;
+      // Two different reasons a message stops being sent, and they should not
+      // read alike: the digest is what happens to anything that scrolls past,
+      // the brief is a handoff you read and approved.
+      if (brief?.status === "accepted" && brief.through >= dropped) {
+        return `⟵ ${dropped} planning messages replaced by the brief · ${task} in working memory · ${stage}`;
+      }
+      return `⟵ ${dropped} messages folded into the digest · ${task} kept in working memory` +
+        (stage ? ` · ${stage}` : "");
+    }
+    return `⟵ ${dropped} messages outside the window · nothing kept`;
+  }
+
+  /**
+   * Name the zones of the payload, and say where the line between them falls.
+   * "The last 5 messages" stopped being the whole story the moment something
+   * started riding along with them.
+   */
+  function renderWindowBanner() {
+    const { verbatimExchanges } = windowState;
+    windowText.innerHTML = "";
+
+    const strong = document.createElement("strong");
+    strong.textContent = "Sending: ";
+    windowText.append(strong);
+
+    const view = panelView();
+    const count = document.createElement("span");
+    count.className = "dropped";
+    const profile = view.profile?.length ?? 0;
+    const task = view.task?.length ?? 0;
+    const stage = view.lifecycle?.stage;
+    count.textContent =
+      `${profile} profile entr${profile === 1 ? "y" : "ies"} + ${task} working entr${task === 1 ? "y" : "ies"}` +
+      (stage ? ` in ${stage}` : "") +
+      (view.digest?.text ? ` + a digest of ${view.digest.covers} earlier messages` : "");
+    windowText.append(count, ` + ${verbatimExchanges} exchange${verbatimExchanges === 1 ? "" : "s"} verbatim.`);
+  }
+
+  // ---- totals and chart ----------------------------------------------------
+
+  function stat(label, value, unit, short = label) {
+    const box = document.createElement("span");
+    box.className = "stat";
+    box.title = `${label}: ${value}${unit ? " " + unit : ""}`;
+    const name = document.createElement("span");
+    name.className = "label";
+    name.textContent = short;
+    const number = document.createElement("span");
+    number.className = "value";
+    number.textContent = value;
+    if (unit) {
+      const suffix = document.createElement("span");
+      suffix.className = "unit";
+      suffix.textContent = " " + unit;
+      number.appendChild(suffix);
+    }
+    box.append(name, number);
+    return box;
+  }
+
+  function renderTotals(usage) {
+    const {
+      totalInputTokens = 0,
+      totalOutputTokens = 0,
+      totalCostUsd = 0,
+      turnCount = 0,
+      overheadInputTokens = 0,
+      overheadOutputTokens = 0,
+      overheadCostUsd = 0,
+      overheadCalls = 0,
+    } = usage ?? {};
+    const total = totalInputTokens + totalOutputTokens;
+    const overheadTotal = overheadInputTokens + overheadOutputTokens;
+    const average = turnCount ? totalCostUsd / turnCount : 0;
+    const contextWindow = pricingFor(lastModel)?.contextWindow ?? DEFAULT_CONTEXT_WINDOW;
+    const share = lastSentTokens == null ? null : (lastSentTokens / contextWindow) * 100;
+
+    usageStrip.innerHTML = "";
+    usageStrip.append(
+      stat("Input", formatTokens(totalInputTokens), "", "in"),
+      stat("Output", formatTokens(totalOutputTokens), "", "out"),
+      stat("Total tokens", formatTokens(total), "", "total"),
+      stat("Cost so far", totalCostUsd ? formatCost(totalCostUsd) : "—", "", "cost"),
+      stat("Turns", String(turnCount), "", "turns"),
+      stat("Avg / turn", turnCount && totalCostUsd ? formatCost(average) : "—", "", "avg"),
+      stat(
+        "Last request",
+        lastSentTokens == null ? "—" : formatTokens(lastSentTokens),
+        share == null ? "" : `· ${share.toFixed(share < 1 ? 2 : 1)}% of ${formatTokens(contextWindow)}`,
+        "last"
+      ),
+      // Kept out of the totals above on purpose: the strategy's own bill is
+      // what a saving has to be measured against, so folding it into the
+      // conversation's numbers would be marking your own homework.
+      stat(
+        "Strategy overhead",
+        overheadTotal ? formatTokens(overheadTotal) : "—",
+        overheadCostUsd
+          ? `· ${formatCost(overheadCostUsd)} · ${overheadCalls} call${overheadCalls === 1 ? "" : "s"}`
+          : overheadCalls
+            ? `· ${overheadCalls} call${overheadCalls === 1 ? "" : "s"}`
+            : "",
+        "overhead"
+      )
+    );
+  }
+
+  const SVG = "http://www.w3.org/2000/svg";
+
+  function svgEl(name, attrs) {
+    const node = document.createElementNS(SVG, name);
+    for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, value);
+    return node;
+  }
+
+  /**
+   * Cumulative spend against turn number. No chart library: it is one
+   * polyline, two axes and a handful of labels, and a dependency would be a
+   * bigger thing to explain than the drawing.
+   */
+  function renderChart(turns) {
+    chart.innerHTML = "";
+
+    // With an unpriced model (the offline FakeProvider, say) there is nothing
+    // to plot in dollars, but the token curve tells the same story.
+    const priced = turns.some((t) => t.cumulativeCost > 0);
+    const series = turns.map((t) => (priced ? t.cumulativeCost : t.cumulativeTokens));
+
+    if (!series.length) return;
+
+    const W = 600, H = 140, PAD_L = 56, PAD_R = 8, PAD_T = 12, PAD_B = 22;
+    const max = Math.max(...series, priced ? 0.0001 : 1);
+    const x = (i) => PAD_L + (turns.length === 1 ? (W - PAD_L - PAD_R) / 2 : (i / (turns.length - 1)) * (W - PAD_L - PAD_R));
+    const y = (v) => PAD_T + (1 - v / max) * (H - PAD_T - PAD_B);
+
+    chart.append(
+      svgEl("line", { x1: PAD_L, y1: PAD_T, x2: PAD_L, y2: H - PAD_B, stroke: "currentColor", "stroke-opacity": 0.25 }),
+      svgEl("line", { x1: PAD_L, y1: H - PAD_B, x2: W - PAD_R, y2: H - PAD_B, stroke: "currentColor", "stroke-opacity": 0.25 })
+    );
+
+    chart.appendChild(
+      svgEl("polyline", {
+        points: series.map((v, i) => `${x(i)},${y(v)}`).join(" "),
+        fill: "none",
+        stroke: "var(--accent)",
+        "stroke-width": 2,
+        "vector-effect": "non-scaling-stroke",
+      })
+    );
+
+    for (const [i, value] of series.entries()) {
+      chart.appendChild(svgEl("circle", { cx: x(i), cy: y(value), r: 2.5, fill: "var(--accent)" }));
+    }
+
+    const label = (text, px, py, anchor) => {
+      const node = svgEl("text", {
+        x: px, y: py, fill: "currentColor", "fill-opacity": 0.55,
+        "font-size": 10, "text-anchor": anchor,
+      });
+      node.textContent = text;
+      return node;
+    };
+    const top = priced ? formatCost(max) : formatTokens(max);
+    chart.append(
+      label(top, PAD_L - 6, PAD_T + 4, "end"),
+      label(priced ? "$0" : "0", PAD_L - 6, H - PAD_B, "end"),
+      label("turn 1", PAD_L, H - 8, "start"),
+      label("turn " + turns.length, W - PAD_R, H - 8, "end")
+    );
+
+  }
+
+  /** One request feeds the totals strip, the chart and the stored-count. */
+  async function refreshUsage(id = sessionId) {
+    let data = null;
+    try {
+      const res = await fetch(`/conversations/${id}/usage` + pickerQuery());
+      if (res.ok) data = await res.json();
+    } catch (err) {
+      // A missing chart is not worth failing the page over.
+    }
+
+    const turns = data?.turns ?? [];
+    const latest = turns.length ? turns[turns.length - 1] : null;
+    lastSentTokens = latest?.tokens?.sent ?? null;
+    lastModel = latest?.model ?? lastModel;
+    windowState.droppedCount = latest?.strategy?.droppedMessages ?? 0;
+    windowState.storedMessages = messages.querySelectorAll(".row").length;
+
+    renderTotals(data?.usage);
+    renderChart(turns);
+    renderWindowBanner();
+    markContextBoundary(windowState.droppedCount);
+  }
+
+  // ---- sending -------------------------------------------------------------
+
+  /**
+   * @param {string} [prompt] - Text to send instead of the composer's. The
+   *   stage strip passes `expectedAction.what` when you press *let it
+   *   continue*, which is the whole reason that field holds a sentence rather
+   *   than a flag: "what to do on the next turn" is something you can send.
+   */
+  async function send(prompt) {
+    const fromStrip = typeof prompt === "string" && prompt.trim();
+    const text = fromStrip ? prompt.trim() : input.value.trim();
+    if (!text || pending) return;
+
+    const userRow = addMessage("user", text, { prompted: Boolean(fromStrip) });
+    if (!fromStrip) input.value = "";
+    autoGrow();
+    setPending(true);
+    const thinking = addThinking();
+
+    try {
+      const res = await fetch("/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          message: text,
+          sessionId,
+          agent: agentId,
+          profile: profileId,
+          project: projectId,
+          contextMessages: Number(contextInput.value),
+          maxTokens: Number(maxTokensSelect.value),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      thinking.remove();
+
+      if (!res.ok) {
+        addMessage("agent", data.error || ("Request failed (" + res.status + ")"), { error: true });
+      } else {
+        // The user's own message only gets its count once the server has
+        // measured it — that number comes from the API, not from guessing.
+        userRow.querySelector(".meta").textContent = userMetaLine(data.meta);
+        userRow.querySelector(".meta").appendChild(forkButton(data.meta.turn.userMessageId));
+
+        // The panel is adopted *before* the reply is drawn: the counter under
+        // that reply attributes its input to the blocks this turn sent, and
+        // those numbers arrive with the panel.
+        panelState = data.meta.strategy.panel ?? panelState;
+        addMessage("agent", data.reply, { meta: data.meta, id: data.meta.turn.replyMessageId });
+
+        windowState = { ...windowState, ...data.meta.window };
+        lastSentTokens = data.meta.tokens?.sent ?? null;
+        lastModel = data.meta.model ?? lastModel;
+
+        const moved = panelState.kind === "memory"
+          ? diffMemory(panelState)
+            : data.meta.strategy.overheadCalls && data.meta.strategy.note.startsWith("folded");
+        renderPanel();
+        if (moved) flashPanel();
+
+        renderWindowBanner();
+        markTransitions(panelState.lifecycle);
+        markContextBoundary(windowState.droppedCount);
+      }
+    } catch (err) {
+      thinking.remove();
+      addMessage("agent", "Could not reach the server.", { error: true });
+    } finally {
+      setPending(false);
+      input.focus();
+      refreshConversations();
+      refreshUsage();
+    }
+  }
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    send();
+  });
+
+  input.addEventListener("input", autoGrow);
+
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      send();
+    }
+  });
+
+  // Resizing the window re-draws the banner immediately, before the next turn —
+  // that is what makes the trade-off something you can play with.
+  contextInput.addEventListener("change", () => {
+    const value = Math.min(100, Math.max(2, Math.round(Number(contextInput.value) || 10)));
+    contextInput.value = String(value);
+    windowState.contextMessages = value;
+    renderWindowBanner();
+  });
+
+  newButton.addEventListener("click", async () => {
+    // A new conversation is just a new id — the old one stays on the server,
+    // reachable from the sidebar. Nothing is reset.
+    switchTo(crypto.randomUUID());
+    showEmptyState();
+    resetPanel();
+    renderPanel();
+    refreshConversations();
+    refreshUsage();
+    input.focus();
+    // **A new conversation still has a panel**, and it is the one thing here
+    // that is not empty: the project's rules and the profile are what the very
+    // first turn will be sent. Resetting to the placeholder and stopping drew
+    // "no rules, nothing known" over a project and a person with plenty of
+    // both — the placeholder means *unknown*, and this is what asks.
+    await refreshPanel();
+  });
+
+  function resetPanel() {
+    panelState = { kind: "none", title: "", note: "" };
+    previousRows = new Map();
+    changedKeys = new Set();
+    paintedTurns = 0;
+    forkedFrom = null;
+  }
+
+  // ---- conversations -------------------------------------------------------
+
+  function switchTo(id) {
+    sessionId = id;
+    localStorage.setItem(SESSION_KEY, id);
+  }
+
+  function relativeTime(iso) {
+    const seconds = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+    if (seconds < 60) return "just now";
+    const units = [
+      ["m", 60],
+      ["h", 3600],
+      ["d", 86400],
+    ];
+    let label = "m", size = 60;
+    for (const [unitLabel, unitSize] of units) {
+      if (seconds >= unitSize) { label = unitLabel; size = unitSize; }
+    }
+    return Math.floor(seconds / size) + label + " ago";
+  }
+
+  /**
+   * The panel, re-read, without repainting the transcript.
+   *
+   * What the panel draws depends on the pickers — the rules come from the
+   * project and the rows from the profile — so switching either has to ask the
+   * server again rather than redraw the answer to the previous question.
+   */
+  async function refreshPanel() {
+    try {
+      const res = await fetch("/conversations/" + sessionId + pickerQuery());
+      if (!res.ok) return;
+      const record = await res.json();
+      panelState = record.panel ?? panelState;
+      renderPanel();
+      renderWindowBanner();
+    } catch (err) {
+      // A panel we could not refresh is the panel we already had.
+    }
+  }
+
+  async function paintTranscript(id) {
+    messages.innerHTML = "";
+    paintedTurns = 0;
+
+    try {
+      const res = await fetch("/conversations/" + id + pickerQuery());
+      if (!res.ok) {
+        resetPanel();
+        renderPanel();
+        return showEmptyState();
+      }
+
+      const record = await res.json();
+      forkedFrom = record.forkedFrom ?? null;
+      // A conversation names its own agent, and reopening it follows that
+      // rather than dragging it to whichever one the dropdown was left on.
+      if (record.agentId && record.agentId !== agentId) {
+        agentId = record.agentId;
+        renderAgentSelect();
+      }
+      panelState = record.panel ?? { kind: "none", title: "", note: "" };
+      // A repaint is not a change: the flash belongs to turns, not to reloads.
+      previousRows = new Map([
+        ...(panelState.profile ?? []).map((row) => ["profile:" + row.key, row.value]),
+        ...(panelState.task ?? []).map((row) => ["task:" + row.key, row.value]),
+      ]);
+      changedKeys = new Set();
+
+      renderPanel();
+
+      const turns = record.messages ?? [];
+      if (!turns.length) return showEmptyState();
+      for (const turn of turns) {
+        // Stored messages carry the counts of the turn that produced them, so
+        // a repainted transcript shows the same numbers it showed live.
+        addMessage(turn.role === "user" ? "user" : "agent", turn.content, {
+          meta: turn.tokens ? turn : null,
+          id: turn.id,
+        });
+      }
+
+      // Both of these are renders of stored state and nothing else, which is
+      // what makes reopening a mid-flight task a page load rather than a
+      // model call: the dividers come back where they were, and the banner
+      // says what the next turn is for.
+      markTransitions(panelState.lifecycle);
+      resumeBanner(panelState.lifecycle);
+    } catch (err) {
+      resetPanel();
+      renderPanel();
+      showEmptyState();
+    }
+  }
+
+  async function refreshConversations() {
+    let list = [];
+    try {
+      const res = await fetch("/conversations" + (agentId ? "?agent=" + encodeURIComponent(agentId) : ""));
+      if (res.ok) list = await res.json();
+    } catch (err) {
+      // A sidebar we cannot fill is not worth failing the page over.
+    }
+
+    conversations.innerHTML = "";
+    if (!list.length) {
+      conversations.innerHTML = '<p class="empty">Nothing saved yet for this agent.</p>';
+      return;
+    }
+
+    for (const item of list) {
+      const row = document.createElement("div");
+      row.className = "conversation" + (item.id === sessionId ? " active" : "");
+
+      const text = document.createElement("div");
+      text.className = "text";
+      const title = document.createElement("div");
+      title.className = "title";
+      title.textContent = item.title;
+      const when = document.createElement("div");
+      when.className = "when";
+      when.textContent =
+        relativeTime(item.updatedAt) +
+        (item.totalCostUsd ? " · " + formatCost(item.totalCostUsd) : "");
+      text.append(title, when);
+
+      // A fork says so. Two rows with near-identical titles are otherwise a
+      // puzzle, and "which of these did I branch off" is the whole question.
+      if (item.forkedFrom) {
+        const marker = document.createElement("span");
+        marker.className = "forked";
+        marker.textContent = " · ⑂ fork";
+        marker.title = "Forked from another conversation";
+        when.appendChild(marker);
+      }
+
+      const remove = document.createElement("button");
+      remove.className = "remove";
+      remove.type = "button";
+      remove.title = "Delete this conversation";
+      remove.textContent = "×";
+
+      row.append(text, remove);
+
+      row.addEventListener("click", async () => {
+        if (pending || item.id === sessionId) return;
+        switchTo(item.id);
+        resetPanel();
+        await paintTranscript(item.id);
+        refreshConversations();
+        refreshUsage();
+      });
+
+      remove.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        if (pending) return;
+        try {
+          await fetch("/conversations/" + item.id, { method: "DELETE" });
+        } catch (err) {
+          // Refreshing below will show whether it actually went away.
+        }
+        if (item.id === sessionId) {
+          switchTo(crypto.randomUUID());
+          resetPanel();
+          showEmptyState();
+        }
+        refreshConversations();
+        refreshUsage();
+      });
+
+      conversations.appendChild(row);
+    }
+  }
+
+  let openByDefault = true;
+  try {
+    openByDefault = localStorage.getItem(PANEL_OPEN_KEY) !== "0";
+  } catch (err) {
+    // No stored preference is the same as not having expressed one.
+  }
+  setPanelOpen(openByDefault);
+
+  // Open unless you said otherwise. The strategy selector decides what goes on
+  // the wire and the right-hand panel is drawn from it, so it starts visible.
+  try {
+    chartPanel.open = localStorage.getItem(CONTROLS_OPEN_KEY) !== "0";
+  } catch (err) {
+    // A browser that will not remember it still opens by default.
+  }
+  chartPanel.addEventListener("toggle", () => {
+    try {
+      localStorage.setItem(CONTROLS_OPEN_KEY, chartPanel.open ? "1" : "0");
+    } catch (err) {
+      // Not remembering the preference does not break using it.
+    }
+  });
+
+  // ---- MCP ---------------------------------------------------------------
+  // One section per server from /mcp/servers, all built by the same function.
+  // Connect → POST /mcp/:id/connect. With stored tokens — or no auth at all —
+  // that is the whole story; an OAuth server without tokens answers with the
+  // authorization URL, which opens in a popup, and the section polls
+  // /mcp/:id/status until the callback has finished. A server that cannot be
+  // reached answers connected:false with the reason, which the dot shows.
+  const mcpServersBox = document.getElementById("mcp-servers");
+  const mcpToolsDialog = document.getElementById("mcp-tools-dialog");
+  const mcpToolsTitle = document.getElementById("mcp-tools-title");
+  const mcpToolsNote = document.getElementById("mcp-tools-note");
+  const mcpToolsList = document.getElementById("mcp-tools");
+  document.getElementById("mcp-tools-close").addEventListener("click", () => mcpToolsDialog.close());
+  // A click on the backdrop lands on the dialog element itself.
+  mcpToolsDialog.addEventListener("click", (event) => {
+    if (event.target === mcpToolsDialog) mcpToolsDialog.close();
+  });
+  /** @type {Map<string, { refresh: Function, onAuthMessage: Function }>} */
+  const mcpSections = new Map();
+
+  async function mcpJson(path, options) {
+    const res = await fetch(path, options);
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok && !("ok" in body)) throw new Error(body.error || `HTTP ${res.status}`);
+    return body;
+  }
+
+  function showMcpTools(server, tools) {
+    mcpToolsTitle.textContent = `MCP · ${server.name} tools`;
+    mcpToolsList.replaceChildren();
+    for (const tool of tools) {
+      const item = document.createElement("li");
+      const name = document.createElement("code");
+      name.textContent = tool.name;
+      item.appendChild(name);
+      if (tool.description) {
+        const desc = document.createElement("div");
+        desc.className = "desc";
+        // Plain text: a tool description is the server's words, not ours.
+        desc.textContent = tool.description.trim();
+        item.appendChild(desc);
+      }
+      mcpToolsList.appendChild(item);
+    }
+    mcpToolsNote.textContent = `${tools.length} tool${tools.length === 1 ? "" : "s"}`;
+    mcpToolsDialog.showModal();
+  }
+
+  /** One server's section: dot, state, Connect/Disconnect, tool list. */
+  function mcpSection(server) {
+    const base = "/mcp/" + encodeURIComponent(server.id);
+    const section = document.createElement("section");
+    section.className = "mcp";
+    section.setAttribute("aria-label", `MCP · ${server.name}`);
+    const row = document.createElement("div");
+    row.className = "row";
+    const dot = document.createElement("span");
+    dot.className = "dot";
+    dot.dataset.state = "off";
+    const title = document.createElement("span");
+    title.className = "title";
+    title.textContent = `MCP · ${server.name}`;
+    const stateText = document.createElement("span");
+    stateText.className = "state";
+    stateText.textContent = "…";
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = "Connect";
+    button.disabled = true;
+    row.append(dot, title, stateText, button);
+    const showTools = document.createElement("button");
+    showTools.className = "show-tools";
+    showTools.type = "button";
+    showTools.hidden = true;
+    section.append(row, showTools);
+
+    let connected = false;
+    let poll = null;
+    let tools = [];
+    showTools.addEventListener("click", () => showMcpTools(server, tools));
+
+    function paint(state, text) {
+      dot.dataset.state = state;
+      stateText.textContent = text;
+      stateText.title = text;
+    }
+
+    function renderTools(list) {
+      tools = list;
+      showTools.textContent = `Show ${list.length} tool${list.length === 1 ? "" : "s"}`;
+      showTools.hidden = list.length === 0;
+    }
+
+    function showConnected(status) {
+      connected = true;
+      const info = status.serverInfo;
+      paint("connected", info ? `${info.name} ${info.version ?? ""}`.trim() : "Connected");
+      button.textContent = "Disconnect";
+      button.disabled = false;
+    }
+
+    function showDisconnected(text = "Not connected") {
+      connected = false;
+      paint(text === "Not connected" ? "off" : "error", text);
+      button.textContent = "Connect";
+      button.disabled = false;
+      renderTools([]);
+    }
+
+    function stopPoll() {
+      if (poll) clearInterval(poll);
+      poll = null;
+    }
+
+    async function loadTools() {
+      const body = await mcpJson(base + "/tools");
+      if (!body.ok) return showDisconnected(body.error || "Needs authorization");
+      renderTools(body.tools);
+    }
+
+    async function refresh({ quietConnect = false } = {}) {
+      try {
+        const status = await mcpJson(base + "/status");
+        if (status.connected) {
+          showConnected(status);
+          await loadTools();
+          return true;
+        }
+        // Tokens on disk from an earlier run, or nothing to log in to: connect
+        // without asking anyone.
+        if (quietConnect && status.authorized) {
+          paint("pending", "Connecting…");
+          const result = await mcpJson(base + "/connect", { method: "POST" });
+          if (result.ok) return refresh();
+          if (result.error) {
+            showDisconnected(result.error);
+            return false;
+          }
+        }
+        if (!poll) showDisconnected(status.error || "Not connected");
+      } catch (err) {
+        showDisconnected(`Error: ${err.message}`);
+      }
+      return false;
+    }
+
+    async function connect() {
+      // Opened now, inside the click, so no popup blocker gets a say; pointed
+      // at the authorization page once the server says where that is. Only an
+      // OAuth server can need one.
+      const popup = server.auth === "oauth" ? window.open("about:blank", "mcp-auth", "width=560,height=720") : null;
+      button.disabled = true;
+      paint("pending", "Connecting…");
+      try {
+        const result = await mcpJson(base + "/connect", { method: "POST" });
+        if (result.ok) {
+          popup?.close();
+          await refresh();
+          return;
+        }
+        if (!result.authUrl) {
+          popup?.close();
+          showDisconnected(result.error || "No authorization URL");
+          return;
+        }
+        if (popup && !popup.closed) popup.location.href = result.authUrl;
+        else window.open(result.authUrl, "_blank", "noopener");
+        paint("pending", `Waiting for ${server.name}…`);
+        button.textContent = "Cancel";
+        button.disabled = false;
+
+        stopPoll();
+        const started = Date.now();
+        poll = setInterval(async () => {
+          if (Date.now() - started > 5 * 60 * 1000) {
+            stopPoll();
+            showDisconnected("Timed out waiting for authorization");
+            return;
+          }
+          const status = await mcpJson(base + "/status").catch(() => null);
+          if (status?.connected) {
+            stopPoll();
+            await refresh();
+          }
+        }, 1500);
+      } catch (err) {
+        popup?.close();
+        showDisconnected(`Error: ${err.message}`);
+      }
+    }
+
+    button.addEventListener("click", async () => {
+      if (poll) {
+        stopPoll();
+        showDisconnected();
+        return;
+      }
+      if (!connected) return connect();
+      button.disabled = true;
+      paint("pending", "Disconnecting…");
+      await mcpJson(base + "/disconnect", { method: "POST" }).catch(() => {});
+      showDisconnected();
+    });
+
+    function onAuthMessage(ok) {
+      stopPoll();
+      if (ok) refresh();
+      else showDisconnected("Authorization failed");
+    }
+
+    mcpServersBox.appendChild(section);
+    return { refresh, onAuthMessage };
+  }
+
+  // The callback page says so directly when it can; the poll is the fallback.
+  window.addEventListener("message", (event) => {
+    if (event.origin !== location.origin || event.data?.type !== "mcp-auth") return;
+    mcpSections.get(event.data.server)?.onAuthMessage(event.data.ok);
+  });
+
+  mcpJson("/mcp/servers")
+    .then(({ servers = [] }) => {
+      for (const server of servers) {
+        const section = mcpSection(server);
+        mcpSections.set(server.id, section);
+        section.refresh({ quietConnect: true });
+      }
+    })
+    .catch((err) => console.warn("Could not list MCP servers:", err));
+
+  await loadAgents();
+  await loadProfiles();
+  await loadProjects();
+  renderPanel();
+  renderWindowBanner();
+  await paintTranscript(sessionId);
+  refreshConversations();
+  refreshUsage();
+</script>
+</body>
+</html>
