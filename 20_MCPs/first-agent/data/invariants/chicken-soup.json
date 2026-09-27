@@ -1,0 +1,19 @@
+{
+  "project": "chicken-soup",
+  "updatedAt": "2026-09-26T19:38:46.345Z",
+  "nextId": 2,
+  "entries": {
+    "invariant.ingredients": {
+      "id": "i1",
+      "key": "invariant.ingredients",
+      "subject": "ingredients",
+      "text": "All ingredients must be readily available in German supermarkets.",
+      "check": "any recipe suggesting an ingredient not commonly stocked in standard German grocery stores",
+      "supersedes": null,
+      "updatedAt": "2026-09-26T19:38:46.345Z",
+      "turn": 0,
+      "previous": []
+    }
+  },
+  "retired": []
+}

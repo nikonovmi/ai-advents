@@ -1,0 +1,89 @@
+{
+  "id": "76edbd8a-2f9e-42b5-a722-a5eacb08f929",
+  "title": "Look up Inception, The Matrix and Heat.…",
+  "createdAt": "2026-09-27T23:15:01.198Z",
+  "updatedAt": "2026-09-27T23:15:19.567Z",
+  "usage": {
+    "totalInputTokens": 1587,
+    "totalOutputTokens": 262,
+    "totalCostUsd": 0.0057940000000000005,
+    "turnCount": 1,
+    "overheadInputTokens": 0,
+    "overheadOutputTokens": 0,
+    "overheadCostUsd": 0,
+    "overheadCalls": 0
+  },
+  "project": "default",
+  "agentId": "pipeline",
+  "forkedFrom": null,
+  "memory": {},
+  "messages": [
+    {
+      "role": "assistant",
+      "content": "```json\n{\n  \"id\": 32,\n  \"scheduleId\": 4,\n  \"key\": \"tt1375666\",\n  \"label\": \"Inception (2010)\",\n  \"createdAt\": \"2026-09-27T23:15:19.564Z\"\n}\n```",
+      "id": "m1",
+      "tokens": {
+        "input": 1587,
+        "output": 262,
+        "total": 1849
+      },
+      "cost": {
+        "input": 0.003174,
+        "output": 0.0026200000000000004,
+        "total": 0.0057940000000000005
+      },
+      "model": "claude-sonnet-5",
+      "ms": 4644,
+      "run": {
+        "runId": 37,
+        "durationMs": 4644,
+        "tokens": 1849,
+        "ok": true
+      },
+      "steps": [
+        {
+          "index": 1,
+          "kind": "tool",
+          "label": "get_movie",
+          "status": "ok",
+          "ms": 276
+        },
+        {
+          "index": 2,
+          "kind": "tool",
+          "label": "get_movie",
+          "status": "ok",
+          "ms": 168
+        },
+        {
+          "index": 3,
+          "kind": "tool",
+          "label": "get_movie",
+          "status": "ok",
+          "ms": 167
+        },
+        {
+          "index": 4,
+          "kind": "prompt",
+          "label": "prompt",
+          "status": "ok",
+          "ms": 3372
+        },
+        {
+          "index": 5,
+          "kind": "tool",
+          "label": "notion-create-pages",
+          "status": "ok",
+          "ms": 651
+        },
+        {
+          "index": 6,
+          "kind": "tool",
+          "label": "record",
+          "status": "ok",
+          "ms": 10
+        }
+      ]
+    }
+  ]
+}
