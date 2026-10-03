@@ -1,0 +1,150 @@
+{
+  "id": "3ccce2db-12ec-452c-a0fe-1d56ad9a6ce2",
+  "title": "get me a radom movie from omdb",
+  "createdAt": "2026-09-27T02:17:21.262Z",
+  "updatedAt": "2026-09-27T02:17:21.262Z",
+  "usage": {
+    "totalInputTokens": 1000,
+    "totalOutputTokens": 179,
+    "totalCostUsd": 0.001895,
+    "turnCount": 1,
+    "overheadInputTokens": 3232,
+    "overheadOutputTokens": 53,
+    "overheadCostUsd": 0.003497,
+    "overheadCalls": 1
+  },
+  "project": "chicken-soup",
+  "agentId": "first-agent",
+  "forkedFrom": null,
+  "memory": {
+    "working": {
+      "goal": {
+        "value": "Get a random movie from OMDB",
+        "updatedAt": "2026-09-27T02:17:18.394Z",
+        "turn": 1,
+        "previous": []
+      },
+      "decision.api_key": {
+        "value": "Awaiting user response",
+        "updatedAt": "2026-09-27T02:17:21.261Z",
+        "turn": 1,
+        "previous": []
+      }
+    },
+    "task": {
+      "id": "tc490az",
+      "previous": null,
+      "startedAt": "2026-09-27T02:17:16.695Z",
+      "updatedAt": "2026-09-27T02:17:16.695Z",
+      "transitions": [],
+      "step": "working out what the task is",
+      "stepTurn": 0,
+      "suggestion": null,
+      "refused": [],
+      "refusals": []
+    },
+    "brief": null,
+    "briefThrough": 0,
+    "digest": null,
+    "digestThrough": 0,
+    "digestUpdatedAt": null,
+    "pastTasks": [],
+    "proposals": [],
+    "discarded": [],
+    "promotedAt": {},
+    "profileSeen": {},
+    "profileUser": "cook",
+    "invariantsSeen": {
+      "invariant.ingredients": {
+        "id": "i1",
+        "key": "invariant.ingredients",
+        "subject": "ingredients",
+        "text": "All ingredients must be readily available in German supermarkets.",
+        "check": "any recipe suggesting an ingredient not commonly stocked in standard German grocery stores",
+        "supersedes": null,
+        "updatedAt": "2026-09-26T19:38:46.345Z",
+        "turn": 0,
+        "previous": []
+      }
+    },
+    "invariantProject": "chicken-soup",
+    "attribution": [
+      {
+        "turn": 1,
+        "invariants": 1599,
+        "profile": 0,
+        "working": 2250,
+        "brief": 0,
+        "digest": 0
+      }
+    ],
+    "usage": {
+      "overheadWorking": {
+        "calls": 1,
+        "inputTokens": 3232,
+        "outputTokens": 53,
+        "costUsd": 0.003497
+      },
+      "overheadSummary": {
+        "calls": 0,
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "costUsd": 0
+      },
+      "overheadProfile": {
+        "calls": 0,
+        "turns": 1,
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "costUsd": 0,
+        "estimated": true
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "get me a radom movie from omdb",
+      "id": "m1",
+      "tokens": {
+        "request": 16
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "I'd like to help you get a random movie from OMDB. First, I need to know:\n\n**Do you have an OMDB API key?** You can get one free at [omdbapi.com](https://www.omdbapi.com/apikey.aspx). If you don't have one yet, I can show you how to get it, or we can work around it if there's a constraint.\n\nAlso, just to confirm: when you say \"random,\" do you mean:\n- A movie with a random title (I'd search for something like a common word)?\n- Or do you have a specific search term in mind, and just want one result?",
+      "id": "m2",
+      "tokens": {
+        "request": 16,
+        "sent": 1000,
+        "input": 1000,
+        "output": 179,
+        "total": 1179
+      },
+      "cost": {
+        "input": 0.001,
+        "output": 0.000895,
+        "total": 0.001895
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 4565,
+      "stopReason": "end_turn",
+      "strategy": {
+        "id": "memory",
+        "label": "Layered memory",
+        "overheadTokens": 3285,
+        "overheadCost": 0.003497,
+        "overheadMs": 1698,
+        "overheadCalls": 1,
+        "blockTokens": 902,
+        "note": "2 keys set",
+        "droppedMessages": 0,
+        "changedKeys": [
+          "goal",
+          "open.api_key"
+        ],
+        "degraded": false
+      }
+    }
+  ]
+}
