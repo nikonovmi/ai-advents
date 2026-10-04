@@ -1,5 +1,9 @@
 # Day 25 — Mini-chat with RAG and task memory
 
+
+https://github.com/user-attachments/assets/c5828131-5444-4031-a349-bc6b777e6ca0
+
+
 **Day 25:** the Knowledge agent is now a multi-turn chat. Each message goes first to a **router**
 (one forced `route` call, Haiku 4.5, temperature 0). The router labels it `search`, `memory_only`
 or `chat`, resolves references into a standalone question with 1–3 search queries, and proposes
