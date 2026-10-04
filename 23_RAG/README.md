@@ -1,5 +1,7 @@
 # Day 23 — Reranking, filtering and query rewriting
 
+https://github.com/user-attachments/assets/3b4be32d-f755-48ca-a137-755c28a3979a
+
 **Day 23:** the Knowledge agent's RAG gets two optional stages, switched per chat next to the
 RAG toggle: **Rewrite** (one model call → 1–3 search queries, results merged) and **Rerank**
 (a local cross-encoder, bge-reranker-v2-m3, scores 20 candidates against the question, drops
