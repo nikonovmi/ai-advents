@@ -1,5 +1,7 @@
 # Day 24 — Citations, sources and "I don't know"
 
+https://github.com/user-attachments/assets/ab7ba1e0-9e79-47db-97e5-8fe86314c8de
+
 **Day 24:** every RAG answer in the Knowledge agent follows a strict, verified contract. One
 forced `submit_answer` call returns the answer with a `[cN]` marker after each claim, and each
 citation is a verbatim quote from a chunk that was sent. Code checks five rules: citations are
