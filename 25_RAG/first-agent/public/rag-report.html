@@ -1,0 +1,615 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAG eval results</title>
+<style>
+  :root {
+    --bg: #f6f6f4;
+    --panel: #ffffff;
+    --ink: #1d1d1b;
+    --muted: #7a7a72;
+    --line: #e3e3dd;
+    --agent: #efefea;
+    --accent: #b8552f;
+    --good: #2f7d4f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16161a;
+      --panel: #1d1d22;
+      --ink: #ececea;
+      --muted: #8f8f96;
+      --line: #2c2c33;
+      --agent: #26262d;
+      --accent: #e08b63;
+      --good: #6fbf8e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+  }
+  .page {
+    max-width: 1320px;
+    margin: 0 auto;
+    min-height: 100vh;
+    background: var(--panel);
+    border-left: 1px solid var(--line);
+    border-right: 1px solid var(--line);
+  }
+  .topbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 18px;
+    row-gap: 6px;
+    padding: 10px 24px;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg);
+  }
+  .topbar h1 { margin: 0; font-size: 15px; letter-spacing: -0.01em; }
+  .topbar .sub { color: var(--muted); font-size: 12px; flex: 1; min-width: 200px; }
+  .topbar a { color: var(--accent); font-size: 13px; text-decoration: none; white-space: nowrap; }
+  .topbar a:hover { text-decoration: underline; }
+  main { padding: 20px 24px 48px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; margin: 28px 0 10px; }
+  h2:first-child { margin-top: 0; }
+  .muted { color: var(--muted); }
+  .settings { font-size: 12.5px; color: var(--muted); margin: 0 0 4px; }
+  .settings code { color: var(--ink); }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; }
+
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-weight: 600; color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  table.summary { max-width: 1100px; }
+  table.summary td.num { white-space: normal; }
+  .rank { font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--muted); }
+  .rank.up { color: var(--good); }
+  .queries code { background: var(--agent); padding: 0 5px; border-radius: 4px; }
+  .chunks tr.dropped td { opacity: 0.55; }
+  .chunks .rr { color: var(--accent); }
+  details.dropped-list > summary { cursor: pointer; font-size: 11.5px; color: var(--muted); margin: 4px 0; }
+  table.summary td:first-child { color: var(--muted); }
+  .better { color: var(--good); font-weight: 600; }
+  .worse { color: var(--accent); font-weight: 600; }
+
+  table.questions tr.q { cursor: pointer; }
+  table.questions tr.q:hover td { background: color-mix(in srgb, var(--ink) 4%, transparent); }
+  table.questions tr.q td:first-child::before { content: "▸ "; color: var(--muted); }
+  table.questions tr.q.open td:first-child::before { content: "▾ "; }
+  table.questions tr.detail > td { padding: 0 0 18px; background: var(--bg); }
+  .tag {
+    display: inline-block;
+    padding: 0 7px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-size: 11px;
+    line-height: 18px;
+    white-space: nowrap;
+  }
+  .tag.pass { color: var(--good); border-color: color-mix(in srgb, var(--good) 50%, transparent); }
+  .tag.fail { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
+  .warn { color: var(--accent); }
+
+  .detail-box { padding: 14px 16px 0; }
+  .detail-box .why { font-size: 12.5px; color: var(--muted); margin: 0 0 10px; }
+  .arms { display: flex; gap: 14px; flex-wrap: wrap; }
+  .arm { flex: 1 1 380px; min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .arm h3 { margin: 0 0 2px; font-size: 13px; }
+  .arm .line { font-size: 11.5px; color: var(--muted); margin-bottom: 8px; }
+  .answer { font-size: 13.5px; line-height: 1.6; border-left: 3px solid var(--line); padding: 2px 0 2px 12px; margin: 0 0 10px; }
+  .answer > :first-child { margin-top: 0; }
+  .answer > :last-child { margin-bottom: 0; }
+  .answer pre { background: var(--agent); padding: 8px 10px; border-radius: 6px; overflow-x: auto; font-size: 12px; }
+  .answer table { font-size: 12px; }
+  .grades { font-size: 12px; margin-bottom: 8px; }
+  .grades td { padding: 4px 8px; }
+  .grade-present { color: var(--good); }
+  .grade-partial { color: #b08a1e; }
+  .grade-missing { color: var(--muted); }
+  .grade-contradicted { color: var(--accent); font-weight: 600; }
+  .sub-h { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 10px 0 4px; }
+  .chunks { font-size: 12px; }
+  .chunks td { padding: 4px 8px; }
+  .chunks tr.expected td:first-child { color: var(--good); font-weight: 600; }
+  .chunks .text { color: var(--muted); }
+  .chunks details summary { cursor: pointer; }
+  .chunks pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11.5px; margin: 4px 0; color: var(--ink); max-height: 240px; overflow-y: auto; }
+
+  .findings { max-width: 900px; font-size: 14px; }
+  .findings h1, .findings h2, .findings h3 { text-transform: none; letter-spacing: 0; font-size: 15px; margin: 18px 0 6px; }
+  .findings li { margin: 3px 0; }
+  .empty { padding: 48px 24px; text-align: center; color: var(--muted); }
+  .empty code { background: var(--agent); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
+
+  /* Tabs: the Day 23 modes eval and the Day 24 citations eval. */
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: 0 0 18px; }
+  .tabs button {
+    border: 0; border-bottom: 2px solid transparent; background: none; color: var(--muted);
+    font: inherit; font-size: 13px; padding: 6px 12px; cursor: pointer;
+  }
+  .tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
+  .chk { text-align: center; }
+  .chk.yes { color: var(--good); }
+  .chk.no { color: var(--accent); font-weight: 600; }
+  .chk.na { color: var(--muted); }
+  .chip { display: inline-block; padding: 0 5px; border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent); border-radius: 999px; color: var(--accent); font: 600 10.5px/16px ui-monospace, SFMono-Regular, Menlo, monospace; vertical-align: 1px; }
+  .idk-box { border-left: 3px solid #b08a1e; padding: 2px 0 2px 12px; margin: 0 0 10px; font-size: 13.5px; }
+  .idk-box b { display: block; }
+  .claims td { font-size: 12px; padding: 4px 8px; }
+  .verdict-supported { color: var(--good); }
+  .verdict-partial { color: #b08a1e; }
+  .verdict-unsupported { color: var(--accent); font-weight: 600; }
+  .claims .q { color: var(--muted); }
+  .cites li { font-size: 12.5px; margin: 2px 0; }
+
+  /* The Chat tab (Day 25): one timeline per scenario. */
+  .scenario-head { margin: 26px 0 4px; font-size: 15px; text-transform: none; letter-spacing: 0; }
+  .timeline { display: flex; flex-direction: column; gap: 8px; }
+  .turn { border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; background: var(--panel); }
+  .turn.failed { border-color: color-mix(in srgb, var(--accent) 70%, transparent); background: color-mix(in srgb, var(--accent) 5%, var(--panel)); }
+  .turn .t-head { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; }
+  .turn .t-n { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .turn .t-user { flex: 1 1 320px; font-weight: 600; }
+  .turn .t-lat { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+  .turn .t-row { font-size: 12.5px; margin: 6px 0 0; }
+  .turn .t-row .k { color: var(--muted); }
+  .turn .t-checks { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0 0; }
+  .turn .reasons { margin: 6px 0 0; padding-left: 18px; font-size: 12px; color: var(--accent); }
+  .turn details.t-more > summary { cursor: pointer; font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .intent-tag { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; }
+  .intent-tag.bad { color: var(--accent); font-weight: 700; }
+  .mem-add { color: var(--good); }
+  .mem-del { color: var(--accent); text-decoration: line-through; }
+  .chat-summary th.num, .chat-summary td.num { text-align: left; }
+
+  @media (max-width: 720px) {
+    .topbar, main { padding-left: 16px; padding-right: 16px; }
+    .arm { flex-basis: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="topbar">
+    <h1>RAG eval results</h1>
+    <span class="sub" id="sub">Modes (Day 23) · Citations (Day 24) · Chat (Day 25)</span>
+    <a href="/">← Back to the chat</a>
+  </div>
+  <main id="main"><p class="empty">Loading…</p></main>
+</div>
+
+<script type="module">
+  import { marked } from "/vendor/marked.js";
+  import DOMPurify from "/vendor/purify.js";
+  import { createMarkdown } from "/markdown.js";
+
+  // Answers and notes are Markdown written by a model or a person: parsed, then sanitized.
+  const md = createMarkdown({ marked, DOMPurify });
+  const main = document.getElementById("main");
+
+  const el = (tag, attrs = {}, ...children) => {
+    const node = document.createElement(tag);
+    for (const [key, value] of Object.entries(attrs)) {
+      if (key === "class") node.className = value;
+      else if (key === "html") node.innerHTML = value;
+      else node.setAttribute(key, value);
+    }
+    for (const child of children.flat()) if (child != null) node.append(child);
+    return node;
+  };
+  const num = (x, d = 2) => (x == null ? "—" : Number(x).toFixed(d));
+  const secs = (ms) => (ms == null ? "—" : (ms / 1000).toFixed(1) + " s");
+  const shortSource = (s) => String(s ?? "").replace(/^knowledge_database\//, "").replace(/\.html?$/, "");
+
+  async function load() {
+    let data;
+    try {
+      const res = await fetch("/rag-report/data");
+      data = await res.json();
+      if (!res.ok) throw new Error(data.error || res.status);
+    } catch (err) {
+      main.replaceChildren(el("p", { class: "empty" }, "Could not load the results: " + err.message));
+      return;
+    }
+    const tabs = [
+      ["modes", "Modes (Day 23)", () => (data.results ? render(data.results, data.notes) : empty("eval:rag"))],
+      ["citations", "Citations (Day 24)", () => (data.citations ? renderCitations(data.citations, data.citationNotes) : empty("eval:citations"))],
+      ["chat", "Chat (Day 25)", () => (data.chat ? renderChat(data.chat, data.chatNotes) : empty("eval:chat"))],
+    ];
+    const show = (key) => {
+      const [, , draw] = tabs.find(([k]) => k === key) ?? tabs[0];
+      const nodes = draw();
+      const bar = el("div", { class: "tabs", role: "tablist" },
+        tabs.map(([k, label]) => {
+          const b = el("button", { type: "button", role: "tab", "aria-selected": String(k === key) }, label);
+          b.addEventListener("click", () => {
+            history.replaceState(null, "", "#" + k);
+            show(k);
+          });
+          return b;
+        }));
+      main.replaceChildren(bar, ...nodes);
+    };
+    const wanted = location.hash.slice(1);
+    show(tabs.some(([k]) => k === wanted) ? wanted : data.citations && !data.results ? "citations" : "modes");
+  }
+
+  const empty = (script) => [
+    el("div", { class: "empty" },
+      el("p", {}, "No results yet."),
+      el("p", {}, "Run ", el("code", {}, `npm run ${script}`), " in first-agent (needs the API key and a built doc_index), then reload.")),
+  ];
+
+  const isDeclined = (run) => Boolean(run.declined || run.grade?.declined);
+  /** "3 → 1" before the rerank → in the final chunks; "—" when nothing was expected. */
+  const rankMove = (r) => {
+    if (!r || r.sourcesExpected === 0) return "—";
+    const before = r.rankBefore ?? "miss", after = r.rank ?? "miss";
+    return before === after ? String(after) : `${before} → ${after}`;
+  };
+
+  function render(results, notes) {
+    const { settings, summary, rows } = results;
+    const modes = summary.modes;
+    document.getElementById("sub").textContent =
+      `Generated ${new Date(results.generatedAt).toLocaleString()} · ${rows.length} question${rows.length === 1 ? "" : "s"} × ${modes.length} modes`;
+    return [
+      el("h2", {}, "Settings"),
+      el("p", { class: "settings" },
+        "Answers: ", el("code", {}, settings.model), ` in every mode, temperature 0, max ${settings.maxTokens} tokens. Judge: `,
+        el("code", {}, settings.judgeModel), ", forced submit_grade, blind to the mode."),
+      el("p", { class: "settings" },
+        "Retrieval: doc_index search(), ", el("code", {}, settings.strategy), ", collections ",
+        el("code", {}, settings.collections.length ? settings.collections.join(", ") : "all"),
+        `; k_final ${settings.kFinal} chunks to the model, k_retrieve ${settings.kRetrieve} candidates per query when reranking. Rerank: `,
+        el("code", {}, String(settings.rerankModel ?? "bge-reranker-v2-m3").replace(/^onnx-community\//, "")),
+        `, cutoff ${settings.rerankThreshold}. Rewrite: one forced submit_queries call (1–3 queries).`),
+      el("h2", {}, "Summary"),
+      summaryTable(results),
+      el("h2", {}, "Per question"),
+      el("p", { class: "settings" }, "Click a row for every mode's answer, the queries searched, kept and dropped chunks, and the judge's per-fact grades. ⚠ = hallucination, ✗ = declined. Rank = first expected source before the rerank → in the final chunks."),
+      el("div", { class: "scroll" }, questionTable(rows, modes, summary)),
+      ...(notes?.trim() ? [el("h2", {}, "Findings"), el("div", { class: "findings", html: md(notes) })] : []),
+    ];
+  }
+
+  function summaryTable(results) {
+    const { modes } = results.summary;
+    const rows = results.summaryRows ?? [];
+    return el("div", { class: "scroll" }, el("table", { class: "summary" },
+      el("thead", {}, el("tr", {}, el("th", {}, ""), modes.map((m) => el("th", { class: "num" }, m)))),
+      el("tbody", {}, rows.map(([label, values]) => el("tr", {}, el("td", {}, label), values.map((v) => el("td", { class: "num" }, v))))),
+    ));
+  }
+
+  function questionTable(rows, modes, summary) {
+    const ragModes = modes.filter((m) => summary.byMode[m].isRag);
+    const cols = 3 + modes.length + ragModes.length;
+    const body = el("tbody");
+    for (const row of rows) {
+      const score = (run) => run
+        ? [num(run.grade.score),
+           run.grade.hallucination ? el("span", { class: "warn", title: run.grade.hallucinationNote || "hallucination" }, " ⚠") : null,
+           isDeclined(run) ? el("span", { class: "muted", title: run.declined ? "declined by the rerank cutoff" : "the answer declined" }, " ✗") : null]
+        : "";
+      const tr = el("tr", { class: "q" },
+        el("td", {}, row.id),
+        el("td", {}, row.type),
+        el("td", {}, row.question.length > 140 ? row.question.slice(0, 140) + "…" : row.question),
+        modes.map((m) => el("td", { class: "num " + (row.runs[m] ? (row.runs[m].outcome === "pass" ? "better" : "worse") : "") , title: row.runs[m]?.outcome ?? "" }, score(row.runs[m]))),
+        ragModes.map((m) => {
+          const r = row.runs[m]?.retrieval;
+          const up = r && r.rankBefore != null && r.rank != null && r.rank < r.rankBefore;
+          return el("td", { class: "num rank" + (up ? " up" : "") }, rankMove(r));
+        }),
+      );
+      const detail = el("tr", { class: "detail", hidden: "" }, el("td", { colspan: String(cols) }));
+      tr.addEventListener("click", () => {
+        const open = detail.hidden;
+        detail.hidden = !open;
+        tr.classList.toggle("open", open);
+        if (open && !detail.firstChild.firstChild) detail.firstChild.append(detailBox(row, modes));
+      });
+      body.append(tr, detail);
+    }
+    return el("table", { class: "questions" },
+      el("thead", {}, el("tr", {},
+        el("th", {}, "id"), el("th", {}, "type"), el("th", {}, "question"),
+        modes.map((m) => el("th", { class: "num" }, m)),
+        ragModes.map((m) => el("th", { class: "num" }, "rank " + m)))),
+      body,
+    );
+  }
+
+  function detailBox(row, modes) {
+    return el("div", { class: "detail-box" },
+      el("p", { class: "why" }, el("b", {}, "Why: "), row.notes,
+        row.expected_sources.length ? [" Expected source: ", row.expected_sources.map(shortSource).join("; "), "."] : " No expected source.",
+        row.expect_decline ? " Should be declined." : ""),
+      el("div", { class: "arms" }, modes.filter((m) => row.runs[m]).map((m) => arm(row, m))),
+    );
+  }
+
+  function arm(row, mode) {
+    const run = row.runs[mode];
+    const g = run.grade;
+    const t = run.timings;
+    const total = Object.values(t).reduce((a, b) => a + (b ?? 0), 0);
+    const stages = [["rewrite", t.rewriteMs], ["retrieve", t.retrieveMs], ["rerank", t.rerankMs], ["answer", t.llmMs]].filter(([, v]) => v).map(([k, v]) => `${k} ${secs(v)}`);
+    const facts = [`${run.usage?.inputTokens ?? "?"} in · ${run.usage?.outputTokens ?? "?"} out`, secs(total) + (stages.length > 1 ? ` (${stages.join(", ")})` : "")];
+    if (run.mode === "rag") {
+      facts.push(`rank ${rankMove(run.retrieval)}`);
+      const cc = run.citationCheck ?? run.citations;
+      facts.push(`cited ${cc.cited.map((n) => `[${n}]`).join("") || "nothing"}` + (cc.valid ? "" : ` · invalid ${cc.invalid.join(", ")}`));
+    }
+    facts.push(run.outcome);
+    const box = el("div", { class: "arm" },
+      el("h3", {}, mode, ` — score ${num(g.score)}`,
+        g.hallucination ? el("span", { class: "warn" }, " · hallucination") : null,
+        isDeclined(run) ? (run.declined ? " · declined by the cutoff" : " · declined") : ""),
+      el("div", { class: "line" }, facts.join(" · ")),
+      run.rewrite ? el("p", { class: "line queries" }, "Searched: ", run.queries.flatMap((q, i) => [i ? " · " : null, el("code", {}, q)])) : null,
+      el("div", { class: "answer", html: md(run.answer) }),
+      el("div", { class: "sub-h" }, "Judge"),
+      el("table", { class: "grades" }, el("tbody", {}, g.facts.map((f) =>
+        el("tr", {}, el("td", {}, f.fact), el("td", { class: "grade-" + f.grade }, f.grade), el("td", { class: "muted" }, f.note || ""))))),
+      g.hallucination && g.hallucinationNote ? el("p", { class: "warn", style: "font-size:12px;margin:0 0 6px" }, "Hallucination: " + g.hallucinationNote) : null,
+    );
+    if (run.mode === "rag") {
+      const expected = (source) => row.expected_sources.includes(source);
+      const scoreCell = (vector, rerank) => el("td", { class: "num" }, num(vector, 3), rerank == null ? null : el("span", { class: "rr" }, " → " + num(rerank, 3)));
+      const shown = run.declined ? (run.rejected ?? []) : run.chunks;
+      box.append(
+        el("div", { class: "sub-h" }, run.declined ? "Declined — best rejected chunks (vector → rerank)" : `Kept chunks (vector${run.rerank ? " → rerank" : ""})`),
+        el("table", { class: "chunks" }, el("tbody", {}, shown.map((c, i) =>
+          el("tr", { class: expected(c.source) ? "expected" : "" },
+            el("td", { class: "num" }, run.declined ? `✗${i + 1}` : `[${c.n}]`),
+            scoreCell(c.score, c.rerankScore),
+            el("td", {},
+              el("details", {},
+                el("summary", {}, shortSource(c.source), c.section ? el("span", { class: "muted" }, " · " + c.section) : null),
+                el("pre", {}, c.text)),
+              el("div", { class: "text" }, c.text.slice(0, 200) + (c.text.length > 200 ? "…" : ""))),
+          )))),
+      );
+      const dropped = run.candidates.filter((c) => !c.kept);
+      if (dropped.length) {
+        box.append(el("details", { class: "dropped-list" },
+          el("summary", {}, `Dropped candidates (${dropped.length})`),
+          el("table", { class: "chunks" }, el("tbody", {}, dropped.map((c) =>
+            el("tr", { class: "dropped" + (expected(c.source) ? " expected" : "") },
+              el("td", { class: "num" }, `#${c.vectorRank}`),
+              scoreCell(c.vectorScore, c.rerankScore),
+              el("td", {}, shortSource(c.source), c.section ? el("span", { class: "muted" }, " · " + c.section) : null)))))));
+      }
+    }
+    return box;
+  }
+
+  // ---- the Citations tab (Day 24) -----------------------------------------------
+
+  const CHECKS = [["sources", "sources"], ["citations", "citations"], ["quotes", "quotes real"], ["faithful", "faithful"], ["idk", "IDK right"]];
+  const chk = (x) => el("td", { class: "chk " + (x === null || x === undefined ? "na" : x ? "yes" : "no") }, x === null || x === undefined ? "—" : x ? "✓" : "✗");
+  const vLabel = (run) => {
+    const v = run.verification;
+    if (!v) return run.dontKnow?.reason === "low_relevance" ? "low relevance (no answer call)" : "—";
+    const parts = [];
+    if (v.firstAttemptValid) parts.push("verified");
+    else if (v.retried) parts.push(v.finalErrors.length ? "retried, still invalid" : "retried → verified");
+    if (v.droppedCitations.length) parts.push(`${v.droppedCitations.length} citation${v.droppedCitations.length === 1 ? "" : "s"} dropped`);
+    if (v.downgraded) parts.push("downgraded");
+    return parts.join(" · ");
+  };
+  /** The answer as Markdown, with each [cN] drawn as a chip. */
+  const withChips = (answer) => md(answer).replace(/\[(c\d+)\]/gi, (_, id) => `<span class="chip">${id.toLowerCase()}</span>`);
+
+  function renderCitations(results, notes) {
+    const { settings, summary, rows } = results;
+    document.getElementById("sub").textContent =
+      `Citations eval · generated ${new Date(results.generatedAt).toLocaleString()} · ${rows.length} questions · ${settings.mode}`;
+    const body = el("tbody");
+    for (const row of rows) {
+      const run = row.run;
+      const applied = Object.values(row.checks).filter((x) => x !== null);
+      const tr = el("tr", { class: "q" },
+        el("td", {}, row.id),
+        el("td", {}, row.type + (row.expect_decline ? " (IDK)" : "")),
+        el("td", {}, row.question.length > 110 ? row.question.slice(0, 110) + "…" : row.question),
+        el("td", { class: run.status === "dont_know" ? "muted" : "" }, run.status + (run.dontKnow ? ` (${run.dontKnow.reason})` : "")),
+        CHECKS.map(([key]) => chk(row.checks[key])),
+        el("td", { class: "num" }, `${applied.filter(Boolean).length}/${applied.length}`),
+        el("td", { class: "num" }, num(row.faithfulness?.faithfulness)),
+        el("td", { class: "num" }, num(row.grade?.score)),
+        el("td", {}, vLabel(run)),
+      );
+      const detail = el("tr", { class: "detail", hidden: "" }, el("td", { colspan: String(9 + CHECKS.length) }));
+      tr.addEventListener("click", () => {
+        const open = detail.hidden;
+        detail.hidden = !open;
+        tr.classList.toggle("open", open);
+        if (open && !detail.firstChild.firstChild) detail.firstChild.append(citationDetail(row));
+      });
+      body.append(tr, detail);
+    }
+    return [
+      el("h2", {}, "Settings"),
+      el("p", { class: "settings" },
+        "Mode ", el("code", {}, settings.mode), ". Answers: ", el("code", {}, settings.model),
+        " through the forced submit_answer contract (temperature 0), verified in code, one retry with the errors. Judges: ",
+        el("code", {}, settings.judgeModel), " — the faithfulness judge (claims + the quotes they cite, not the chunks or the expected facts) and Day 22's fact judge. ",
+        `Rerank cutoff ${settings.rerankThreshold}, k_final ${settings.kFinal}, k_retrieve ${settings.kRetrieve}.`),
+      el("h2", {}, "Summary"),
+      el("div", { class: "scroll" }, el("table", { class: "summary" },
+        el("tbody", {}, (results.summaryRows ?? []).map(([label, value]) => el("tr", {}, el("td", {}, label), el("td", {}, value)))))),
+      el("h2", {}, "Per question"),
+      el("p", { class: "settings" }, "Click a row for the answer with its citations, the sources, every claim with the judge's verdict next to the quote it cites, and what verification did. — = the check does not apply."),
+      el("div", { class: "scroll" }, el("table", { class: "questions" },
+        el("thead", {}, el("tr", {},
+          el("th", {}, "id"), el("th", {}, "type"), el("th", {}, "question"), el("th", {}, "status"),
+          CHECKS.map(([, label]) => el("th", { class: "chk" }, label)),
+          el("th", { class: "num" }, "checks"), el("th", { class: "num" }, "faithful."), el("th", { class: "num" }, "facts"), el("th", {}, "verification"))),
+        body)),
+      ...(notes?.trim() ? [el("h2", {}, "Findings"), el("div", { class: "findings", html: md(notes) })] : []),
+    ];
+  }
+
+  function citationDetail(row) {
+    const run = row.run;
+    const v = run.verification;
+    const where = (x) => shortSource(x.source) + (x.section ? ` › ${x.section}` : "");
+    const box = el("div", { class: "arm" },
+      el("h3", {}, `${run.status}${run.dontKnow ? ` (${run.dontKnow.reason})` : ""} · ${vLabel(run)}`),
+      el("div", { class: "line" }, row.notes),
+      run.status === "dont_know"
+        ? el("div", { class: "idk-box" }, el("b", {}, "I don't know."), run.clarifyingQuestion)
+        : el("div", { class: "answer", html: withChips(run.answer) }),
+    );
+    if (run.sources?.length) {
+      box.append(el("div", { class: "sub-h" }, "Sources (derived from the citations)"),
+        el("ol", { class: "cites" }, run.sources.map((s) => el("li", {}, where(s), el("span", { class: "muted" }, " · " + s.chunk_id)))));
+    }
+    if (run.citations?.length) {
+      box.append(el("div", { class: "sub-h" }, "Citations"),
+        el("ul", { class: "cites" }, run.citations.map((c) => el("li", {}, el("span", { class: "chip" }, c.id), ` “${c.quote}” `, el("span", { class: "muted" }, "— " + where(c))))));
+    }
+    const f = row.faithfulness;
+    if (f) {
+      box.append(el("div", { class: "sub-h" }, `Claims — faithfulness ${num(f.faithfulness)}`),
+        el("table", { class: "claims" }, el("tbody", {}, f.claims.map((c) =>
+          el("tr", {},
+            el("td", {}, c.claim),
+            el("td", { class: "verdict-" + c.verdict }, c.verdict),
+            el("td", { class: "q" }, c.quotes.map((q, i) => [i ? el("br") : null, el("span", { class: "chip" }, q.id), ` “${q.quote ?? "?"}”`])),
+            el("td", { class: "muted" }, c.note || ""))))));
+      if (f.uncitedClaims.length) box.append(el("div", { class: "sub-h" }, "Uncited claims"), el("ul", { class: "cites" }, f.uncitedClaims.map((c) => el("li", {}, c))));
+    }
+    if (v?.firstAttemptErrors?.length) box.append(el("div", { class: "sub-h" }, "First-attempt errors"), el("ul", { class: "cites" }, v.firstAttemptErrors.map((e) => el("li", { class: "warn" }, e))));
+    if (v?.droppedCitations?.length) box.append(el("div", { class: "sub-h" }, "Dropped citations"), el("ul", { class: "cites" }, v.droppedCitations.map((c) => el("li", {}, `[${c.id}] ${c.reason}: “${c.quote}”`))));
+    if (v?.droppedClaims?.length) box.append(el("div", { class: "sub-h" }, "Claims removed"), el("ul", { class: "cites" }, v.droppedClaims.map((c) => el("li", {}, c))));
+    if (run.dontKnow?.reason === "low_relevance" && run.rejected?.length) {
+      box.append(el("div", { class: "sub-h" }, "Best rejected chunks (vector → rerank)"),
+        el("table", { class: "chunks" }, el("tbody", {}, run.rejected.map((c, i) =>
+          el("tr", {}, el("td", { class: "num" }, `✗${i + 1}`), el("td", { class: "num" }, num(c.score, 3), el("span", { class: "rr" }, " → " + num(c.rerankScore, 3))),
+            el("td", {}, el("details", {}, el("summary", {}, where(c)), el("pre", {}, c.text))))))));
+    }
+    if (row.grade) {
+      box.append(el("div", { class: "sub-h" }, `Fact judge — score ${num(row.grade.score)}`),
+        el("table", { class: "grades" }, el("tbody", {}, row.grade.facts.map((x) =>
+          el("tr", {}, el("td", {}, x.fact), el("td", { class: "grade-" + x.grade }, x.grade), el("td", { class: "muted" }, x.note || ""))))));
+    }
+    return el("div", { class: "detail-box" }, box);
+  }
+
+  // ---- the Chat tab (Day 25) ------------------------------------------------------
+
+  const CHAT_CHECKS = [["intent", "intent"], ["sources", "sources + citations"], ["expectedSource", "expected source"], ["constraint", "constraint"], ["memory", "memory"], ["onTrack", "on track"], ["facts", "facts"]];
+  const tagFor = (x, label) => el("span", { class: "tag " + (x ? "pass" : "fail") }, (x ? "✓ " : "✗ ") + label);
+  const intentLabel = (i) => (i === "memory_only" ? "memory" : i ?? "error");
+
+  function renderChat(results, notes) {
+    const { settings, scenarios } = results;
+    document.getElementById("sub").textContent =
+      `Chat eval · generated ${new Date(results.generatedAt).toLocaleString()} · ${scenarios.length} scenarios · ${scenarios.reduce((a, s) => a + s.rows.length, 0)} turns`;
+    const labels = (scenarios[0]?.summaryRows ?? []).map(([label]) => label);
+    return [
+      el("h2", {}, "Settings"),
+      el("p", { class: "settings" },
+        "Each scenario is replayed through ", el("code", {}, "POST /chat"), " (the route the page uses) on a fresh chat. Router ",
+        el("code", {}, settings.routerModel), ` (forced route call, temperature 0, last ${settings.historyTurns} messages); answers `,
+        el("code", {}, settings.model), ` through the Day 24 contract, ${settings.mode}, rerank cutoff ${settings.rerankThreshold}, k_final ${settings.kFinal}, k_retrieve ${settings.kRetrieve}. Judges `,
+        el("code", {}, settings.judgeModel), ": memory checkpoint, on track (+ Day 24 faithfulness: no unsupported claim), Day 22 facts."),
+      el("h2", {}, "Summary per scenario"),
+      el("div", { class: "scroll" }, el("table", { class: "summary chat-summary" },
+        el("thead", {}, el("tr", {}, el("th", {}, ""), scenarios.map((s) => el("th", {}, `${s.id} — ${s.title}`)))),
+        el("tbody", {}, labels.map((label, i) => el("tr", {}, el("td", {}, label), scenarios.map((s) => el("td", {}, s.summaryRows[i]?.[1] ?? "—"))))))),
+      ...(notes?.trim() ? [el("h2", {}, "Findings"), el("div", { class: "findings", html: md(notes) })] : []),
+      ...scenarios.flatMap((s) => [
+        el("h2", { class: "scenario-head", id: s.id }, `${s.id}: ${s.title}`),
+        el("p", { class: "settings" }, s.description ?? ""),
+        el("p", { class: "settings" }, "Each turn: the user message → intent (expected → actual) → the standalone question and queries → the answer with its citations → the memory diff → pass/fail per check. Failing turns are outlined."),
+        el("div", { class: "timeline" }, s.rows.map((r) => turnCard(r))),
+      ]),
+    ];
+  }
+
+  function turnCard(r) {
+    const m = r.message;
+    const route = r.route;
+    const failed = r.reasons?.length > 0;
+    const okIntent = route?.intent === m.expected_intent;
+    const lat = [route?.routerMs != null ? `router ${secs(route.routerMs)}` : null, route?.answerMs ? `answer ${secs(route.answerMs)}` : null, `turn ${secs(r.ms)}`].filter(Boolean).join(" · ");
+    const card = el("div", { class: "turn" + (failed ? " failed" : "") },
+      el("div", { class: "t-head" },
+        el("span", { class: "t-n" }, `t${m.turn}`),
+        el("span", { class: "t-user" }, m.user),
+        el("span", { class: "intent-tag" + (okIntent ? "" : " bad") }, `${intentLabel(m.expected_intent)} → ${intentLabel(route?.intent)}`, route?.override ? el("span", { class: "muted", title: route.override }, " *") : null),
+        el("span", { class: "t-lat" }, lat)),
+      el("div", { class: "t-row muted" }, m.notes),
+    );
+    if (route?.intent === "search") {
+      card.append(el("div", { class: "t-row queries" }, el("span", { class: "k" }, "Standalone: "), route.standaloneQuestion, el("br"),
+        el("span", { class: "k" }, "Queries: "), route.queries.flatMap((q, i) => [i ? " · " : null, el("code", {}, q)])));
+    }
+    if (route?.override) card.append(el("div", { class: "t-row" }, el("span", { class: "k" }, "Override: "), route.override, route.routedIntent ? ` (router said ${route.routedIntent})` : ""));
+    if (r.run?.status === "dont_know") card.append(el("div", { class: "idk-box", style: "margin-top:8px" }, el("b", {}, `I don't know. (${r.run.dontKnow?.reason})`), r.run.clarifyingQuestion));
+    else card.append(el("div", { class: "answer", style: "margin-top:8px", html: withChips(r.reply) }));
+    if (r.run?.sources?.length) card.append(el("div", { class: "t-row" }, el("span", { class: "k" }, "Sources: "), r.run.sources.map((x) => shortSource(x.source) + (x.section ? ` › ${x.section}` : "")).join("; ")));
+    card.append(el("div", { class: "t-row" }, el("span", { class: "k" }, "Memory: "), memoryDiffNodes(route)));
+    card.append(el("div", { class: "t-checks" }, CHAT_CHECKS.filter(([k]) => r.checks[k] !== null && r.checks[k] !== undefined).map(([k, label]) => tagFor(r.checks[k], label))));
+    if (failed) card.append(el("ul", { class: "reasons" }, r.reasons.map((x) => el("li", {}, x))));
+
+    const more = el("details", { class: "t-more" }, el("summary", {}, "Details: citations, memory after, judges"));
+    if (r.run?.citations?.length) more.append(el("div", { class: "sub-h" }, "Citations"), el("ul", { class: "cites" }, r.run.citations.map((c) => el("li", {}, el("span", { class: "chip" }, c.id), ` “${c.quote}” `, el("span", { class: "muted" }, "— " + shortSource(c.source))))));
+    if (route) more.append(el("div", { class: "sub-h" }, "Memory after this turn"), memoryList(route.memoryAfter));
+    if (r.memoryCheck) {
+      more.append(el("div", { class: "sub-h" }, "Memory checkpoint"), el("ul", { class: "cites" },
+        r.memoryCheck.statements.map((x) => el("li", { class: x.reflected ? "" : "warn" }, (x.reflected ? "✓ " : "✗ ") + x.statement + (x.note ? ` — ${x.note}` : ""))),
+        r.memoryCheck.stale.map((x) => el("li", { class: "warn" }, `stale ${x.id}: ${x.why}`))));
+    }
+    if (r.onTrack) more.append(el("div", { class: "sub-h" }, "On track"), el("p", { class: "settings" }, `${r.onTrack.onTrack ? "yes" : "no"}${r.onTrack.note ? " — " + r.onTrack.note : ""}`));
+    const f = r.faithfulness;
+    if (f) {
+      more.append(el("div", { class: "sub-h" }, `Faithfulness ${num(f.faithfulness)}`),
+        el("table", { class: "claims" }, el("tbody", {}, f.claims.map((c) => el("tr", {}, el("td", {}, c.claim), el("td", { class: "verdict-" + c.verdict }, c.verdict), el("td", { class: "muted" }, c.note || ""))))));
+    }
+    if (r.constraint) more.append(el("div", { class: "sub-h" }, "Constraint"), el("p", { class: "settings" }, `${r.constraint.sentences} sentences, ${r.constraint.words} words; limit ${r.constraint.max_sentences ?? "—"} sentences`));
+    if (r.grade) {
+      more.append(el("div", { class: "sub-h" }, `Fact judge — score ${num(r.grade.score)}`),
+        el("table", { class: "grades" }, el("tbody", {}, r.grade.facts.map((x) => el("tr", {}, el("td", {}, x.fact), el("td", { class: "grade-" + x.grade }, x.grade), el("td", { class: "muted" }, x.note || ""))))));
+    }
+    card.append(more);
+    return card;
+  }
+
+  function memoryDiffNodes(route) {
+    if (!route) return "—";
+    const after = route.memoryAfter;
+    const find = (id) => [...after.clarified, ...after.constraints, ...after.open_questions].find((x) => x.id === id);
+    const parts = [];
+    if (route.diff.goalChanged) parts.push(el("span", { class: "mem-add" }, `goal → “${after.goal ?? "—"}”`));
+    for (const id of route.diff.added) parts.push(el("span", { class: "mem-add" }, `+${id} “${find(id)?.text ?? ""}”`));
+    for (const x of route.diff.removed) parts.push(el("span", { class: "mem-del" }, `−${x.id} “${x.text}”`));
+    for (const x of route.skipped ?? []) parts.push(el("span", { class: "muted" }, `skipped ${x.op?.op ?? "?"}${x.op?.id ? " " + x.op.id : ""} (${x.reason})`));
+    return parts.length ? parts.flatMap((p, i) => [i ? " · " : null, p]) : el("span", { class: "muted" }, "no change");
+  }
+
+  function memoryList(m) {
+    const items = (label, list) => el("li", {}, el("b", {}, label + ": "), list.length ? list.map((x) => `[${x.id}] ${x.text}`).join(" · ") : el("span", { class: "muted" }, "none"));
+    return el("ul", { class: "cites" },
+      el("li", {}, el("b", {}, "goal: "), m.goal ?? el("span", { class: "muted" }, "none")),
+      items("clarified", m.clarified), items("constraints", m.constraints), items("open questions", m.open_questions));
+  }
+
+  load();
+</script>
+</body>
+</html>

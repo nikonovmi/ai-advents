@@ -1,0 +1,542 @@
+{
+  "id": "b70b23ad-95bf-41c5-aa3b-e657fc9a85fa",
+  "title": "I'm thinking about trying CMP, but I'm…",
+  "createdAt": "2026-10-04T21:42:38.723Z",
+  "updatedAt": "2026-10-04T21:43:02.825Z",
+  "usage": {
+    "totalInputTokens": 7454,
+    "totalOutputTokens": 986,
+    "totalCostUsd": 0.012384000000000001,
+    "turnCount": 2,
+    "overheadInputTokens": 0,
+    "overheadOutputTokens": 0,
+    "overheadCostUsd": 0,
+    "overheadCalls": 0
+  },
+  "project": "default",
+  "agentId": "knowledge",
+  "forkedFrom": null,
+  "ragMode": "rag",
+  "ragOptions": {
+    "rerank": true,
+    "rewrite": false
+  },
+  "memory": {},
+  "taskMemory": {
+    "goal": "Decide whether to try Compose Multiplatform",
+    "clarified": [],
+    "constraints": [],
+    "open_questions": []
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "I'm thinking about trying CMP, but I'm not sure",
+      "id": "m1",
+      "route": {
+        "intent": "chat",
+        "routedIntent": "chat",
+        "override": null,
+        "standaloneQuestion": "",
+        "queries": [],
+        "reply": "I'd be happy to help you think through that! What would you like to know about Compose Multiplatform?",
+        "patch": [
+          {
+            "op": "set_goal",
+            "text": "Decide whether to try Compose Multiplatform"
+          }
+        ],
+        "applied": [
+          {
+            "op": "set_goal",
+            "text": "Decide whether to try Compose Multiplatform",
+            "previous": null
+          }
+        ],
+        "skipped": [],
+        "openQuestionAdded": null,
+        "memoryAfter": {
+          "goal": "Decide whether to try Compose Multiplatform",
+          "clarified": [],
+          "constraints": [],
+          "open_questions": []
+        },
+        "diff": {
+          "added": [],
+          "removed": [],
+          "goalChanged": true,
+          "previousGoal": null
+        },
+        "turn": 1,
+        "routerMs": 1418,
+        "answerMs": 0,
+        "routerModel": "claude-haiku-4-5-20251001",
+        "routerUsage": {
+          "inputTokens": 2019,
+          "outputTokens": 118
+        }
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "I'd be happy to help you think through that! What would you like to know about Compose Multiplatform?",
+      "id": "m2",
+      "tokens": {
+        "input": 2019,
+        "output": 118,
+        "total": 2137
+      },
+      "cost": {
+        "input": 0.002019,
+        "output": 0.00059,
+        "total": 0.002609
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 1419,
+      "stopReason": "routed"
+    },
+    {
+      "role": "user",
+      "content": "Is it already production-ready?",
+      "id": "m3",
+      "route": {
+        "intent": "search",
+        "routedIntent": "search",
+        "override": null,
+        "standaloneQuestion": "Is Compose Multiplatform already production-ready?",
+        "queries": [
+          "Compose Multiplatform production ready",
+          "Compose Multiplatform stability release status"
+        ],
+        "reply": "",
+        "patch": [],
+        "applied": [],
+        "skipped": [],
+        "openQuestionAdded": null,
+        "memoryAfter": {
+          "goal": "Decide whether to try Compose Multiplatform",
+          "clarified": [],
+          "constraints": [],
+          "open_questions": []
+        },
+        "diff": {
+          "added": [],
+          "removed": [],
+          "goalChanged": false,
+          "previousGoal": "Decide whether to try Compose Multiplatform"
+        },
+        "turn": 2,
+        "routerMs": 1619,
+        "answerMs": 10558,
+        "routerModel": "claude-haiku-4-5-20251001",
+        "routerUsage": {
+          "inputTokens": 2095,
+          "outputTokens": 119
+        }
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Yes, Compose Multiplatform is production-ready for mobile development. [c1] Specifically, [c2] Compose Multiplatform for iOS now gives you stable APIs, great performance, a native feel, and modern tooling, with fewer bugs, less duplicated work, and faster delivery across platforms. [c3] You don't need to start from scratch either—many teams including Markaz, Wrike, Feres, and Physics Wallah are already integrating it into large-scale apps, one screen or feature at a time.\n\nFor web development, the situation is different: [c4] Compose Multiplatform for Web is being released in Beta, with most essential APIs available for early adopters to move to production, though work continues on remaining APIs and performance improvements.",
+      "id": "m4",
+      "tokens": {
+        "input": 5435,
+        "output": 868,
+        "total": 6303
+      },
+      "cost": {
+        "input": 0.005435000000000001,
+        "output": 0.00434,
+        "total": 0.009775
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 12178,
+      "stopReason": "tool_use",
+      "rag": {
+        "mode": "rag",
+        "label": "rag+rerank",
+        "rerank": true,
+        "rewrite": false,
+        "queries": [
+          "Compose Multiplatform production ready",
+          "Compose Multiplatform stability release status"
+        ],
+        "candidates": [
+          {
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:6",
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "Compose Multiplatform beyond mobile",
+            "vectorScore": 0.5696736600212392,
+            "rerankScore": 0.9971322851476778,
+            "vectorRank": 15,
+            "rerankRank": 1,
+            "kept": true
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:0",
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "",
+            "vectorScore": 0.6998674409464111,
+            "rerankScore": 0.9967928218516848,
+            "vectorRank": 1,
+            "rerankRank": 2,
+            "kept": true
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:5",
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "Production-ready and easy to adopt",
+            "vectorScore": 0.6894017689732641,
+            "rerankScore": 0.9961746188098668,
+            "vectorRank": 2,
+            "rerankRank": 3,
+            "kept": true
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:1",
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "Everything you need to build apps for real-world use",
+            "vectorScore": 0.6149166388680849,
+            "rerankScore": 0.9864394454137136,
+            "vectorRank": 8,
+            "rerankRank": 4,
+            "kept": true
+          },
+          {
+            "chunk_id": "kb/what-s-next-for-kotlin-multiplatform-and-compose-multiplatform-august-2025-update-the-jetbrains-blog.html:structural:2",
+            "source": "knowledge_database/What’s Next for Kotlin Multiplatform and Compose Multiplatform – August 2025 Update - The JetBrains Blog.html",
+            "section": "Compose Multiplatform › Release Compose Multiplatform for Web in Beta",
+            "vectorScore": 0.6099587068534342,
+            "rerankScore": 0.986197367809994,
+            "vectorRank": 10,
+            "rerankRank": 5,
+            "kept": true
+          },
+          {
+            "chunk_id": "kb/kotlin-2.4.20-release-what-s-new-why-it-matters-2026-medium.html:structural:8",
+            "source": "knowledge_database/Kotlin 2.4.20 Release_ What's New & Why It Matters (2026) _ Medium.html",
+            "section": "Key Takeaways",
+            "vectorScore": 0.568495360276775,
+            "rerankScore": 0.9845720729915401,
+            "vectorRank": 16,
+            "rerankRank": 6,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:3",
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "Performance that’s ready for production",
+            "vectorScore": 0.6173982543405182,
+            "rerankScore": 0.9216071428335287,
+            "vectorRank": 7,
+            "rerankRank": 7,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:0",
+            "source": "knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html",
+            "section": "",
+            "vectorScore": 0.6541238956434824,
+            "rerankScore": 0.7519755790270166,
+            "vectorRank": 4,
+            "rerankRank": 8,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.10.0-unified-preview-navigation-3-and-stable-compose-hot-reload-the-jetbrains-blog.html:structural:0",
+            "source": "knowledge_database/Compose Multiplatform 1.10.0_ Unified @Preview, Navigation 3, and Stable Compose Hot Reload - The JetBrains Blog.html",
+            "section": "",
+            "vectorScore": 0.6696401346467779,
+            "rerankScore": 0.5809122820263969,
+            "vectorRank": 3,
+            "rerankRank": 9,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.12.0-released-the-jetbrains-blog.html:structural:0",
+            "source": "knowledge_database/Compose Multiplatform 1.12.0 Released - The JetBrains Blog.html",
+            "section": "",
+            "vectorScore": 0.6463352744773938,
+            "rerankScore": 0.2389401312094433,
+            "vectorRank": 5,
+            "rerankRank": 10,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/kotlin-2.4.20-release-what-s-new-why-it-matters-2026-medium.html:structural:2",
+            "source": "knowledge_database/Kotlin 2.4.20 Release_ What's New & Why It Matters (2026) _ Medium.html",
+            "section": "What Actually Changed › 2. Compose Multiplatform Gets Serious",
+            "vectorScore": 0.5742929561576493,
+            "rerankScore": 0.22556549455360417,
+            "vectorRank": 14,
+            "rerankRank": 11,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:2",
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "Apps that feel truly native",
+            "vectorScore": 0.6262693907678523,
+            "rerankScore": 0.22278163983709448,
+            "vectorRank": 6,
+            "rerankRank": 12,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:4",
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "Development tools that boost your efficiency",
+            "vectorScore": 0.5928495975689686,
+            "rerankScore": 0.20186716827272658,
+            "vectorRank": 11,
+            "rerankRank": 13,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:2",
+            "source": "knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html",
+            "section": "Type-safe navigation",
+            "vectorScore": 0.5672623172001319,
+            "rerankScore": 0.13463470245075132,
+            "vectorRank": 18,
+            "rerankRank": 14,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:7",
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "Read more",
+            "vectorScore": 0.5567324997841239,
+            "rerankScore": 0.07515034938936883,
+            "vectorRank": 21,
+            "rerankRank": 15,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.10.0-unified-preview-navigation-3-and-stable-compose-hot-reload-the-jetbrains-blog.html:structural:3",
+            "source": "knowledge_database/Compose Multiplatform 1.10.0_ Unified @Preview, Navigation 3, and Stable Compose Hot Reload - The JetBrains Blog.html",
+            "section": "Compose Hot Reload",
+            "vectorScore": 0.6139361337752597,
+            "rerankScore": 0.06267979230962605,
+            "vectorRank": 9,
+            "rerankRank": 16,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:7",
+            "source": "knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html",
+            "section": "Resources updates and improvements",
+            "vectorScore": 0.577958877241228,
+            "rerankScore": 0.05517195022978903,
+            "vectorRank": 13,
+            "rerankRank": 17,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.12.0-released-the-jetbrains-blog.html:structural:2",
+            "source": "knowledge_database/Compose Multiplatform 1.12.0 Released - The JetBrains Blog.html",
+            "section": "Automatic font fallback for web",
+            "vectorScore": 0.5574169235630538,
+            "rerankScore": 0.03889941290655397,
+            "vectorRank": 20,
+            "rerankRank": 18,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:1",
+            "source": "knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html",
+            "section": "New common modules",
+            "vectorScore": 0.5581194226931678,
+            "rerankScore": 0.03190642464538657,
+            "vectorRank": 19,
+            "rerankRank": 19,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:5",
+            "source": "knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html",
+            "section": "Drag and drop on desktop",
+            "vectorScore": 0.5673728531325571,
+            "rerankScore": 0.02998828840113524,
+            "vectorRank": 17,
+            "rerankRank": 20,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:4",
+            "source": "knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html",
+            "section": "Improved touch interop between Compose Multiplatform and native iOS",
+            "vectorScore": 0.5909574698257098,
+            "rerankScore": 0.019603149288250545,
+            "vectorRank": 12,
+            "rerankRank": 21,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/what-s-next-for-kotlin-multiplatform-and-compose-multiplatform-august-2025-update-the-jetbrains-blog.html:structural:16",
+            "source": "knowledge_database/What’s Next for Kotlin Multiplatform and Compose Multiplatform – August 2025 Update - The JetBrains Blog.html",
+            "section": "Build tooling › Reducing the effort to publish KMP libraries",
+            "vectorScore": 0.5529994041443944,
+            "rerankScore": 0.00041216326668201507,
+            "vectorRank": 22,
+            "rerankRank": 22,
+            "kept": false
+          }
+        ],
+        "chunks": [
+          {
+            "n": 1,
+            "score": 0.5696736600212392,
+            "rerankScore": 0.9971322851476778,
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "Compose Multiplatform beyond mobile",
+            "title": "Compose Multiplatform 1.8.0 Released: Compose Multiplatform for iOS Is Stable and Production-Ready",
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:6",
+            "text": "Compose Multiplatform beyond mobile\n\nCompose Multiplatform for the web is also evolving rapidly. With 1.8.0, the Navigation library now supports browser back and forward buttons, making web apps feel more native. Developers can also experiment with pointer cursor customization and resource preloading APIs, which help reduce layout shifts and improve perceived performance.\n\nThese updates bring Compose Multiplatform for the web one step closer to providing a polished, production-ready experience. You can learn more about our vision and plans for Kotlin web development in the upcoming post “The Present and Future of Kotlin for the Web.” Stay tuned."
+          },
+          {
+            "n": 2,
+            "score": 0.6998674409464111,
+            "rerankScore": 0.9967928218516848,
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "",
+            "title": "Compose Multiplatform 1.8.0 Released: Compose Multiplatform for iOS Is Stable and Production-Ready",
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:0",
+            "text": "Multiplatform\n\nCompose Multiplatform 1.8.0 Released: Compose Multiplatform for iOS Is Stable and Production-Ready\n\nToday marks a major milestone in the Kotlin Multiplatform journey: the release of Compose Multiplatform 1.8.0, which brings Compose for iOS to Stable. With this update, Kotlin Multiplatform becomes a complete solution for mobile development, enabling flexible code sharing across both business logic and UI without compromising app quality or losing control over platform-specific capabilities."
+          },
+          {
+            "n": 3,
+            "score": 0.6894017689732641,
+            "rerankScore": 0.9961746188098668,
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "Production-ready and easy to adopt",
+            "title": "Compose Multiplatform 1.8.0 Released: Compose Multiplatform for iOS Is Stable and Production-Ready",
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:5",
+            "text": "Production-ready and easy to adopt\n\nCompose Multiplatform for iOS now gives you the full package: stable APIs, great performance, a native feel, and modern tooling. Your users will feel right at home with the UI, while your team will notice the difference: fewer bugs, less duplicated work, and faster delivery across platforms.\n\nAnd best of all, you don’t need to start from scratch. Many teams — including Markaz, Wrike, Feres, and Physics Wallah — are already integrating Compose Multiplatform into large-scale apps, one screen or feature at a time. It fits into your workflow and grows with your needs.\n\nCompose Multiplatform for iOS is Stable. The ecosystem is thriving. The tools are ready. And now, we can’t wait to see the apps that you‘ll build.\n\nGet started with Compose Multiplatform"
+          },
+          {
+            "n": 4,
+            "score": 0.6149166388680849,
+            "rerankScore": 0.9864394454137136,
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "Everything you need to build apps for real-world use",
+            "title": "Compose Multiplatform 1.8.0 Released: Compose Multiplatform for iOS Is Stable and Production-Ready",
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:1",
+            "text": "Everything you need to build apps for real-world use\n\nCompose Multiplatform for iOS now includes everything you need to build beautiful UIs for real-world apps:\n\n- Feature parity with Jetpack Compose for all popular use cases.\n\n- Type-safe navigation with deep linking support.\n\n- Flexible resource management.\n\n- First-class accessibility support with VoiceOver, AssistiveTouch, and Full Keyboard Access.\n\n- And more.\n\nVersion 1.8.0 finalizes the core API surface and brings targeted improvements to accessibility and navigation, along with a wide range of bug fixes and performance improvements (see the details in the 1.8.0 What’s New). All major APIs are now officially stable, with strong compatibility guarantees and minimal breaking changes expected in the future.\n\nThis stable foundation is backed by a rapidly growing ecosystem. Jetpack libraries are adopting multiplatform capabilities, and the community continues to contribute high-quality libraries, covering everything from architecture and dependency injection to image loading and graph rendering – all listed on klibs.io, the official Kotlin Multiplatform library catalog.\n\nWith these building blocks in place, you can start developing robust, feature-rich apps today – just like the teams already shipping Compose Multiplatform apps to production."
+          },
+          {
+            "n": 5,
+            "score": 0.6099587068534342,
+            "rerankScore": 0.986197367809994,
+            "source": "knowledge_database/What’s Next for Kotlin Multiplatform and Compose Multiplatform – August 2025 Update - The JetBrains Blog.html",
+            "section": "Compose Multiplatform › Release Compose Multiplatform for Web in Beta",
+            "title": "What’s Next for Kotlin Multiplatform and Compose Multiplatform – August 2025 Update",
+            "chunk_id": "kb/what-s-next-for-kotlin-multiplatform-and-compose-multiplatform-august-2025-update-the-jetbrains-blog.html:structural:2",
+            "text": "Compose Multiplatform\n\nRelease Compose Multiplatform for Web in Beta\n\nThis Beta version embodies our commitment to support and evolve the existing APIs of Compose Multiplatform for Web. Most essential APIs will be available, enabling early adopters to confidently move to production with the existing feature set. After this Beta release, we will keep working on the remaining Compose APIs and further performance improvements. We heavily depend on your feedback, so please reach out on the Kotlinlang slack or report any issues on YouTrack."
+          }
+        ],
+        "declined": false,
+        "rejected": [],
+        "timings": {
+          "rewriteMs": 0,
+          "retrieveMs": 974,
+          "rerankMs": 3321,
+          "clarifyMs": 0,
+          "llmMs": 6261
+        },
+        "status": "answered",
+        "citations": [
+          {
+            "id": "c1",
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:0",
+            "quote": "Compose Multiplatform 1.8.0, which brings Compose for iOS to Stable. With this update, Kotlin Multiplatform becomes a complete solution for mobile development",
+            "n": 2,
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "",
+            "start": 197,
+            "end": 355
+          },
+          {
+            "id": "c2",
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:5",
+            "quote": "Compose Multiplatform for iOS now gives you the full package: stable APIs, great performance, a native feel, and modern tooling. Your users will feel right at home with the UI, while your team will notice the difference: fewer bugs, less duplicated work, and faster delivery across platforms.",
+            "n": 3,
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "Production-ready and easy to adopt",
+            "start": 36,
+            "end": 328
+          },
+          {
+            "id": "c3",
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:5",
+            "quote": "Many teams — including Markaz, Wrike, Feres, and Physics Wallah — are already integrating Compose Multiplatform into large-scale apps, one screen or feature at a time.",
+            "n": 3,
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "Production-ready and easy to adopt",
+            "start": 385,
+            "end": 552
+          },
+          {
+            "id": "c4",
+            "chunk_id": "kb/what-s-next-for-kotlin-multiplatform-and-compose-multiplatform-august-2025-update-the-jetbrains-blog.html:structural:2",
+            "quote": "This Beta version embodies our commitment to support and evolve the existing APIs of Compose Multiplatform for Web. Most essential APIs will be available, enabling early adopters to confidently move to production with the existing feature set.",
+            "n": 5,
+            "source": "knowledge_database/What’s Next for Kotlin Multiplatform and Compose Multiplatform – August 2025 Update - The JetBrains Blog.html",
+            "section": "Compose Multiplatform › Release Compose Multiplatform for Web in Beta",
+            "start": 70,
+            "end": 313
+          }
+        ],
+        "sources": [
+          {
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:0",
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "",
+            "title": "Compose Multiplatform 1.8.0 Released: Compose Multiplatform for iOS Is Stable and Production-Ready",
+            "n": 2,
+            "label": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html · kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:0",
+            "citations": [
+              "c1"
+            ]
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:5",
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "Production-ready and easy to adopt",
+            "title": "Compose Multiplatform 1.8.0 Released: Compose Multiplatform for iOS Is Stable and Production-Ready",
+            "n": 3,
+            "label": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html › Production-ready and easy to adopt · kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:5",
+            "citations": [
+              "c2",
+              "c3"
+            ]
+          },
+          {
+            "chunk_id": "kb/what-s-next-for-kotlin-multiplatform-and-compose-multiplatform-august-2025-update-the-jetbrains-blog.html:structural:2",
+            "source": "knowledge_database/What’s Next for Kotlin Multiplatform and Compose Multiplatform – August 2025 Update - The JetBrains Blog.html",
+            "section": "Compose Multiplatform › Release Compose Multiplatform for Web in Beta",
+            "title": "What’s Next for Kotlin Multiplatform and Compose Multiplatform – August 2025 Update",
+            "n": 5,
+            "label": "knowledge_database/What’s Next for Kotlin Multiplatform and Compose Multiplatform – August 2025 Update - The JetBrains Blog.html › Compose Multiplatform › Release Compose Multiplatform for Web in Beta · kb/what-s-next-for-kotlin-multiplatform-and-compose-multiplatform-august-2025-update-the-jetbrains-blog.html:structural:2",
+            "citations": [
+              "c4"
+            ]
+          }
+        ],
+        "clarifyingQuestion": "",
+        "dontKnow": null,
+        "verification": {
+          "firstAttemptValid": true,
+          "retried": false,
+          "droppedCitations": [],
+          "droppedClaims": [],
+          "downgraded": false,
+          "firstAttemptCitations": 4,
+          "firstAttemptErrors": [],
+          "fabricatedFirstAttempt": [],
+          "finalErrors": []
+        }
+      }
+    }
+  ]
+}

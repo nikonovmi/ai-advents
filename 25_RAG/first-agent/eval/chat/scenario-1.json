@@ -1,0 +1,262 @@
+{
+  "id": "scenario-1",
+  "title": "Deep dive: Compose Multiplatform for an iOS app",
+  "kind": "deep_dive",
+  "description": "The user is deciding whether to build an iOS app's UI with Compose Multiplatform instead of SwiftUI, and works through stability, size, performance, adoption and the earlier iOS speed-ups, with a 3-sentence limit and the term 'CMP'. Mostly the 1.8.0 and 1.7.0 release posts.",
+  "messages": [
+    {
+      "turn": 1,
+      "user": "We're deciding whether to build our iOS app's UI with Compose Multiplatform instead of SwiftUI. To start: is Compose Multiplatform for iOS actually stable now?",
+      "expected_intent": "search",
+      "expect": {
+        "decline": false,
+        "sources": [
+          "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html"
+        ],
+        "facts": [
+          "Compose Multiplatform 1.8.0 brings Compose for iOS to Stable",
+          "All major APIs are officially stable, with strong compatibility guarantees"
+        ]
+      },
+      "memory_checkpoint": [
+        "The goal is deciding whether to build the iOS app's UI with Compose Multiplatform instead of SwiftUI"
+      ],
+      "tags": [
+        "goal"
+      ],
+      "notes": "The goal is stated in message 1, mixed with a question: routed to search, and the goal goes to memory."
+    },
+    {
+      "turn": 2,
+      "user": "From now on, keep every answer to at most 3 sentences. And when I write CMP, I mean Compose Multiplatform.",
+      "expected_intent": "memory_only",
+      "expect": {
+        "decline": false
+      },
+      "memory_checkpoint": [
+        "Answers must be at most 3 sentences",
+        "'CMP' means Compose Multiplatform"
+      ],
+      "tags": [
+        "constraint",
+        "term"
+      ],
+      "notes": "A checkable constraint and a defined term, nothing asked: memory_only, both stored as constraints."
+    },
+    {
+      "turn": 3,
+      "user": "How much does CMP add to the size of an iOS app compared with SwiftUI?",
+      "expected_intent": "search",
+      "expect": {
+        "decline": false,
+        "sources": [
+          "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html"
+        ],
+        "facts": [
+          "Compose Multiplatform adds only about 9 MB to an iOS app compared with a fully native SwiftUI app with the same UI logic and assets"
+        ]
+      },
+      "constraint_check": {
+        "max_sentences": 3
+      },
+      "notes": "Uses the defined term: the standalone question and queries must spell out Compose Multiplatform. The 3-sentence limit is checked."
+    },
+    {
+      "turn": 4,
+      "user": "And how does it do on startup time and scrolling?",
+      "expected_intent": "search",
+      "expect": {
+        "decline": false,
+        "sources": [
+          "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html"
+        ],
+        "facts": [
+          "Startup time is comparable to native apps",
+          "Scrolling performance is on par with SwiftUI, even on high-refresh-rate devices"
+        ]
+      },
+      "constraint_check": {
+        "max_sentences": 3
+      },
+      "tags": [
+        "reference"
+      ],
+      "notes": "Reference follow-up: 'it' is CMP on iOS from the previous turns."
+    },
+    {
+      "turn": 5,
+      "user": "Why should I trust those numbers — what do teams actually report?",
+      "expected_intent": "search",
+      "expect": {
+        "decline": false,
+        "sources": [
+          "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html"
+        ],
+        "facts": [
+          "Over 96% of teams using Compose Multiplatform on iOS report no major performance concerns"
+        ]
+      },
+      "constraint_check": {
+        "max_sentences": 3
+      },
+      "tags": [
+        "reference"
+      ],
+      "notes": "Reference follow-up ('those numbers') asking about content: search."
+    },
+    {
+      "turn": 6,
+      "user": "How long would the migration take for us?",
+      "expected_intent": "search",
+      "expect": {
+        "decline": true
+      },
+      "tags": [
+        "vague"
+      ],
+      "notes": "Vague and not in the documents (no durations anywhere): \"I don't know\" plus a clarifying question, which code adds to open_questions."
+    },
+    {
+      "turn": 7,
+      "user": "I don't mean time. I mean: can we move our existing app over gradually instead of rewriting everything at once?",
+      "expected_intent": "search",
+      "expect": {
+        "decline": false,
+        "sources": [
+          "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html"
+        ],
+        "facts": [
+          "Teams integrate Compose Multiplatform into large-scale apps one screen or feature at a time",
+          "Interop with SwiftUI and UIKit lets you embed Compose in an existing app or use native views in a Compose screen"
+        ]
+      },
+      "memory_checkpoint": [
+        "No open clarifying question remains"
+      ],
+      "constraint_check": {
+        "max_sentences": 3
+      },
+      "tags": [
+        "clarification"
+      ],
+      "notes": "Reply to the open clarifying question: search, the standalone question is the original one with the clarification applied, and the open question is resolved. This answer should succeed."
+    },
+    {
+      "turn": 8,
+      "user": "Which earlier release made iOS rendering faster, and by how much?",
+      "expected_intent": "search",
+      "expect": {
+        "decline": false,
+        "sources": [
+          "knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html"
+        ],
+        "facts": [
+          "Compose Multiplatform 1.7.0 paired with Kotlin 2.0.20",
+          "The VisualEffects benchmark works 3.6 times faster",
+          "The LazyGrid benchmark is about 9% faster"
+        ]
+      },
+      "constraint_check": {
+        "max_sentences": 3
+      },
+      "tags": [
+        "reference"
+      ],
+      "notes": "Reference: 'earlier' than the 1.8.0 release under discussion. Needs the 1.7.0 post."
+    },
+    {
+      "turn": 9,
+      "user": "No, I meant the garbage collector part of that release, not the benchmarks — what did it change?",
+      "expected_intent": "search",
+      "expect": {
+        "decline": false,
+        "sources": [
+          "knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html"
+        ],
+        "facts": [
+          "Kotlin 2.0.20 introduces experimental concurrent marking in the garbage collector",
+          "The worst p25 GC pause for LazyGrid dropped from 1.7 ms to 0.4 ms"
+        ]
+      },
+      "constraint_check": {
+        "max_sentences": 3
+      },
+      "tags": [
+        "correction"
+      ],
+      "notes": "A correction of the question just asked ('no, I meant …'), still about content: search, resolved to the GC change in the 1.7.0 / Kotlin 2.0.20 post."
+    },
+    {
+      "turn": 10,
+      "user": "Thanks, that's really helpful!",
+      "expected_intent": "chat",
+      "expect": {
+        "decline": false
+      },
+      "tags": [
+        "chat"
+      ],
+      "notes": "Chat only: one router call, no search, no answering call, memory unchanged."
+    },
+    {
+      "turn": 11,
+      "user": "Totally unrelated: how long should I proof sourdough in the fridge overnight?",
+      "expected_intent": "search",
+      "expect": {
+        "decline": true
+      },
+      "tags": [
+        "off_topic"
+      ],
+      "notes": "Off-topic detour: asks about content, so search; nothing relevant passes the cutoff, so \"I don't know\"."
+    },
+    {
+      "turn": 12,
+      "user": "OK, back to our decision. Remind me: how much bigger does an iOS app get with it compared with the other option we're considering?",
+      "expected_intent": "search",
+      "expect": {
+        "decline": false,
+        "sources": [
+          "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html"
+        ],
+        "facts": [
+          "Compose Multiplatform adds only about 9 MB to an iOS app compared with a fully native SwiftUI app"
+        ]
+      },
+      "memory_checkpoint": [
+        "The goal is still deciding between Compose Multiplatform and SwiftUI for the iOS app's UI",
+        "Answers must be at most 3 sentences",
+        "No open question about sourdough remains"
+      ],
+      "constraint_check": {
+        "max_sentences": 3
+      },
+      "tags": [
+        "return",
+        "late_reference"
+      ],
+      "refers_to": 1,
+      "notes": "Return to the topic, and a late question: 'our decision', 'it' and 'the other option' (SwiftUI) only make sense from message 1, which is outside the 6-message window by now — only the task memory carries it. The sourdough question is dropped."
+    },
+    {
+      "turn": 13,
+      "user": "Last one: is there tooling to speed up UI iteration while we build it?",
+      "expected_intent": "search",
+      "expect": {
+        "decline": false,
+        "facts": [
+          "Compose Hot Reload lets you see UI changes instantly without restarting the app or losing its state"
+        ]
+      },
+      "memory_checkpoint": [
+        "The goal is deciding whether to build the iOS app's UI with Compose Multiplatform instead of SwiftUI",
+        "Answers must be at most 3 sentences",
+        "'CMP' means Compose Multiplatform"
+      ],
+      "constraint_check": {
+        "max_sentences": 3
+      },
+      "notes": "A closing question; the constraint and term still hold at the end of a long chat."
+    }
+  ]
+}
