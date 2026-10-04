@@ -1,5 +1,7 @@
 # Day 22 — First RAG query
 
+https://github.com/user-attachments/assets/affbd2ef-56ab-46ff-a98a-596f963a24ee
+
 The **Knowledge** agent in `first-agent` answers questions about the Kotlin / Kotlin
 Multiplatform / Compose Multiplatform articles in `knowledge_database/` in one of two modes:
 
