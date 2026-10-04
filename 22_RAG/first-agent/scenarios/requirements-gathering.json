@@ -1,0 +1,29 @@
+{
+  "id": "requirements-gathering",
+  "title": "Requirements gathering",
+  "description": "The shape a real working conversation takes: everything that matters is established early, then fifteen minutes of everything else happens on top of it, and only at the end does anyone ask for the details back. It is the worst case for a sliding window and the case every other strategy exists for.",
+  "checks": [
+    { "key": "name", "label": "the user's name", "expect": "Raghunathan" },
+    { "key": "port", "label": "the port number", "expect": "8477" },
+    { "key": "constraint", "label": "the hard constraint", "expect": "Postgres 14" },
+    { "key": "rejected", "label": "the rejected option", "expect": "Kubernetes" },
+    { "key": "deadline", "label": "the deadline", "expect": "March 14" }
+  ],
+  "messages": [
+    "Hi — I'm Priya Raghunathan, I run platform engineering at a mid-sized billing company. I'll be the one you're working with on this.",
+    "The service we're migrating listens on port 8477. That's fixed by a firewall rule I can't get changed, so nothing you suggest can move it.",
+    "One hard constraint before we go further: we must stay on Postgres 14. Our compliance sign-off is tied to that exact version and re-certifying is a six-month process.",
+    "We already evaluated Kubernetes last year and ruled it out. Don't bring it back — the team is three people and nobody wants to run a control plane.",
+    "The whole migration has to be finished by March 14, because that's when our current hosting contract ends and there's no extension available.",
+    "Unrelated, but I'm curious — why do so many command line tools use two dashes for long options and one for short ones?",
+    "What's the actual difference between a semaphore and a mutex? I've read three explanations and they all contradict each other.",
+    "Is there a good reason to still learn awk in 2026, or is that purely nostalgia at this point?",
+    "My colleague insists tabs are objectively better than spaces because they're configurable. Is that a real argument or just a preference?",
+    "How does a bloom filter actually avoid false negatives? I understand the false positives part but the other half never clicks.",
+    "Why is DNS propagation described as propagation when nothing is actually propagating? It's just caches expiring, isn't it?",
+    "What's the origin of the term 'bikeshedding'? Someone used it in a meeting and I nodded along without knowing.",
+    "Do monorepos actually help, or do they just move the coordination cost somewhere less visible?",
+    "Last tangent, I promise: is there any practical difference between UTF-8 and UTF-8 with a BOM in 2026?",
+    "Right — back to the migration. Before I write the plan up, read all five of these back to me: my full name, the port number the service listens on, the database constraint I gave you, the option we ruled out, and the deadline."
+  ]
+}

@@ -1,0 +1,1347 @@
+{
+  "id": "7b82b4c7-2775-482b-a2ab-fbb8cb1bf81f",
+  "title": "Call random_movie, record it (key = imd…",
+  "createdAt": "2026-09-27T15:29:14.198Z",
+  "updatedAt": "2026-09-27T15:36:31.583Z",
+  "usage": {
+    "totalInputTokens": 169156,
+    "totalOutputTokens": 4520,
+    "totalCostUsd": 0.19175600000000004,
+    "turnCount": 25,
+    "overheadInputTokens": 0,
+    "overheadOutputTokens": 0,
+    "overheadCostUsd": 0,
+    "overheadCalls": 0
+  },
+  "project": "default",
+  "agentId": "movie-picker",
+  "forkedFrom": null,
+  "memory": {},
+  "messages": [
+    {
+      "role": "assistant",
+      "content": "Invoked 1 time · 1 unique film · last: Arrival (2016).",
+      "id": "m1",
+      "tokens": {
+        "input": 6422,
+        "output": 173,
+        "total": 6595
+      },
+      "cost": {
+        "input": 0.006422,
+        "output": 0.000865,
+        "total": 0.007287
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 4018,
+      "stopReason": "end_turn",
+      "toolCalls": [
+        {
+          "server": "omdb",
+          "tool": "random_movie",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"n\": 313,\n  \"pickedAt\": \"2026-09-27T15:29:16.880Z\",\n  \"title\": \"Arrival\",\n  \"year\": \"2016\",\n  \"runtimeMinutes\": 116,\n  \"genres\": [\n    \"Drama\",\n    \"Mystery\",\n    \"Sci-Fi\"\n  ],\n  \"director\": \"Denis Villeneuve\",\n  \"actors\": [\n    \"Amy Adams\",\n    \"Jeremy Renner\",\n    \"Forest Whitaker\"\n  ],\n  \"plot\": \"Linguist Louise Banks leads a team of investigators when gigantic spaceships touch down around the world. As nations teeter on the verge of global war, Banks and her crew must find a way to communicate with the extraterrestrial vi...\",\n  \"imdbRating\": 7.9,\n  \"ratings\": [\n    {\n      \"source\": \"Internet Movie Database\",\n      \"value\": \"7.9/10\"\n    },\n    {\n      \"source\": \"Rotten Tomatoes\",\n      \"value\": \"94%\"\n    },\n    {\n      \"source\": \"Metacritic\",\n      \"value\": \"81/100\"\n    }\n  ],\n  \"imdbId\": \"tt2543164\"\n}",
+          "ms": 313
+        },
+        {
+          "server": "scheduler",
+          "tool": "record",
+          "input": {
+            "key": "tt2543164",
+            "label": "Arrival (2016)"
+          },
+          "ok": true,
+          "resultPreview": "{\n  \"id\": 1,\n  \"scheduleId\": 1,\n  \"key\": \"tt2543164\",\n  \"label\": \"Arrival (2016)\",\n  \"createdAt\": \"2026-09-27T15:29:18.742Z\"\n}",
+          "ms": 11
+        },
+        {
+          "server": "scheduler",
+          "tool": "aggregate",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"invocations\": 1,\n  \"uniqueKeys\": 1,\n  \"mostRepeated\": {\n    \"label\": \"Arrival (2016)\",\n    \"count\": 1\n  },\n  \"first\": {\n    \"label\": \"Arrival (2016)\",\n    \"at\": \"2026-09-27T15:29:18.742Z\"\n  },\n  \"last\": {\n    \"label\": \"Arrival (2016)\",\n    \"at\": \"2026-09-27T15:29:18.742Z\"\n  }\n}",
+          "ms": 9
+        }
+      ],
+      "run": {
+        "runId": 1,
+        "durationMs": 4018,
+        "tokens": 6595,
+        "ok": true
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Invoked 2 times · 2 unique films · last: The Gold Rush (1925).",
+      "id": "m2",
+      "tokens": {
+        "input": 6396,
+        "output": 173,
+        "total": 6569
+      },
+      "cost": {
+        "input": 0.006396,
+        "output": 0.000865,
+        "total": 0.007261
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 3521,
+      "stopReason": "end_turn",
+      "toolCalls": [
+        {
+          "server": "omdb",
+          "tool": "random_movie",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"n\": 129,\n  \"pickedAt\": \"2026-09-27T15:29:46.592Z\",\n  \"title\": \"The Gold Rush\",\n  \"year\": \"1925\",\n  \"runtimeMinutes\": 95,\n  \"genres\": [\n    \"Adventure\",\n    \"Comedy\",\n    \"Drama\"\n  ],\n  \"director\": \"Charles Chaplin\",\n  \"actors\": [\n    \"Charles Chaplin\",\n    \"Mack Swain\",\n    \"Tom Murray\"\n  ],\n  \"plot\": \"A prospector goes to the Klondike during the 1890s gold rush in hopes of making his fortune, and is smitten with a girl he sees in a dance hall.\",\n  \"imdbRating\": 8.1,\n  \"ratings\": [\n    {\n      \"source\": \"Internet Movie Database\",\n      \"value\": \"8.1/10\"\n    },\n    {\n      \"source\": \"Rotten Tomatoes\",\n      \"value\": \"98%\"\n    },\n    {\n      \"source\": \"Metacritic\",\n      \"value\": \"90/100\"\n    }\n  ],\n  \"imdbId\": \"tt0015864\"\n}",
+          "ms": 251
+        },
+        {
+          "server": "scheduler",
+          "tool": "record",
+          "input": {
+            "key": "tt0015864",
+            "label": "The Gold Rush (1925)"
+          },
+          "ok": true,
+          "resultPreview": "{\n  \"id\": 2,\n  \"scheduleId\": 1,\n  \"key\": \"tt0015864\",\n  \"label\": \"The Gold Rush (1925)\",\n  \"createdAt\": \"2026-09-27T15:29:48.184Z\"\n}",
+          "ms": 8
+        },
+        {
+          "server": "scheduler",
+          "tool": "aggregate",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"invocations\": 2,\n  \"uniqueKeys\": 2,\n  \"mostRepeated\": {\n    \"label\": \"The Gold Rush (1925)\",\n    \"count\": 1\n  },\n  \"first\": {\n    \"label\": \"Arrival (2016)\",\n    \"at\": \"2026-09-27T15:29:18.742Z\"\n  },\n  \"last\": {\n    \"label\": \"The Gold Rush (1925)\",\n    \"at\": \"2026-09-27T15:29:48.184Z\"\n  }\n}",
+          "ms": 4
+        }
+      ],
+      "run": {
+        "runId": 2,
+        "durationMs": 3521,
+        "tokens": 6569,
+        "ok": true
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Invoked 3 times · 3 unique films · last: Mystic River (2003).",
+      "id": "m3",
+      "tokens": {
+        "input": 6410,
+        "output": 177,
+        "total": 6587
+      },
+      "cost": {
+        "input": 0.00641,
+        "output": 0.0008849999999999999,
+        "total": 0.007294999999999999
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 4099,
+      "stopReason": "end_turn",
+      "toolCalls": [
+        {
+          "server": "omdb",
+          "tool": "random_movie",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"n\": 479,\n  \"pickedAt\": \"2026-09-27T15:30:01.776Z\",\n  \"title\": \"Mystic River\",\n  \"year\": \"2003\",\n  \"runtimeMinutes\": 138,\n  \"genres\": [\n    \"Crime\",\n    \"Drama\",\n    \"Mystery\"\n  ],\n  \"director\": \"Clint Eastwood\",\n  \"actors\": [\n    \"Sean Penn\",\n    \"Tim Robbins\",\n    \"Kevin Bacon\"\n  ],\n  \"plot\": \"The tragic murder of a 19-year-old girl reunites three childhood friends still living in Boston--the victim's gangster father, a detective, and the disturbed man they both suspect of killing her.\",\n  \"imdbRating\": 7.9,\n  \"ratings\": [\n    {\n      \"source\": \"Internet Movie Database\",\n      \"value\": \"7.9/10\"\n    },\n    {\n      \"source\": \"Rotten Tomatoes\",\n      \"value\": \"89%\"\n    },\n    {\n      \"source\": \"Metacritic\",\n      \"value\": \"84/100\"\n    }\n  ],\n  \"imdbId\": \"tt0327056\"\n}",
+          "ms": 265
+        },
+        {
+          "server": "scheduler",
+          "tool": "record",
+          "input": {
+            "key": "tt0327056",
+            "label": "Mystic River (2003)"
+          },
+          "ok": true,
+          "resultPreview": "{\n  \"id\": 3,\n  \"scheduleId\": 1,\n  \"key\": \"tt0327056\",\n  \"label\": \"Mystic River (2003)\",\n  \"createdAt\": \"2026-09-27T15:30:03.476Z\"\n}",
+          "ms": 4
+        },
+        {
+          "server": "scheduler",
+          "tool": "aggregate",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"invocations\": 3,\n  \"uniqueKeys\": 3,\n  \"mostRepeated\": {\n    \"label\": \"Mystic River (2003)\",\n    \"count\": 1\n  },\n  \"first\": {\n    \"label\": \"Arrival (2016)\",\n    \"at\": \"2026-09-27T15:29:18.742Z\"\n  },\n  \"last\": {\n    \"label\": \"Mystic River (2003)\",\n    \"at\": \"2026-09-27T15:30:03.476Z\"\n  }\n}",
+          "ms": 3
+        }
+      ],
+      "run": {
+        "runId": 3,
+        "durationMs": 4099,
+        "tokens": 6587,
+        "ok": true
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Invoked 4 times · 4 unique films · last: Inside Out (2015).",
+      "id": "m4",
+      "tokens": {
+        "input": 6425,
+        "output": 172,
+        "total": 6597
+      },
+      "cost": {
+        "input": 0.006425,
+        "output": 0.0008600000000000001,
+        "total": 0.007285
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 4109,
+      "stopReason": "end_turn",
+      "toolCalls": [
+        {
+          "server": "omdb",
+          "tool": "random_movie",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"n\": 180,\n  \"pickedAt\": \"2026-09-27T15:30:16.813Z\",\n  \"title\": \"Inside Out\",\n  \"year\": \"2015\",\n  \"runtimeMinutes\": 95,\n  \"genres\": [\n    \"Animation\",\n    \"Adventure\",\n    \"Comedy\"\n  ],\n  \"director\": \"Pete Docter, Ronnie Del Carmen\",\n  \"actors\": [\n    \"Amy Poehler\",\n    \"Bill Hader\",\n    \"Lewis Black\"\n  ],\n  \"plot\": \"After young Riley is uprooted from her Midwest life and moved to San Francisco, her emotions, Joy, Fear, Anger, Disgust, and Sadness, conflict on how best to navigate a new city, house, and school.\",\n  \"imdbRating\": 8.1,\n  \"ratings\": [\n    {\n      \"source\": \"Internet Movie Database\",\n      \"value\": \"8.1/10\"\n    },\n    {\n      \"source\": \"Rotten Tomatoes\",\n      \"value\": \"98%\"\n    },\n    {\n      \"source\": \"Metacritic\",\n      \"value\": \"94/100\"\n    }\n  ],\n  \"imdbId\": \"tt2096673\"\n}",
+          "ms": 243
+        },
+        {
+          "server": "scheduler",
+          "tool": "record",
+          "input": {
+            "key": "tt2096673",
+            "label": "Inside Out (2015)"
+          },
+          "ok": true,
+          "resultPreview": "{\n  \"id\": 4,\n  \"scheduleId\": 1,\n  \"key\": \"tt2096673\",\n  \"label\": \"Inside Out (2015)\",\n  \"createdAt\": \"2026-09-27T15:30:18.781Z\"\n}",
+          "ms": 10
+        },
+        {
+          "server": "scheduler",
+          "tool": "aggregate",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"invocations\": 4,\n  \"uniqueKeys\": 4,\n  \"mostRepeated\": {\n    \"label\": \"Inside Out (2015)\",\n    \"count\": 1\n  },\n  \"first\": {\n    \"label\": \"Arrival (2016)\",\n    \"at\": \"2026-09-27T15:29:18.742Z\"\n  },\n  \"last\": {\n    \"label\": \"Inside Out (2015)\",\n    \"at\": \"2026-09-27T15:30:18.781Z\"\n  }\n}",
+          "ms": 8
+        }
+      ],
+      "run": {
+        "runId": 4,
+        "durationMs": 4109,
+        "tokens": 6597,
+        "ok": true
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Invoked 5 times · 5 unique films · last: Inglourious Basterds (2009).",
+      "id": "m5",
+      "tokens": {
+        "input": 6440,
+        "output": 185,
+        "total": 6625
+      },
+      "cost": {
+        "input": 0.00644,
+        "output": 0.000925,
+        "total": 0.007365
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 4132,
+      "stopReason": "end_turn",
+      "toolCalls": [
+        {
+          "server": "omdb",
+          "tool": "random_movie",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"n\": 79,\n  \"pickedAt\": \"2026-09-27T15:30:31.699Z\",\n  \"title\": \"Inglourious Basterds\",\n  \"year\": \"2009\",\n  \"runtimeMinutes\": 153,\n  \"genres\": [\n    \"Adventure\",\n    \"Drama\",\n    \"War\"\n  ],\n  \"director\": \"Quentin Tarantino\",\n  \"actors\": [\n    \"Brad Pitt\",\n    \"Diane Kruger\",\n    \"Eli Roth\"\n  ],\n  \"plot\": \"In Nazi-occupied France during World War II, a plan to assassinate Nazi leaders by a group of Jewish U.S. soldiers coincides with a theatre owner's vengeful plans for the same.\",\n  \"imdbRating\": 8.4,\n  \"ratings\": [\n    {\n      \"source\": \"Internet Movie Database\",\n      \"value\": \"8.4/10\"\n    },\n    {\n      \"source\": \"Rotten Tomatoes\",\n      \"value\": \"89%\"\n    },\n    {\n      \"source\": \"Metacritic\",\n      \"value\": \"69/100\"\n    }\n  ],\n  \"imdbId\": \"tt0361748\"\n}",
+          "ms": 235
+        },
+        {
+          "server": "scheduler",
+          "tool": "record",
+          "input": {
+            "key": "tt0361748",
+            "label": "Inglourious Basterds (2009)"
+          },
+          "ok": true,
+          "resultPreview": "{\n  \"id\": 5,\n  \"scheduleId\": 1,\n  \"key\": \"tt0361748\",\n  \"label\": \"Inglourious Basterds (2009)\",\n  \"createdAt\": \"2026-09-27T15:30:33.830Z\"\n}",
+          "ms": 11
+        },
+        {
+          "server": "scheduler",
+          "tool": "aggregate",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"invocations\": 5,\n  \"uniqueKeys\": 5,\n  \"mostRepeated\": {\n    \"label\": \"Inglourious Basterds (2009)\",\n    \"count\": 1\n  },\n  \"first\": {\n    \"label\": \"Arrival (2016)\",\n    \"at\": \"2026-09-27T15:29:18.742Z\"\n  },\n  \"last\": {\n    \"label\": \"Inglourious Basterds (2009)\",\n    \"at\": \"2026-09-27T15:30:33.830Z\"\n  }\n}",
+          "ms": 7
+        }
+      ],
+      "run": {
+        "runId": 5,
+        "durationMs": 4132,
+        "tokens": 6625,
+        "ok": true
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Invoked 6 times · 6 unique films · last: The Kid (1921).",
+      "id": "m6",
+      "tokens": {
+        "input": 6308,
+        "output": 173,
+        "total": 6481
+      },
+      "cost": {
+        "input": 0.006308,
+        "output": 0.000865,
+        "total": 0.0071730000000000006
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 3876,
+      "stopReason": "end_turn",
+      "toolCalls": [
+        {
+          "server": "omdb",
+          "tool": "random_movie",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"n\": 152,\n  \"pickedAt\": \"2026-09-27T15:30:46.549Z\",\n  \"title\": \"The Kid\",\n  \"year\": \"1921\",\n  \"runtimeMinutes\": 68,\n  \"genres\": [\n    \"Comedy\",\n    \"Drama\",\n    \"Family\"\n  ],\n  \"director\": \"Charles Chaplin\",\n  \"actors\": [\n    \"Charles Chaplin\",\n    \"Edna Purviance\",\n    \"Jackie Coogan\"\n  ],\n  \"plot\": \"The Tramp cares for an abandoned child, but events put their relationship in jeopardy.\",\n  \"imdbRating\": 8.2,\n  \"ratings\": [\n    {\n      \"source\": \"Internet Movie Database\",\n      \"value\": \"8.2/10\"\n    },\n    {\n      \"source\": \"Rotten Tomatoes\",\n      \"value\": \"100%\"\n    }\n  ],\n  \"imdbId\": \"tt0012349\"\n}",
+          "ms": 280
+        },
+        {
+          "server": "scheduler",
+          "tool": "record",
+          "input": {
+            "key": "tt0012349",
+            "label": "The Kid (1921)"
+          },
+          "ok": true,
+          "resultPreview": "{\n  \"id\": 6,\n  \"scheduleId\": 1,\n  \"key\": \"tt0012349\",\n  \"label\": \"The Kid (1921)\",\n  \"createdAt\": \"2026-09-27T15:30:48.360Z\"\n}",
+          "ms": 13
+        },
+        {
+          "server": "scheduler",
+          "tool": "aggregate",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"invocations\": 6,\n  \"uniqueKeys\": 6,\n  \"mostRepeated\": {\n    \"label\": \"The Kid (1921)\",\n    \"count\": 1\n  },\n  \"first\": {\n    \"label\": \"Arrival (2016)\",\n    \"at\": \"2026-09-27T15:29:18.742Z\"\n  },\n  \"last\": {\n    \"label\": \"The Kid (1921)\",\n    \"at\": \"2026-09-27T15:30:48.360Z\"\n  }\n}",
+          "ms": 9
+        }
+      ],
+      "run": {
+        "runId": 6,
+        "durationMs": 3876,
+        "tokens": 6481,
+        "ok": true
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Invoked 7 times · 7 unique films · last: Lock, Stock and Two Smoking Barrels (1998).",
+      "id": "m7",
+      "tokens": {
+        "input": 6412,
+        "output": 189,
+        "total": 6601
+      },
+      "cost": {
+        "input": 0.006412,
+        "output": 0.0009450000000000001,
+        "total": 0.007357000000000001
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 3540,
+      "stopReason": "end_turn",
+      "toolCalls": [
+        {
+          "server": "omdb",
+          "tool": "random_movie",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"n\": 125,\n  \"pickedAt\": \"2026-09-27T15:31:01.518Z\",\n  \"title\": \"Lock, Stock and Two Smoking Barrels\",\n  \"year\": \"1998\",\n  \"runtimeMinutes\": 107,\n  \"genres\": [\n    \"Comedy\",\n    \"Crime\"\n  ],\n  \"director\": \"Guy Ritchie\",\n  \"actors\": [\n    \"Jason Flemyng\",\n    \"Dexter Fletcher\",\n    \"Nick Moran\"\n  ],\n  \"plot\": \"When four small-time criminals lose a rigged poker game against a London kingpin, he gives them one week to settle their enormous debt.\",\n  \"imdbRating\": 8.1,\n  \"ratings\": [\n    {\n      \"source\": \"Internet Movie Database\",\n      \"value\": \"8.1/10\"\n    },\n    {\n      \"source\": \"Rotten Tomatoes\",\n      \"value\": \"75%\"\n    },\n    {\n      \"source\": \"Metacritic\",\n      \"value\": \"67/100\"\n    }\n  ],\n  \"imdbId\": \"tt0120735\"\n}",
+          "ms": 224
+        },
+        {
+          "server": "scheduler",
+          "tool": "record",
+          "input": {
+            "key": "tt0120735",
+            "label": "Lock, Stock and Two Smoking Barrels (1998)"
+          },
+          "ok": true,
+          "resultPreview": "{\n  \"id\": 7,\n  \"scheduleId\": 1,\n  \"key\": \"tt0120735\",\n  \"label\": \"Lock, Stock and Two Smoking Barrels (1998)\",\n  \"createdAt\": \"2026-09-27T15:31:03.180Z\"\n}",
+          "ms": 8
+        },
+        {
+          "server": "scheduler",
+          "tool": "aggregate",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"invocations\": 7,\n  \"uniqueKeys\": 7,\n  \"mostRepeated\": {\n    \"label\": \"Lock, Stock and Two Smoking Barrels (1998)\",\n    \"count\": 1\n  },\n  \"first\": {\n    \"label\": \"Arrival (2016)\",\n    \"at\": \"2026-09-27T15:29:18.742Z\"\n  },\n  \"last\": {\n    \"label\": \"Lock, Stock and Two Smoking Barrels (1998)\",\n    \"at\": \"2026-09-27T15:31:03.180Z\"\n  }\n}",
+          "ms": 6
+        }
+      ],
+      "run": {
+        "runId": 7,
+        "durationMs": 3540,
+        "tokens": 6601,
+        "ok": true
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Invoked 8 times · 8 unique films · last: Up (2009).",
+      "id": "m8",
+      "tokens": {
+        "input": 6379,
+        "output": 170,
+        "total": 6549
+      },
+      "cost": {
+        "input": 0.006379,
+        "output": 0.0008500000000000001,
+        "total": 0.007229
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 3631,
+      "stopReason": "end_turn",
+      "toolCalls": [
+        {
+          "server": "omdb",
+          "tool": "random_movie",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"n\": 179,\n  \"pickedAt\": \"2026-09-27T15:31:16.517Z\",\n  \"title\": \"Up\",\n  \"year\": \"2009\",\n  \"runtimeMinutes\": 96,\n  \"genres\": [\n    \"Animation\",\n    \"Adventure\",\n    \"Comedy\"\n  ],\n  \"director\": \"Pete Docter, Bob Peterson\",\n  \"actors\": [\n    \"Edward Asner\",\n    \"Jordan Nagai\",\n    \"John Ratzenberger\"\n  ],\n  \"plot\": \"78-year-old Carl Fredricksen travels to South America in his house equipped with balloons, inadvertently taking a young stowaway.\",\n  \"imdbRating\": 8.3,\n  \"ratings\": [\n    {\n      \"source\": \"Internet Movie Database\",\n      \"value\": \"8.3/10\"\n    },\n    {\n      \"source\": \"Rotten Tomatoes\",\n      \"value\": \"98%\"\n    },\n    {\n      \"source\": \"Metacritic\",\n      \"value\": \"88/100\"\n    }\n  ],\n  \"imdbId\": \"tt1049413\"\n}",
+          "ms": 258
+        },
+        {
+          "server": "scheduler",
+          "tool": "record",
+          "input": {
+            "key": "tt1049413",
+            "label": "Up (2009)"
+          },
+          "ok": true,
+          "resultPreview": "{\n  \"id\": 8,\n  \"scheduleId\": 1,\n  \"key\": \"tt1049413\",\n  \"label\": \"Up (2009)\",\n  \"createdAt\": \"2026-09-27T15:31:18.257Z\"\n}",
+          "ms": 11
+        },
+        {
+          "server": "scheduler",
+          "tool": "aggregate",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"invocations\": 8,\n  \"uniqueKeys\": 8,\n  \"mostRepeated\": {\n    \"label\": \"Up (2009)\",\n    \"count\": 1\n  },\n  \"first\": {\n    \"label\": \"Arrival (2016)\",\n    \"at\": \"2026-09-27T15:29:18.742Z\"\n  },\n  \"last\": {\n    \"label\": \"Up (2009)\",\n    \"at\": \"2026-09-27T15:31:18.257Z\"\n  }\n}",
+          "ms": 7
+        }
+      ],
+      "run": {
+        "runId": 8,
+        "durationMs": 3631,
+        "tokens": 6549,
+        "ok": true
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Invoked 9 times · 9 unique films · last: Eternal Sunshine of the Spotless Mind (2004).",
+      "id": "m9",
+      "tokens": {
+        "input": 6413,
+        "output": 184,
+        "total": 6597
+      },
+      "cost": {
+        "input": 0.006413,
+        "output": 0.00092,
+        "total": 0.007333
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 3897,
+      "stopReason": "end_turn",
+      "toolCalls": [
+        {
+          "server": "omdb",
+          "tool": "random_movie",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"n\": 87,\n  \"pickedAt\": \"2026-09-27T15:31:31.765Z\",\n  \"title\": \"Eternal Sunshine of the Spotless Mind\",\n  \"year\": \"2004\",\n  \"runtimeMinutes\": 108,\n  \"genres\": [\n    \"Drama\",\n    \"Romance\",\n    \"Sci-Fi\"\n  ],\n  \"director\": \"Michel Gondry\",\n  \"actors\": [\n    \"Jim Carrey\",\n    \"Kate Winslet\",\n    \"Tom Wilkinson\"\n  ],\n  \"plot\": \"When their relationship turns sour, a couple undergoes a medical procedure to have each other erased from their memories forever.\",\n  \"imdbRating\": 8.3,\n  \"ratings\": [\n    {\n      \"source\": \"Internet Movie Database\",\n      \"value\": \"8.3/10\"\n    },\n    {\n      \"source\": \"Rotten Tomatoes\",\n      \"value\": \"93%\"\n    },\n    {\n      \"source\": \"Metacritic\",\n      \"value\": \"89/100\"\n    }\n  ],\n  \"imdbId\": \"tt0338013\"\n}",
+          "ms": 243
+        },
+        {
+          "server": "scheduler",
+          "tool": "record",
+          "input": {
+            "key": "tt0338013",
+            "label": "Eternal Sunshine of the Spotless Mind (2004)"
+          },
+          "ok": true,
+          "resultPreview": "{\n  \"id\": 9,\n  \"scheduleId\": 1,\n  \"key\": \"tt0338013\",\n  \"label\": \"Eternal Sunshine of the Spotless Mind (2004)\",\n  \"createdAt\": \"2026-09-27T15:31:33.478Z\"\n}",
+          "ms": 11
+        },
+        {
+          "server": "scheduler",
+          "tool": "aggregate",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"invocations\": 9,\n  \"uniqueKeys\": 9,\n  \"mostRepeated\": {\n    \"label\": \"Eternal Sunshine of the Spotless Mind (2004)\",\n    \"count\": 1\n  },\n  \"first\": {\n    \"label\": \"Arrival (2016)\",\n    \"at\": \"2026-09-27T15:29:18.742Z\"\n  },\n  \"last\": {\n    \"label\": \"Eternal Sunshine of the Spotless Mind (2004)\",\n    \"at\": \"2026-09-27T15:31:33.478Z\"\n  }\n}",
+          "ms": 7
+        }
+      ],
+      "run": {
+        "runId": 9,
+        "durationMs": 3897,
+        "tokens": 6597,
+        "ok": true
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Invoked 10 times · 10 unique films · last: Grindhouse (2007).",
+      "id": "m10",
+      "tokens": {
+        "input": 8702,
+        "output": 193,
+        "total": 8895
+      },
+      "cost": {
+        "input": 0.008702,
+        "output": 0.000965,
+        "total": 0.009667
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 4462,
+      "stopReason": "end_turn",
+      "toolCalls": [
+        {
+          "server": "omdb",
+          "tool": "random_movie",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"n\": 494,\n  \"pickedAt\": \"2026-09-27T15:31:46.622Z\",\n  \"title\": \"Grindhouse\",\n  \"year\": \"2007\",\n  \"runtimeMinutes\": 191,\n  \"genres\": [\n    \"Horror\",\n    \"Thriller\"\n  ],\n  \"director\": \"Robert Rodriguez, Eli Roth, Quentin Tarantino\",\n  \"actors\": [\n    \"Kurt Russell\",\n    \"Rose McGowan\",\n    \"Danny Trejo\"\n  ],\n  \"plot\": \"Quentin Tarantino and Robert Rodriguez's homage to exploitation double features in the '60s and '70s with two back-to-back cult films that include previews of coming attractions between them.\",\n  \"imdbRating\": 7.5,\n  \"ratings\": [\n    {\n      \"source\": \"Internet Movie Database\",\n      \"value\": \"7.5/10\"\n    },\n    {\n      \"source\": \"Rotten Tomatoes\",\n      \"value\": \"84%\"\n    },\n    {\n      \"source\": \"Metacritic\",\n      \"value\": \"77/100\"\n    }\n  ],\n  \"imdbId\": \"tt0462322\"\n}",
+          "ms": 247
+        },
+        {
+          "server": "scheduler",
+          "tool": "record",
+          "input": {
+            "key": "tt0462322",
+            "label": "Grindhouse (2007)"
+          },
+          "ok": true,
+          "resultPreview": "{\n  \"id\": 10,\n  \"scheduleId\": 1,\n  \"key\": \"tt0462322\",\n  \"label\": \"Grindhouse (2007)\",\n  \"createdAt\": \"2026-09-27T15:31:48.116Z\"\n}",
+          "ms": 11
+        },
+        {
+          "server": "scheduler",
+          "tool": "aggregate",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"invocations\": 10,\n  \"uniqueKeys\": 10,\n  \"mostRepeated\": {\n    \"label\": \"Grindhouse (2007)\",\n    \"count\": 1\n  },\n  \"first\": {\n    \"label\": \"Arrival (2016)\",\n    \"at\": \"2026-09-27T15:29:18.742Z\"\n  },\n  \"last\": {\n    \"label\": \"Grindhouse (2007)\",\n    \"at\": \"2026-09-27T15:31:48.116Z\"\n  }\n}",
+          "ms": 7
+        }
+      ],
+      "run": {
+        "runId": 10,
+        "durationMs": 4462,
+        "tokens": 8895,
+        "ok": true
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Invoked 11 times · 11 unique films · last: Beauty and the Beast (1991).",
+      "id": "m11",
+      "tokens": {
+        "input": 6396,
+        "output": 175,
+        "total": 6571
+      },
+      "cost": {
+        "input": 0.006396,
+        "output": 0.000875,
+        "total": 0.007271
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 3555,
+      "stopReason": "end_turn",
+      "toolCalls": [
+        {
+          "server": "omdb",
+          "tool": "random_movie",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"n\": 169,\n  \"pickedAt\": \"2026-09-27T15:32:01.506Z\",\n  \"title\": \"Beauty and the Beast\",\n  \"year\": \"1991\",\n  \"runtimeMinutes\": 84,\n  \"genres\": [\n    \"Animation\",\n    \"Family\",\n    \"Fantasy\"\n  ],\n  \"director\": \"Gary Trousdale, Kirk Wise\",\n  \"actors\": [\n    \"Paige O'Hara\",\n    \"Robby Benson\",\n    \"Jesse Corti\"\n  ],\n  \"plot\": \"A prince cursed to spend his days as a hideous monster sets out to regain his humanity by earning a young woman's love.\",\n  \"imdbRating\": 8,\n  \"ratings\": [\n    {\n      \"source\": \"Internet Movie Database\",\n      \"value\": \"8.0/10\"\n    },\n    {\n      \"source\": \"Rotten Tomatoes\",\n      \"value\": \"95%\"\n    },\n    {\n      \"source\": \"Metacritic\",\n      \"value\": \"95/100\"\n    }\n  ],\n  \"imdbId\": \"tt0101414\"\n}",
+          "ms": 275
+        },
+        {
+          "server": "scheduler",
+          "tool": "record",
+          "input": {
+            "key": "tt0101414",
+            "label": "Beauty and the Beast (1991)"
+          },
+          "ok": true,
+          "resultPreview": "{\n  \"id\": 11,\n  \"scheduleId\": 1,\n  \"key\": \"tt0101414\",\n  \"label\": \"Beauty and the Beast (1991)\",\n  \"createdAt\": \"2026-09-27T15:32:03.247Z\"\n}",
+          "ms": 11
+        },
+        {
+          "server": "scheduler",
+          "tool": "aggregate",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"invocations\": 11,\n  \"uniqueKeys\": 11,\n  \"mostRepeated\": {\n    \"label\": \"Beauty and the Beast (1991)\",\n    \"count\": 1\n  },\n  \"first\": {\n    \"label\": \"Arrival (2016)\",\n    \"at\": \"2026-09-27T15:29:18.742Z\"\n  },\n  \"last\": {\n    \"label\": \"Beauty and the Beast (1991)\",\n    \"at\": \"2026-09-27T15:32:03.247Z\"\n  }\n}",
+          "ms": 8
+        }
+      ],
+      "run": {
+        "runId": 11,
+        "durationMs": 3555,
+        "tokens": 6571,
+        "ok": true
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Invoked 13 times · 13 unique films · last: Interview with the Vampire (1994).",
+      "id": "m12",
+      "tokens": {
+        "input": 6358,
+        "output": 173,
+        "total": 6531
+      },
+      "cost": {
+        "input": 0.006358,
+        "output": 0.000865,
+        "total": 0.007223
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 3408,
+      "stopReason": "end_turn",
+      "toolCalls": [
+        {
+          "server": "omdb",
+          "tool": "random_movie",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"n\": 246,\n  \"pickedAt\": \"2026-09-27T15:33:14.068Z\",\n  \"title\": \"Interview with the Vampire\",\n  \"year\": \"1994\",\n  \"runtimeMinutes\": 123,\n  \"genres\": [\n    \"Drama\",\n    \"Fantasy\",\n    \"Horror\"\n  ],\n  \"director\": \"Neil Jordan\",\n  \"actors\": [\n    \"Brad Pitt\",\n    \"Tom Cruise\",\n    \"Antonio Banderas\"\n  ],\n  \"plot\": \"A vampire tells his epic life story: love, betrayal, loneliness, and hunger.\",\n  \"imdbRating\": 7.5,\n  \"ratings\": [\n    {\n      \"source\": \"Internet Movie Database\",\n      \"value\": \"7.5/10\"\n    },\n    {\n      \"source\": \"Rotten Tomatoes\",\n      \"value\": \"66%\"\n    },\n    {\n      \"source\": \"Metacritic\",\n      \"value\": \"62/100\"\n    }\n  ],\n  \"imdbId\": \"tt0110148\"\n}",
+          "ms": 266
+        },
+        {
+          "server": "scheduler",
+          "tool": "record",
+          "input": {
+            "key": "tt0110148",
+            "label": "Interview with the Vampire (1994)"
+          },
+          "ok": true,
+          "resultPreview": "{\n  \"id\": 13,\n  \"scheduleId\": 1,\n  \"key\": \"tt0110148\",\n  \"label\": \"Interview with the Vampire (1994)\",\n  \"createdAt\": \"2026-09-27T15:33:15.610Z\"\n}",
+          "ms": 15
+        },
+        {
+          "server": "scheduler",
+          "tool": "aggregate",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"invocations\": 13,\n  \"uniqueKeys\": 13,\n  \"mostRepeated\": {\n    \"label\": \"Interview with the Vampire (1994)\",\n    \"count\": 1\n  },\n  \"first\": {\n    \"label\": \"Arrival (2016)\",\n    \"at\": \"2026-09-27T15:29:18.742Z\"\n  },\n  \"last\": {\n    \"label\": \"Interview with the Vampire (1994)\",\n    \"at\": \"2026-09-27T15:33:15.610Z\"\n  }\n}",
+          "ms": 10
+        }
+      ],
+      "run": {
+        "runId": 13,
+        "durationMs": 3408,
+        "tokens": 6531,
+        "ok": true
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Invoked 14 times · 14 unique films · last: Thelma & Louise (1991).",
+      "id": "m13",
+      "tokens": {
+        "input": 8651,
+        "output": 201,
+        "total": 8852
+      },
+      "cost": {
+        "input": 0.008651,
+        "output": 0.001005,
+        "total": 0.009656000000000001
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 4539,
+      "stopReason": "end_turn",
+      "toolCalls": [
+        {
+          "server": "omdb",
+          "tool": "random_movie",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"n\": 337,\n  \"pickedAt\": \"2026-09-27T15:33:29.188Z\",\n  \"title\": \"Thelma & Louise\",\n  \"year\": \"1991\",\n  \"runtimeMinutes\": 130,\n  \"genres\": [\n    \"Adventure\",\n    \"Crime\",\n    \"Drama\"\n  ],\n  \"director\": \"Ridley Scott\",\n  \"actors\": [\n    \"Susan Sarandon\",\n    \"Geena Davis\",\n    \"Harvey Keitel\"\n  ],\n  \"plot\": \"An Arkansas waitress and a housewife shoot a rapist and take off in a '66 Thunderbird.\",\n  \"imdbRating\": 7.6,\n  \"ratings\": [\n    {\n      \"source\": \"Internet Movie Database\",\n      \"value\": \"7.6/10\"\n    },\n    {\n      \"source\": \"Rotten Tomatoes\",\n      \"value\": \"87%\"\n    },\n    {\n      \"source\": \"Metacritic\",\n      \"value\": \"89/100\"\n    }\n  ],\n  \"imdbId\": \"tt0103074\"\n}",
+          "ms": 257
+        },
+        {
+          "server": "scheduler",
+          "tool": "record",
+          "input": {
+            "key": "tt0103074",
+            "label": "Thelma & Louise (1991)"
+          },
+          "ok": true,
+          "resultPreview": "{\n  \"id\": 14,\n  \"scheduleId\": 1,\n  \"key\": \"tt0103074\",\n  \"label\": \"Thelma & Louise (1991)\",\n  \"createdAt\": \"2026-09-27T15:33:30.702Z\"\n}",
+          "ms": 13
+        },
+        {
+          "server": "scheduler",
+          "tool": "aggregate",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"invocations\": 14,\n  \"uniqueKeys\": 14,\n  \"mostRepeated\": {\n    \"label\": \"Thelma & Louise (1991)\",\n    \"count\": 1\n  },\n  \"first\": {\n    \"label\": \"Arrival (2016)\",\n    \"at\": \"2026-09-27T15:29:18.742Z\"\n  },\n  \"last\": {\n    \"label\": \"Thelma & Louise (1991)\",\n    \"at\": \"2026-09-27T15:33:30.702Z\"\n  }\n}",
+          "ms": 12
+        }
+      ],
+      "run": {
+        "runId": 14,
+        "durationMs": 4539,
+        "tokens": 8852,
+        "ok": true
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Invoked 15 times · 15 unique films · last: Deadpool (2016).",
+      "id": "m14",
+      "tokens": {
+        "input": 6389,
+        "output": 174,
+        "total": 6563
+      },
+      "cost": {
+        "input": 0.006389,
+        "output": 0.00087,
+        "total": 0.007259
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 4176,
+      "stopReason": "end_turn",
+      "toolCalls": [
+        {
+          "server": "omdb",
+          "tool": "random_movie",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"n\": 387,\n  \"pickedAt\": \"2026-09-27T15:33:44.204Z\",\n  \"title\": \"Deadpool\",\n  \"year\": \"2016\",\n  \"runtimeMinutes\": 108,\n  \"genres\": [\n    \"Action\",\n    \"Comedy\",\n    \"Sci-Fi\"\n  ],\n  \"director\": \"Tim Miller\",\n  \"actors\": [\n    \"Ryan Reynolds\",\n    \"Morena Baccarin\",\n    \"T.J. Miller\"\n  ],\n  \"plot\": \"A wisecracking mercenary gets experimented on and becomes immortal yet hideously scarred, and sets out to track down the man who ruined his looks.\",\n  \"imdbRating\": 8,\n  \"ratings\": [\n    {\n      \"source\": \"Internet Movie Database\",\n      \"value\": \"8.0/10\"\n    },\n    {\n      \"source\": \"Rotten Tomatoes\",\n      \"value\": \"85%\"\n    },\n    {\n      \"source\": \"Metacritic\",\n      \"value\": \"65/100\"\n    }\n  ],\n  \"imdbId\": \"tt1431045\"\n}",
+          "ms": 286
+        },
+        {
+          "server": "scheduler",
+          "tool": "record",
+          "input": {
+            "key": "tt1431045",
+            "label": "Deadpool (2016)"
+          },
+          "ok": true,
+          "resultPreview": "{\n  \"id\": 15,\n  \"scheduleId\": 1,\n  \"key\": \"tt1431045\",\n  \"label\": \"Deadpool (2016)\",\n  \"createdAt\": \"2026-09-27T15:33:46.019Z\"\n}",
+          "ms": 12
+        },
+        {
+          "server": "scheduler",
+          "tool": "aggregate",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"invocations\": 15,\n  \"uniqueKeys\": 15,\n  \"mostRepeated\": {\n    \"label\": \"Deadpool (2016)\",\n    \"count\": 1\n  },\n  \"first\": {\n    \"label\": \"Arrival (2016)\",\n    \"at\": \"2026-09-27T15:29:18.742Z\"\n  },\n  \"last\": {\n    \"label\": \"Deadpool (2016)\",\n    \"at\": \"2026-09-27T15:33:46.019Z\"\n  }\n}",
+          "ms": 8
+        }
+      ],
+      "run": {
+        "runId": 15,
+        "durationMs": 4176,
+        "tokens": 6563,
+        "ok": true
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Invoked 16 times · 16 unique films · last: Midnight Cowboy (1969).",
+      "id": "m15",
+      "tokens": {
+        "input": 8601,
+        "output": 194,
+        "total": 8795
+      },
+      "cost": {
+        "input": 0.008601,
+        "output": 0.0009699999999999999,
+        "total": 0.009571
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 4858,
+      "stopReason": "end_turn",
+      "toolCalls": [
+        {
+          "server": "omdb",
+          "tool": "random_movie",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"n\": 415,\n  \"pickedAt\": \"2026-09-27T15:33:59.123Z\",\n  \"title\": \"Midnight Cowboy\",\n  \"year\": \"1969\",\n  \"runtimeMinutes\": 113,\n  \"genres\": [\n    \"Drama\"\n  ],\n  \"director\": \"John Schlesinger\",\n  \"actors\": [\n    \"Dustin Hoffman\",\n    \"Jon Voight\",\n    \"Sylvia Miles\"\n  ],\n  \"plot\": \"A naive hustler travels from Texas to New York City to seek personal fortune, finding a new friend in the process.\",\n  \"imdbRating\": 7.8,\n  \"ratings\": [\n    {\n      \"source\": \"Internet Movie Database\",\n      \"value\": \"7.8/10\"\n    },\n    {\n      \"source\": \"Rotten Tomatoes\",\n      \"value\": \"89%\"\n    },\n    {\n      \"source\": \"Metacritic\",\n      \"value\": \"79/100\"\n    }\n  ],\n  \"imdbId\": \"tt0064665\"\n}",
+          "ms": 249
+        },
+        {
+          "server": "scheduler",
+          "tool": "record",
+          "input": {
+            "key": "tt0064665",
+            "label": "Midnight Cowboy (1969)"
+          },
+          "ok": true,
+          "resultPreview": "{\n  \"id\": 16,\n  \"scheduleId\": 1,\n  \"key\": \"tt0064665\",\n  \"label\": \"Midnight Cowboy (1969)\",\n  \"createdAt\": \"2026-09-27T15:34:00.642Z\"\n}",
+          "ms": 13
+        },
+        {
+          "server": "scheduler",
+          "tool": "aggregate",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"invocations\": 16,\n  \"uniqueKeys\": 16,\n  \"mostRepeated\": {\n    \"label\": \"Midnight Cowboy (1969)\",\n    \"count\": 1\n  },\n  \"first\": {\n    \"label\": \"Arrival (2016)\",\n    \"at\": \"2026-09-27T15:29:18.742Z\"\n  },\n  \"last\": {\n    \"label\": \"Midnight Cowboy (1969)\",\n    \"at\": \"2026-09-27T15:34:00.642Z\"\n  }\n}",
+          "ms": 10
+        }
+      ],
+      "run": {
+        "runId": 16,
+        "durationMs": 4858,
+        "tokens": 8795,
+        "ok": true
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Invoked 17 times · 17 unique films · last: Cinema Paradiso (1990).",
+      "id": "m16",
+      "tokens": {
+        "input": 8692,
+        "output": 197,
+        "total": 8889
+      },
+      "cost": {
+        "input": 0.008692,
+        "output": 0.000985,
+        "total": 0.009677
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 4387,
+      "stopReason": "end_turn",
+      "toolCalls": [
+        {
+          "server": "omdb",
+          "tool": "random_movie",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"n\": 48,\n  \"pickedAt\": \"2026-09-27T15:34:14.073Z\",\n  \"title\": \"Cinema Paradiso\",\n  \"year\": \"1990\",\n  \"runtimeMinutes\": 174,\n  \"genres\": [\n    \"Drama\",\n    \"Romance\"\n  ],\n  \"director\": \"Giuseppe Tornatore\",\n  \"actors\": [\n    \"Philippe Noiret\",\n    \"Enzo Cannavale\",\n    \"Antonella Attili\"\n  ],\n  \"plot\": \"Salvatore, a famous film director, returns to his hometown for the funeral of the local theater's film projectionist, Alfredo. He reminisces about his life as a young boy falling in love with cinema.\",\n  \"imdbRating\": 8.5,\n  \"ratings\": [\n    {\n      \"source\": \"Internet Movie Database\",\n      \"value\": \"8.5/10\"\n    },\n    {\n      \"source\": \"Rotten Tomatoes\",\n      \"value\": \"90%\"\n    },\n    {\n      \"source\": \"Metacritic\",\n      \"value\": \"80/100\"\n    }\n  ],\n  \"imdbId\": \"tt0095765\"\n}",
+          "ms": 247
+        },
+        {
+          "server": "scheduler",
+          "tool": "record",
+          "input": {
+            "key": "tt0095765",
+            "label": "Cinema Paradiso (1990)"
+          },
+          "ok": true,
+          "resultPreview": "{\n  \"id\": 17,\n  \"scheduleId\": 1,\n  \"key\": \"tt0095765\",\n  \"label\": \"Cinema Paradiso (1990)\",\n  \"createdAt\": \"2026-09-27T15:34:15.450Z\"\n}",
+          "ms": 12
+        },
+        {
+          "server": "scheduler",
+          "tool": "aggregate",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"invocations\": 17,\n  \"uniqueKeys\": 17,\n  \"mostRepeated\": {\n    \"label\": \"Cinema Paradiso (1990)\",\n    \"count\": 1\n  },\n  \"first\": {\n    \"label\": \"Arrival (2016)\",\n    \"at\": \"2026-09-27T15:29:18.742Z\"\n  },\n  \"last\": {\n    \"label\": \"Cinema Paradiso (1990)\",\n    \"at\": \"2026-09-27T15:34:15.450Z\"\n  }\n}",
+          "ms": 11
+        }
+      ],
+      "run": {
+        "runId": 17,
+        "durationMs": 4387,
+        "tokens": 8889,
+        "ok": true
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Invoked 18 times · 18 unique films · last: Léon: The Professional (1994).",
+      "id": "m17",
+      "tokens": {
+        "input": 6438,
+        "output": 181,
+        "total": 6619
+      },
+      "cost": {
+        "input": 0.006438,
+        "output": 0.000905,
+        "total": 0.007343000000000001
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 3953,
+      "stopReason": "end_turn",
+      "toolCalls": [
+        {
+          "server": "omdb",
+          "tool": "random_movie",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"n\": 36,\n  \"pickedAt\": \"2026-09-27T15:34:29.203Z\",\n  \"title\": \"Léon: The Professional\",\n  \"year\": \"1994\",\n  \"runtimeMinutes\": 110,\n  \"genres\": [\n    \"Action\",\n    \"Crime\",\n    \"Drama\"\n  ],\n  \"director\": \"Luc Besson\",\n  \"actors\": [\n    \"Jean Reno\",\n    \"Gary Oldman\",\n    \"Natalie Portman\"\n  ],\n  \"plot\": \"When her family is murdered by a group of corrupt officers led by the tyrannical Norman Stansfield, a young 12-year-old girl enlists the help of an Italian-American hitman to seek revenge.\",\n  \"imdbRating\": 8.5,\n  \"ratings\": [\n    {\n      \"source\": \"Internet Movie Database\",\n      \"value\": \"8.5/10\"\n    },\n    {\n      \"source\": \"Rotten Tomatoes\",\n      \"value\": \"76%\"\n    },\n    {\n      \"source\": \"Metacritic\",\n      \"value\": \"64/100\"\n    }\n  ],\n  \"imdbId\": \"tt0110413\"\n}",
+          "ms": 257
+        },
+        {
+          "server": "scheduler",
+          "tool": "record",
+          "input": {
+            "key": "tt0110413",
+            "label": "Léon: The Professional (1994)"
+          },
+          "ok": true,
+          "resultPreview": "{\n  \"id\": 18,\n  \"scheduleId\": 1,\n  \"key\": \"tt0110413\",\n  \"label\": \"Léon: The Professional (1994)\",\n  \"createdAt\": \"2026-09-27T15:34:30.974Z\"\n}",
+          "ms": 11
+        },
+        {
+          "server": "scheduler",
+          "tool": "aggregate",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"invocations\": 18,\n  \"uniqueKeys\": 18,\n  \"mostRepeated\": {\n    \"label\": \"Léon: The Professional (1994)\",\n    \"count\": 1\n  },\n  \"first\": {\n    \"label\": \"Arrival (2016)\",\n    \"at\": \"2026-09-27T15:29:18.742Z\"\n  },\n  \"last\": {\n    \"label\": \"Léon: The Professional (1994)\",\n    \"at\": \"2026-09-27T15:34:30.974Z\"\n  }\n}",
+          "ms": 10
+        }
+      ],
+      "run": {
+        "runId": 18,
+        "durationMs": 3953,
+        "tokens": 6619,
+        "ok": true
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Invoked 19 times · 19 unique films · last: Double Indemnity (1944).",
+      "id": "m18",
+      "tokens": {
+        "input": 6414,
+        "output": 179,
+        "total": 6593
+      },
+      "cost": {
+        "input": 0.006414,
+        "output": 0.000895,
+        "total": 0.007309
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 3983,
+      "stopReason": "end_turn",
+      "toolCalls": [
+        {
+          "server": "omdb",
+          "tool": "random_movie",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"n\": 92,\n  \"pickedAt\": \"2026-09-27T15:34:44.034Z\",\n  \"title\": \"Double Indemnity\",\n  \"year\": \"1944\",\n  \"runtimeMinutes\": 107,\n  \"genres\": [\n    \"Crime\",\n    \"Drama\",\n    \"Film-Noir\"\n  ],\n  \"director\": \"Billy Wilder\",\n  \"actors\": [\n    \"Fred MacMurray\",\n    \"Barbara Stanwyck\",\n    \"Edward G. Robinson\"\n  ],\n  \"plot\": \"An insurance representative is seduced by a dissatisfied housewife into a scheme of insurance fraud and murder that arouses the suspicion of his colleague, a claims investigator.\",\n  \"imdbRating\": 8.3,\n  \"ratings\": [\n    {\n      \"source\": \"Internet Movie Database\",\n      \"value\": \"8.3/10\"\n    },\n    {\n      \"source\": \"Rotten Tomatoes\",\n      \"value\": \"97%\"\n    },\n    {\n      \"source\": \"Metacritic\",\n      \"value\": \"95/100\"\n    }\n  ],\n  \"imdbId\": \"tt0036775\"\n}",
+          "ms": 278
+        },
+        {
+          "server": "scheduler",
+          "tool": "record",
+          "input": {
+            "key": "tt0036775",
+            "label": "Double Indemnity (1944)"
+          },
+          "ok": true,
+          "resultPreview": "{\n  \"id\": 19,\n  \"scheduleId\": 1,\n  \"key\": \"tt0036775\",\n  \"label\": \"Double Indemnity (1944)\",\n  \"createdAt\": \"2026-09-27T15:34:45.922Z\"\n}",
+          "ms": 3
+        },
+        {
+          "server": "scheduler",
+          "tool": "aggregate",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"invocations\": 19,\n  \"uniqueKeys\": 19,\n  \"mostRepeated\": {\n    \"label\": \"Double Indemnity (1944)\",\n    \"count\": 1\n  },\n  \"first\": {\n    \"label\": \"Arrival (2016)\",\n    \"at\": \"2026-09-27T15:29:18.742Z\"\n  },\n  \"last\": {\n    \"label\": \"Double Indemnity (1944)\",\n    \"at\": \"2026-09-27T15:34:45.922Z\"\n  }\n}",
+          "ms": 3
+        }
+      ],
+      "run": {
+        "runId": 19,
+        "durationMs": 3983,
+        "tokens": 6593,
+        "ok": true
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Invoked 20 times · 19 unique films · last: Inglourious Basterds (2009).",
+      "id": "m19",
+      "tokens": {
+        "input": 6438,
+        "output": 183,
+        "total": 6621
+      },
+      "cost": {
+        "input": 0.006438,
+        "output": 0.000915,
+        "total": 0.007353
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 3673,
+      "stopReason": "end_turn",
+      "toolCalls": [
+        {
+          "server": "omdb",
+          "tool": "random_movie",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"n\": 79,\n  \"pickedAt\": \"2026-09-27T15:34:59.111Z\",\n  \"title\": \"Inglourious Basterds\",\n  \"year\": \"2009\",\n  \"runtimeMinutes\": 153,\n  \"genres\": [\n    \"Adventure\",\n    \"Drama\",\n    \"War\"\n  ],\n  \"director\": \"Quentin Tarantino\",\n  \"actors\": [\n    \"Brad Pitt\",\n    \"Diane Kruger\",\n    \"Eli Roth\"\n  ],\n  \"plot\": \"In Nazi-occupied France during World War II, a plan to assassinate Nazi leaders by a group of Jewish U.S. soldiers coincides with a theatre owner's vengeful plans for the same.\",\n  \"imdbRating\": 8.4,\n  \"ratings\": [\n    {\n      \"source\": \"Internet Movie Database\",\n      \"value\": \"8.4/10\"\n    },\n    {\n      \"source\": \"Rotten Tomatoes\",\n      \"value\": \"89%\"\n    },\n    {\n      \"source\": \"Metacritic\",\n      \"value\": \"69/100\"\n    }\n  ],\n  \"imdbId\": \"tt0361748\"\n}",
+          "ms": 259
+        },
+        {
+          "server": "scheduler",
+          "tool": "record",
+          "input": {
+            "key": "tt0361748",
+            "label": "Inglourious Basterds (2009)"
+          },
+          "ok": true,
+          "resultPreview": "{\n  \"id\": 20,\n  \"scheduleId\": 1,\n  \"key\": \"tt0361748\",\n  \"label\": \"Inglourious Basterds (2009)\",\n  \"createdAt\": \"2026-09-27T15:35:00.760Z\"\n}",
+          "ms": 11
+        },
+        {
+          "server": "scheduler",
+          "tool": "aggregate",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"invocations\": 20,\n  \"uniqueKeys\": 19,\n  \"mostRepeated\": {\n    \"label\": \"Inglourious Basterds (2009)\",\n    \"count\": 2\n  },\n  \"first\": {\n    \"label\": \"Arrival (2016)\",\n    \"at\": \"2026-09-27T15:29:18.742Z\"\n  },\n  \"last\": {\n    \"label\": \"Inglourious Basterds (2009)\",\n    \"at\": \"2026-09-27T15:35:00.760Z\"\n  }\n}",
+          "ms": 10
+        }
+      ],
+      "run": {
+        "runId": 20,
+        "durationMs": 3673,
+        "tokens": 6621,
+        "ok": true
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Invoked 21 times · 20 unique films · last: The Shawshank Redemption (1994).",
+      "id": "m20",
+      "tokens": {
+        "input": 6406,
+        "output": 186,
+        "total": 6592
+      },
+      "cost": {
+        "input": 0.006406,
+        "output": 0.0009299999999999999,
+        "total": 0.0073360000000000005
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 4187,
+      "stopReason": "end_turn",
+      "toolCalls": [
+        {
+          "server": "omdb",
+          "tool": "random_movie",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"n\": 0,\n  \"pickedAt\": \"2026-09-27T15:35:13.898Z\",\n  \"title\": \"The Shawshank Redemption\",\n  \"year\": \"1994\",\n  \"runtimeMinutes\": 142,\n  \"genres\": [\n    \"Drama\"\n  ],\n  \"director\": \"Frank Darabont\",\n  \"actors\": [\n    \"Tim Robbins\",\n    \"Morgan Freeman\",\n    \"Bob Gunton\"\n  ],\n  \"plot\": \"After a banker is sentenced to life in Shawshank Prison, he forms an unlikely friendship with a seasoned inmate and clings to hope amid cruelty and corruption.\",\n  \"imdbRating\": 9.3,\n  \"ratings\": [\n    {\n      \"source\": \"Internet Movie Database\",\n      \"value\": \"9.3/10\"\n    },\n    {\n      \"source\": \"Rotten Tomatoes\",\n      \"value\": \"89%\"\n    },\n    {\n      \"source\": \"Metacritic\",\n      \"value\": \"82/100\"\n    }\n  ],\n  \"imdbId\": \"tt0111161\"\n}",
+          "ms": 241
+        },
+        {
+          "server": "scheduler",
+          "tool": "record",
+          "input": {
+            "key": "tt0111161",
+            "label": "The Shawshank Redemption (1994)"
+          },
+          "ok": true,
+          "resultPreview": "{\n  \"id\": 21,\n  \"scheduleId\": 1,\n  \"key\": \"tt0111161\",\n  \"label\": \"The Shawshank Redemption (1994)\",\n  \"createdAt\": \"2026-09-27T15:35:15.766Z\"\n}",
+          "ms": 10
+        },
+        {
+          "server": "scheduler",
+          "tool": "aggregate",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"invocations\": 21,\n  \"uniqueKeys\": 20,\n  \"mostRepeated\": {\n    \"label\": \"Inglourious Basterds (2009)\",\n    \"count\": 2\n  },\n  \"first\": {\n    \"label\": \"Arrival (2016)\",\n    \"at\": \"2026-09-27T15:29:18.742Z\"\n  },\n  \"last\": {\n    \"label\": \"The Shawshank Redemption (1994)\",\n    \"at\": \"2026-09-27T15:35:15.766Z\"\n  }\n}",
+          "ms": 4
+        }
+      ],
+      "run": {
+        "runId": 21,
+        "durationMs": 4187,
+        "tokens": 6592,
+        "ok": true
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Invoked 22 times · 21 unique films · last: Heat (1995).",
+      "id": "m21",
+      "tokens": {
+        "input": 6380,
+        "output": 170,
+        "total": 6550
+      },
+      "cost": {
+        "input": 0.00638,
+        "output": 0.0008500000000000001,
+        "total": 0.00723
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 3967,
+      "stopReason": "end_turn",
+      "toolCalls": [
+        {
+          "server": "omdb",
+          "tool": "random_movie",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"n\": 118,\n  \"pickedAt\": \"2026-09-27T15:35:29.090Z\",\n  \"title\": \"Heat\",\n  \"year\": \"1995\",\n  \"runtimeMinutes\": 170,\n  \"genres\": [\n    \"Action\",\n    \"Crime\",\n    \"Drama\"\n  ],\n  \"director\": \"Michael Mann\",\n  \"actors\": [\n    \"Al Pacino\",\n    \"Robert De Niro\",\n    \"Val Kilmer\"\n  ],\n  \"plot\": \"A group of high-end professional thieves start to feel the heat from the LAPD when they unknowingly leave a verbal clue at their latest heist.\",\n  \"imdbRating\": 8.3,\n  \"ratings\": [\n    {\n      \"source\": \"Internet Movie Database\",\n      \"value\": \"8.3/10\"\n    },\n    {\n      \"source\": \"Rotten Tomatoes\",\n      \"value\": \"84%\"\n    },\n    {\n      \"source\": \"Metacritic\",\n      \"value\": \"76/100\"\n    }\n  ],\n  \"imdbId\": \"tt0113277\"\n}",
+          "ms": 270
+        },
+        {
+          "server": "scheduler",
+          "tool": "record",
+          "input": {
+            "key": "tt0113277",
+            "label": "Heat (1995)"
+          },
+          "ok": true,
+          "resultPreview": "{\n  \"id\": 22,\n  \"scheduleId\": 1,\n  \"key\": \"tt0113277\",\n  \"label\": \"Heat (1995)\",\n  \"createdAt\": \"2026-09-27T15:35:30.954Z\"\n}",
+          "ms": 14
+        },
+        {
+          "server": "scheduler",
+          "tool": "aggregate",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"invocations\": 22,\n  \"uniqueKeys\": 21,\n  \"mostRepeated\": {\n    \"label\": \"Inglourious Basterds (2009)\",\n    \"count\": 2\n  },\n  \"first\": {\n    \"label\": \"Arrival (2016)\",\n    \"at\": \"2026-09-27T15:29:18.742Z\"\n  },\n  \"last\": {\n    \"label\": \"Heat (1995)\",\n    \"at\": \"2026-09-27T15:35:30.954Z\"\n  }\n}",
+          "ms": 7
+        }
+      ],
+      "run": {
+        "runId": 22,
+        "durationMs": 3967,
+        "tokens": 6550,
+        "ok": true
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Invoked 23 times · 22 unique films · last: Warrior (2011).",
+      "id": "m22",
+      "tokens": {
+        "input": 6416,
+        "output": 173,
+        "total": 6589
+      },
+      "cost": {
+        "input": 0.006416,
+        "output": 0.000865,
+        "total": 0.007281
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 3882,
+      "stopReason": "end_turn",
+      "toolCalls": [
+        {
+          "server": "omdb",
+          "tool": "random_movie",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"n\": 189,\n  \"pickedAt\": \"2026-09-27T15:35:43.957Z\",\n  \"title\": \"Warrior\",\n  \"year\": \"2011\",\n  \"runtimeMinutes\": 140,\n  \"genres\": [\n    \"Action\",\n    \"Drama\",\n    \"Sport\"\n  ],\n  \"director\": \"Gavin O'Connor\",\n  \"actors\": [\n    \"Tom Hardy\",\n    \"Nick Nolte\",\n    \"Joel Edgerton\"\n  ],\n  \"plot\": \"The youngest son of an alcoholic former boxer returns home, where he's trained by his father for competition in a mixed martial arts tournament - a path that puts the fighter on a collision course with his estranged, older brother.\",\n  \"imdbRating\": 8.1,\n  \"ratings\": [\n    {\n      \"source\": \"Internet Movie Database\",\n      \"value\": \"8.1/10\"\n    },\n    {\n      \"source\": \"Rotten Tomatoes\",\n      \"value\": \"84%\"\n    },\n    {\n      \"source\": \"Metacritic\",\n      \"value\": \"71/100\"\n    }\n  ],\n  \"imdbId\": \"tt1291584\"\n}",
+          "ms": 245
+        },
+        {
+          "server": "scheduler",
+          "tool": "record",
+          "input": {
+            "key": "tt1291584",
+            "label": "Warrior (2011)"
+          },
+          "ok": true,
+          "resultPreview": "{\n  \"id\": 23,\n  \"scheduleId\": 1,\n  \"key\": \"tt1291584\",\n  \"label\": \"Warrior (2011)\",\n  \"createdAt\": \"2026-09-27T15:35:45.786Z\"\n}",
+          "ms": 12
+        },
+        {
+          "server": "scheduler",
+          "tool": "aggregate",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"invocations\": 23,\n  \"uniqueKeys\": 22,\n  \"mostRepeated\": {\n    \"label\": \"Inglourious Basterds (2009)\",\n    \"count\": 2\n  },\n  \"first\": {\n    \"label\": \"Arrival (2016)\",\n    \"at\": \"2026-09-27T15:29:18.742Z\"\n  },\n  \"last\": {\n    \"label\": \"Warrior (2011)\",\n    \"at\": \"2026-09-27T15:35:45.786Z\"\n  }\n}",
+          "ms": 6
+        }
+      ],
+      "run": {
+        "runId": 23,
+        "durationMs": 3882,
+        "tokens": 6589,
+        "ok": true
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Invoked 24 times · 23 unique films · last: Batman: Mask of the Phantasm (1993).",
+      "id": "m23",
+      "tokens": {
+        "input": 6425,
+        "output": 187,
+        "total": 6612
+      },
+      "cost": {
+        "input": 0.006425,
+        "output": 0.000935,
+        "total": 0.00736
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 3592,
+      "stopReason": "end_turn",
+      "toolCalls": [
+        {
+          "server": "omdb",
+          "tool": "random_movie",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"n\": 449,\n  \"pickedAt\": \"2026-09-27T15:35:58.979Z\",\n  \"title\": \"Batman: Mask of the Phantasm\",\n  \"year\": \"1993\",\n  \"runtimeMinutes\": 76,\n  \"genres\": [\n    \"Animation\",\n    \"Action\",\n    \"Adventure\"\n  ],\n  \"director\": \"Kevin Altieri, Boyd Kirkland, Frank Paur\",\n  \"actors\": [\n    \"Kevin Conroy\",\n    \"Dana Delany\",\n    \"Hart Bochner\"\n  ],\n  \"plot\": \"Batman is wrongly implicated in a series of murders of mob bosses actually committed by a new vigilante assassin.\",\n  \"imdbRating\": 7.8,\n  \"ratings\": [\n    {\n      \"source\": \"Internet Movie Database\",\n      \"value\": \"7.8/10\"\n    },\n    {\n      \"source\": \"Rotten Tomatoes\",\n      \"value\": \"83%\"\n    },\n    {\n      \"source\": \"Metacritic\",\n      \"value\": \"65/100\"\n    }\n  ],\n  \"imdbId\": \"tt0106364\"\n}",
+          "ms": 237
+        },
+        {
+          "server": "scheduler",
+          "tool": "record",
+          "input": {
+            "key": "tt0106364",
+            "label": "Batman: Mask of the Phantasm (1993)"
+          },
+          "ok": true,
+          "resultPreview": "{\n  \"id\": 24,\n  \"scheduleId\": 1,\n  \"key\": \"tt0106364\",\n  \"label\": \"Batman: Mask of the Phantasm (1993)\",\n  \"createdAt\": \"2026-09-27T15:36:00.673Z\"\n}",
+          "ms": 7
+        },
+        {
+          "server": "scheduler",
+          "tool": "aggregate",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"invocations\": 24,\n  \"uniqueKeys\": 23,\n  \"mostRepeated\": {\n    \"label\": \"Inglourious Basterds (2009)\",\n    \"count\": 2\n  },\n  \"first\": {\n    \"label\": \"Arrival (2016)\",\n    \"at\": \"2026-09-27T15:29:18.742Z\"\n  },\n  \"last\": {\n    \"label\": \"Batman: Mask of the Phantasm (1993)\",\n    \"at\": \"2026-09-27T15:36:00.673Z\"\n  }\n}",
+          "ms": 4
+        }
+      ],
+      "run": {
+        "runId": 24,
+        "durationMs": 3592,
+        "tokens": 6612,
+        "ok": true
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Invoked 25 times · 24 unique films · last: Skyfall (2012).",
+      "id": "m24",
+      "tokens": {
+        "input": 6414,
+        "output": 174,
+        "total": 6588
+      },
+      "cost": {
+        "input": 0.006414,
+        "output": 0.00087,
+        "total": 0.0072840000000000005
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 3435,
+      "stopReason": "end_turn",
+      "toolCalls": [
+        {
+          "server": "omdb",
+          "tool": "random_movie",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"n\": 371,\n  \"pickedAt\": \"2026-09-27T15:36:14.027Z\",\n  \"title\": \"Skyfall\",\n  \"year\": \"2012\",\n  \"runtimeMinutes\": 143,\n  \"genres\": [\n    \"Action\",\n    \"Adventure\",\n    \"Thriller\"\n  ],\n  \"director\": \"Sam Mendes\",\n  \"actors\": [\n    \"Daniel Craig\",\n    \"Javier Bardem\",\n    \"Naomie Harris\"\n  ],\n  \"plot\": \"James Bond's loyalty to M is tested when her past comes back to haunt her. When MI6 comes under attack, 007 must track down and destroy the threat, no matter how personal the cost.\",\n  \"imdbRating\": 7.8,\n  \"ratings\": [\n    {\n      \"source\": \"Internet Movie Database\",\n      \"value\": \"7.8/10\"\n    },\n    {\n      \"source\": \"Rotten Tomatoes\",\n      \"value\": \"92%\"\n    },\n    {\n      \"source\": \"Metacritic\",\n      \"value\": \"81/100\"\n    }\n  ],\n  \"imdbId\": \"tt1074638\"\n}",
+          "ms": 238
+        },
+        {
+          "server": "scheduler",
+          "tool": "record",
+          "input": {
+            "key": "tt1074638",
+            "label": "Skyfall (2012)"
+          },
+          "ok": true,
+          "resultPreview": "{\n  \"id\": 25,\n  \"scheduleId\": 1,\n  \"key\": \"tt1074638\",\n  \"label\": \"Skyfall (2012)\",\n  \"createdAt\": \"2026-09-27T15:36:15.584Z\"\n}",
+          "ms": 11
+        },
+        {
+          "server": "scheduler",
+          "tool": "aggregate",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"invocations\": 25,\n  \"uniqueKeys\": 24,\n  \"mostRepeated\": {\n    \"label\": \"Inglourious Basterds (2009)\",\n    \"count\": 2\n  },\n  \"first\": {\n    \"label\": \"Arrival (2016)\",\n    \"at\": \"2026-09-27T15:29:18.742Z\"\n  },\n  \"last\": {\n    \"label\": \"Skyfall (2012)\",\n    \"at\": \"2026-09-27T15:36:15.584Z\"\n  }\n}",
+          "ms": 6
+        }
+      ],
+      "run": {
+        "runId": 25,
+        "durationMs": 3435,
+        "tokens": 6588,
+        "ok": true
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Invoked 26 times · 25 unique films · last: Kill Bill: Vol. 2 (2004).",
+      "id": "m25",
+      "tokens": {
+        "input": 6431,
+        "output": 184,
+        "total": 6615
+      },
+      "cost": {
+        "input": 0.006431,
+        "output": 0.00092,
+        "total": 0.007351
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 3642,
+      "stopReason": "end_turn",
+      "toolCalls": [
+        {
+          "server": "omdb",
+          "tool": "random_movie",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"n\": 487,\n  \"pickedAt\": \"2026-09-27T15:36:28.938Z\",\n  \"title\": \"Kill Bill: Vol. 2\",\n  \"year\": \"2004\",\n  \"runtimeMinutes\": 137,\n  \"genres\": [\n    \"Action\",\n    \"Crime\",\n    \"Thriller\"\n  ],\n  \"director\": \"Quentin Tarantino\",\n  \"actors\": [\n    \"Uma Thurman\",\n    \"David Carradine\",\n    \"Michael Madsen\"\n  ],\n  \"plot\": \"The Bride continues her quest of vengeance against her former boss and lover Bill, the reclusive bouncer Budd, and the treacherous, one-eyed Elle.\",\n  \"imdbRating\": 8,\n  \"ratings\": [\n    {\n      \"source\": \"Internet Movie Database\",\n      \"value\": \"8.0/10\"\n    },\n    {\n      \"source\": \"Rotten Tomatoes\",\n      \"value\": \"84%\"\n    },\n    {\n      \"source\": \"Metacritic\",\n      \"value\": \"83/100\"\n    }\n  ],\n  \"imdbId\": \"tt0378194\"\n}",
+          "ms": 259
+        },
+        {
+          "server": "scheduler",
+          "tool": "record",
+          "input": {
+            "key": "tt0378194",
+            "label": "Kill Bill: Vol. 2 (2004)"
+          },
+          "ok": true,
+          "resultPreview": "{\n  \"id\": 26,\n  \"scheduleId\": 1,\n  \"key\": \"tt0378194\",\n  \"label\": \"Kill Bill: Vol. 2 (2004)\",\n  \"createdAt\": \"2026-09-27T15:36:30.696Z\"\n}",
+          "ms": 11
+        },
+        {
+          "server": "scheduler",
+          "tool": "aggregate",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"invocations\": 26,\n  \"uniqueKeys\": 25,\n  \"mostRepeated\": {\n    \"label\": \"Inglourious Basterds (2009)\",\n    \"count\": 2\n  },\n  \"first\": {\n    \"label\": \"Arrival (2016)\",\n    \"at\": \"2026-09-27T15:29:18.742Z\"\n  },\n  \"last\": {\n    \"label\": \"Kill Bill: Vol. 2 (2004)\",\n    \"at\": \"2026-09-27T15:36:30.696Z\"\n  }\n}",
+          "ms": 8
+        }
+      ],
+      "run": {
+        "runId": 26,
+        "durationMs": 3642,
+        "tokens": 6615,
+        "ok": true
+      }
+    }
+  ]
+}
