@@ -1,6 +1,8 @@
-# Day 20 — MCP orchestration
+# Day 21 — Index Files
 
-https://github.com/user-attachments/assets/be711d68-1255-40fb-ac61-d11645b58893
+
+https://github.com/user-attachments/assets/de85f51b-4dba-4025-8ef4-5b91044ad087
+
 
 A Pipeline chat takes a **goal**. A planner turns it into steps across every connected
 MCP server (OMDb, scheduler, Notion); you accept the proposal; the runner executes it,
