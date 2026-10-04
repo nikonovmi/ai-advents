@@ -1,212 +1,199 @@
-# Day 21 — Document indexing
+# Day 22 — First RAG query
 
-Build a new project `doc_index/` next to `first-agent/`, `imdb_mcp_server/` and
-`scheduler_mcp_server/`. It turns a corpus of documents into a local vector index with
-metadata, using two chunking strategies, and produces a report comparing them.
-Retrieval and generation come in later days, so keep the search code small but reusable
-(`first-agent` will import it).
+Build on `doc_index/` (Day 21) and `first-agent/`. Add an agent that answers either
+**with RAG** (question → retrieve chunks → put them in the prompt → LLM) or **without
+RAG** (the same LLM, no documents). Add a 10-question eval that runs both modes and
+writes a quality comparison. Read `doc_index/README.md` and `first-agent/README.md`
+before starting, and follow the existing code style, providers, and test setup.
 
-## Stack
+## Retrieval
 
-- Node 20+, ES modules, no TypeScript, no build step. Same style as the sibling projects.
-- Embeddings: **EmbeddingGemma-300M**, run locally via `@huggingface/transformers`
-  (v3 or later), model id `onnx-community/embeddinggemma-300m-ONNX`, `dtype: "q8"`.
-  - It does not support fp16. Use `q8` by default and allow `fp32` via `EMBED_DTYPE`.
-  - Load it with `AutoTokenizer` + `AutoModel` and use the model's `sentence_embedding`
-    output, as shown on the model card. Do not use a pipeline with mean pooling.
-  - It needs prefixes. Documents: `title: {title} | text: {text}`. Queries:
-    `task: search result | query: {text}`. Put both in one module (`src/embed.js`)
-    so nothing else ever embeds without them.
-  - It outputs 768 dims and supports Matryoshka truncation. Add `EMBED_DIMS`
-    (768 | 512 | 256 | 128). When it's below 768, truncate and re-normalise.
-  - Vectors are L2-normalised, so cosine similarity = dot product.
-  - The first run downloads the model to the transformers.js cache. After that,
-    everything runs offline with no API key.
-- Storage: SQLite via `better-sqlite3`, one file `data/index.sqlite`. Embeddings are
-  stored as `Float32Array` BLOBs. Search is brute-force dot product in JS. FAISS is
-  unnecessary at this size.
-- Parsing: `cheerio` for HTML, `unpdf` (or `pdfjs-dist`) for PDF. Markdown and code are
-  read as text.
+- Use `search()` from `doc_index/src/search.js` with **`strategy: "structural"`**,
+  `k = 5`. Don't reimplement or copy it.
+- If `search()` can't filter by collection yet, add an optional
+  `collections: string[]` filter in `doc_index`, using the `collection` column that
+  already exists in `documents`. Add a test for it. The RAG default is all collections,
+  configurable via `RAG_COLLECTIONS`.
+- Add an optional `minScore` (default off). Log scores so a sensible threshold can be
+  picked later.
+- The embedding model takes a few seconds to load. Load it lazily on the first RAG query,
+  reuse it afterwards, and log one line when it's ready. If the index is missing or was
+  built with another model, return a clear error to the UI, not a stack trace.
 
-## Corpus
+## The RAG function
 
-At least 30 pages of text in total (count ~3,000 characters as one page). Use several
-formats so the loaders are real:
-
-1. **`knowledge_database/`** (main source): a folder of HTML files the user has already
-   put in place. First find where it is (the repo root or inside `doc_index/`). Then set
-   the default path in config, overridable with `KNOWLEDGE_DIR`. Read every `.html` /
-   `.htm` file in it recursively. Never modify, move, or rename them. These files are
-   not committed: add `knowledge_database/` to the `.gitignore` that covers its location.
-   If any are already tracked, run `git rm -r --cached` on them, leaving the files on
-   disk.
-2. **Our own projects**: every `README.md` and `PROMPT.md` in the repo root and the three
-   sibling projects, plus the `.js` files under `first-agent/src/` and both MCP servers'
-   `src/`. Copy them by path from a config. Don't hardcode absolute paths. Skip
-   `node_modules`, `data`, and tests.
-3. **PDF**: "Attention Is All You Need", `https://arxiv.org/pdf/1706.03762`.
-
-`npm run fetch` downloads 3 into `corpus/raw/` and copies 2 into `corpus/raw/projects/`.
-It's idempotent: existing files are skipped unless `--force` is passed. Sources live in
-`corpus/sources.json`, so the list is easy to change. `knowledge_database/` is read in
-place, not copied. `corpus/raw/` is git-ignored.
-
-If `knowledge_database/` already reaches 30 pages on its own, say so in the stats. 2 and
-3 still stay, so markdown, code, and PDF are covered.
-
-## Pipeline
-
-```
-fetch → load (per format) → normalised documents → chunk (×2 strategies) → embed → store
-```
-
-### Loaders → normalised document
-
-Each loader returns:
+`src/rag/answer.js` exports one function used by both the chat and the eval:
 
 ```js
-{ doc_id, source, format, title, text, sections: [{ path: ["H1", "H2"], start, end }] }
+answerQuestion(question, { mode: "rag" | "plain", history = [], k, strategy, provider })
+  → { answer, mode, chunks: [{ n, score, source, section, title, chunk_id, text }],
+      usage, timings: { retrieveMs, llmMs } }
 ```
 
-`text` is clean plain text with paragraphs separated by blank lines. `sections` are
-character ranges into `text`, used by both chunkers to set the `section` metadata.
+- **plain**: system prompt = a short neutral assistant prompt. The user message is the
+  question.
+- **rag**: same base system prompt plus document rules (below). The chunks go in the
+  **latest user message**, not the system prompt:
 
-- **html**: The files in `knowledge_database/` come from arbitrary sites, so open a few
-  before writing the loader. Find the main content generically: the first match of
-  `main`, `article`, `[role=main]`, `#content`, or `#mw-content-text`. Fall back to
-  `body`. Drop `script`, `style`, `nav`, `header`, `footer`, `aside`, `form`, cookie
-  banners, sidebars, reference lists, and edit links. `title` comes from the first `h1`,
-  then `<title>`, then the file name. Headings `h1`–`h4` become sections. Tables become
-  simple `a | b` rows or are dropped. Don't emit raw markup. `doc_id` is derived from the
-  path relative to `knowledge_database/`. If a file yields almost no text after cleanup,
-  log a warning naming it instead of silently indexing nothing.
-- **markdown**: `#` headings are sections. Fenced code stays as text.
-- **code** (`.js`): There are no headings. Sections are top-level declarations (`export`,
-  `function`, `class`, `const x = ` at column 0), each named after the identifier.
-  `title` is the relative file path.
-- **pdf**: Extract text per page, then fix hyphenation and line wraps. Detect section
-  headings by the numbered-heading pattern (`3.2 Attention`) and fall back to
-  `Page N` sections if none are found.
+```
+<documents>
+<doc n="1" source="…" section="…" title="…">
+…chunk text…
+</doc>
+…
+</documents>
 
-### Chunking strategies
+Question: …
+```
 
-Count tokens with the EmbeddingGemma tokenizer, not characters. Both strategies are
-pure functions `(doc, tokenizer, options) → chunks[]` in `src/chunkers/`.
+- Document rules in the RAG system prompt: answer only from the documents; cite with
+  `[n]` after each claim; if the documents don't contain the answer, say so plainly
+  and don't fill in from general knowledge; if they only partly cover it, answer that
+  part and name what's missing.
+- Both modes use the same model, max tokens, and `temperature: 0`, so the documents
+  are the only difference. Use the model the project already uses for chat agents. Don't
+  invent model ids.
+- Build the prompt in one pure function (`buildRagPrompt(question, chunks)`) so it
+  can be tested and shown in the eval report.
 
-1. **fixed**: windows of 300 tokens with 50 tokens of overlap. Ignore structure, but move
-   each boundary to the nearest whitespace so words are never cut. `section` = the
-   section containing the chunk's start.
-2. **structural**: one chunk per section (heading section, code declaration, or PDF
-   section). Merge sections under 40 tokens into the following sibling. Split sections
-   over 500 tokens at paragraph boundaries, or at line boundaries for code. Fall back to
-   sentence boundaries only when a single paragraph exceeds 500 tokens.
-   `section` = the breadcrumb, e.g. `Pipelines › Steps`.
+## Agent in first-agent
 
-Options (sizes, overlap, thresholds) live in one config object and are stored with the
-index. Changing them must trigger a rebuild.
+- Add a **Knowledge** agent in `src/agents.js` with its own chat list.
+- Show a **With RAG / Without RAG** toggle in the chat header. The choice is stored per
+  chat and sent with each message. Each assistant message records which mode produced
+  it, shown as a small badge.
+- Keep it a plain Q&A agent: short-term history only, no digest, profile, invariants, or
+  task lifecycle. Otherwise memory would leak context into the comparison. Retrieval
+  uses only the current question, not the history.
+- Under a RAG answer, show a collapsible **Sources** list: `[n]` score · source ·
+  section. Clicking one expands the chunk text. A plain answer shows no sources.
+- Optional, if it's cheap: a **Compare** button that asks the same question in both
+  modes and shows the answers side by side.
+- It must work offline with the FakeProvider, which echoes something deterministic that
+  shows whether documents were included. Tests must not load the embedding model.
 
-### Chunk record
+## Test questions
 
-```js
+Create `first-agent/eval/rag/questions.json` with exactly 10 questions. Write them only
+after reading the actual corpus (the `documents` table, or the files in
+`knowledge_database/`):
+
+- **7 corpus questions** from `knowledge_database/`. Each needs details specific to
+  those documents (numbers, names, specific claims, steps), so a model without RAG is
+  unlikely to know them exactly. Spread them across different files.
+- **2 general questions** on the corpus's topic that a strong model answers well without
+  documents. Here, RAG should at least not hurt.
+- **1 unanswerable question** that sounds like it belongs to the corpus but isn't
+  covered by it. RAG should say the documents don't cover it. Plain mode will probably
+  answer anyway; record that.
+- Phrase the questions the way a user would ask them. Don't copy sentences from the
+  documents, because that makes retrieval look better than it is.
+
+Each entry:
+
+```json
 {
-  chunk_id,      // `${doc_id}:${strategy}:${index}`; stable across runs if inputs are unchanged
-  strategy,      // "fixed" | "structural"
-  doc_id, source, format, title,
-  section,       // breadcrumb string
-  index,         // position within the doc for this strategy
-  char_start, char_end, token_count,
-  text,          // the chunk as stored and shown
-  content_hash   // sha256 of the exact string sent to the embedder
+  "id": "q01",
+  "type": "corpus" | "general" | "unanswerable",
+  "question": "…",
+  "expected_facts": ["2–4 short, checkable facts the answer must contain"],
+  "expected_sources": ["source values exactly as stored in the index"],
+  "notes": "why this question, what a wrong answer would look like"
 }
 ```
 
-The string sent to the embedder is `title: {title} | text: {text}`, the same rule for
-both strategies so the comparison is fair. Do not inject the section breadcrumb into the
-embedded text. It stays metadata only, and a later day can test whether adding it helps.
+`expected_sources` is empty for general (unless a document covers it) and for
+unanswerable questions. Verify every `expected_sources` entry exists in the index and
+that each `expected_fact` really appears in that source, and fail loudly otherwise.
+Also write the same content as a readable table in `eval/rag/questions.md`
+(question · expected outcome · sources).
 
-### Embedding and storage
+## Eval
 
-- Embed in batches (16 by default) and log progress (`fixed 120/412`).
-- Cache by `content_hash` plus model id, dtype, and dims. Re-running `npm run index`
-  without changes embeds nothing.
-- Tables: `meta` (model id, dtype, dims, prefixes, chunker config, created_at),
-  `documents`, `chunks` (all fields above), `embeddings` (`chunk_id`, `vector BLOB`).
-  If the stored model, dtype, or dims differ from the current settings, refuse to mix
-  them and tell the user to run `npm run index -- --rebuild`.
-- `npm run export` also writes `data/index.<strategy>.json` (chunks + metadata +
-  vectors as arrays), for inspection and for anyone who wants the JSON variant.
+`npm run eval:rag [-- q03]` runs every question (or one) in both modes, judges the
+answers, and writes `reports/rag_comparison.md` plus the raw results
+`reports/rag_results.json`. It needs the real API key and a built index.
 
-### Search (minimal, for evaluation)
+Per question, per mode:
 
-`src/search.js` exports `search(query, { strategy, k = 5 })`. It embeds the query with
-the query prefix and returns chunks with `score`, sorted by score. It loads the vectors
-of one strategy into memory once and reuses them.
+1. **Retrieval** (rag only): `hit@k` = whether any expected source is among the
+   retrieved chunks, plus the rank of the first hit. A failed rag answer is labelled a
+   *retrieval miss* (no expected source retrieved) or a *generation miss* (sources were
+   retrieved but facts are missing or wrong). This is the most useful diagnostic, so put
+   it in the report.
+2. **Judge**: one LLM call with a forced tool `submit_grade` and temperature 0. The
+   judge sees the question, the expected facts, the question type, and the answer. It
+   does **not** see the mode, so it grades blind. It returns per fact
+   `present | partial | missing | contradicted`, plus `hallucination: boolean` (claims
+   that are specific but unsupported or wrong), plus for unanswerable questions
+   `declined: boolean`. Score = (present + 0.5 × partial) / facts.
+3. **Citations** (rag only): every `[n]` refers to a retrieved chunk, and at least one
+   cited chunk comes from an expected source.
 
-## Comparison
+`rag_comparison.md` contains:
 
-`npm run compare` writes `reports/comparison.md` and prints a summary table.
+- A summary table, plain vs rag: mean fact score, hallucinations, unanswerable
+  declined, mean latency, mean input tokens. Also rag-only rows: hit@5, citation
+  validity, and the retrieval vs generation miss counts.
+- A per-question table: question · type · plain score · rag score · retrieval rank ·
+  verdict.
+- For each question: both answers in full, the retrieved chunks (source, section,
+  score, first 200 chars), and the judge's per-fact grades.
+- **Findings**: a short, honest analysis written from the numbers. Where RAG helped,
+  where it didn't and why (retrieval or generation), what the unanswerable question
+  showed, and 1–2 concrete changes for next time (k, chunking, prompt). Write it to
+  `reports/rag_notes.md`, which gets included in the report, the same way `notes.md`
+  works in `doc_index`.
 
-1. **Stats per strategy**: chunk count; token count min / median / p90 / max;
-   percentage of chunks starting or ending mid-sentence; percentage of chunks spanning
-   more than one section; total embedded tokens and embedding time.
-2. **Retrieval eval**: `eval/questions.json` holds 15–20 questions written after reading
-   the corpus. Spread them across sources and formats: at least half from
-   `knowledge_database/`, the rest from our READMEs, code, and the PDF. Include a few phrased without the document's own wording. Each question has
-   `{ id, question, expected_source, expected_text }`, where `expected_text` is a short
-   phrase (3–10 words) that a correct chunk must contain. A hit = a chunk from
-   `expected_source` whose text contains `expected_text`, ignoring case and whitespace.
-   Report hit@1, hit@3, hit@5, and MRR per strategy. Add a per-question table showing
-   which strategy found the answer and at what rank, plus the top-1 chunk's `section`
-   for each strategy.
-3. **Findings**: a short section written from the actual numbers. Say where each
-   strategy wins and why, using 2–3 concrete examples of questions where they differ.
-   Don't write conclusions the numbers don't support.
+## Tests (offline, `npm test`)
 
-## Scripts
+- `buildRagPrompt` numbers the docs, escapes nothing it shouldn't, and puts the
+  documents in the user message.
+- `answerQuestion` with a fake searcher and the FakeProvider: plain mode never calls
+  search, and rag mode passes the chunks and returns them.
+- Retrieval errors (missing index, wrong model) become a readable error.
+- The question file validates: 10 entries, type counts 7/2/1, required fields present.
+- The judge's tool call is parsed into a score correctly (with a fake judge response).
 
-| script | does |
-| --- | --- |
-| `npm run fetch [-- --force]` | gather the corpus |
-| `npm run index [-- --rebuild] [-- --strategy fixed]` | load, chunk, embed, store (both strategies by default) |
-| `npm run search -- "query" [--strategy structural] [--k 5]` | print top-k with score, source, section, and the first 200 chars |
-| `npm run compare` | stats + retrieval eval → `reports/comparison.md` |
-| `npm run stats` | corpus size (chars, est. pages, per source) and chunk counts |
-| `npm run export` | JSON copies of the index |
-| `npm test` | offline tests: no network, no model download |
+## Docs
 
-## Tests (`node --test`)
+- `first-agent/README.md`: add the Knowledge agent to Agents, add `eval:rag` to the
+  scripts table, and add the env vars (`RAG_K`, `RAG_STRATEGY`, `RAG_COLLECTIONS`,
+  `RAG_MIN_SCORE`).
+- Root README: update it for Day 22, with a link to `reports/rag_comparison.md`.
 
-Use a fake embedder (deterministic hash → vector) and a fake whitespace tokenizer
-behind the same interfaces, so tests never load the real model.
+## Results in the browser
 
-- Loaders: a small HTML fixture loses its nav/script/footer and keeps headings as
-  sections. Markdown sections are correct. The code loader finds the declarations.
-- fixed: windows respect size and overlap, never cut a word, and cover the whole text.
-- structural: tiny sections get merged, oversized ones get split, breadcrumbs are
-  correct, and every chunk fits the token limit.
-- `chunk_id`s are stable across two runs. The cache skips unchanged chunks.
-- Search returns results in score order and refuses an index built with another model.
+Everything runs from the existing `first-agent` server at **http://localhost:3000**.
+Don't create a second server or port.
 
-## Project setup
+- **Knowledge agent** on the main page, as described above.
+- **Eval results page** at `http://localhost:3000/rag-report`, linked from the
+  Knowledge agent's header. It reads `reports/rag_results.json` on each request and
+  renders it with plain HTML/CSS/JS in the style of the existing front end:
+  - the summary table (plain vs rag);
+  - the per-question table, where each row expands to show both answers side by side,
+    the retrieved chunks with source, section, and score, and the judge's per-fact
+    grades;
+  - the findings from `rag_notes.md`.
 
-- `package.json` with `"type": "module"`. `.gitignore`: `node_modules`, `data/`,
-  `corpus/raw/`, `.env`, plus `knowledge_database/` (see Corpus). Check with
-  `git status` / `git check-ignore` that no file from `knowledge_database/` is staged.
-- Env vars (all optional): `KNOWLEDGE_DIR`, `EMBED_MODEL`, `EMBED_DTYPE`, `EMBED_DIMS`,
-  `EMBED_BATCH`. Add `.env.example` and load it with `dotenv`.
-- `README.md` in the style of the sibling projects: what it is, the commands above, the
-  index schema, and a link to `reports/comparison.md`. Add a row for `doc_index` to the
-  root README's project table.
+  If no results exist yet, show a short message: run `npm run eval:rag`.
+- The Knowledge agent must work even when the OMDb, scheduler, or Notion MCP servers
+  aren't running. Those agents can show their usual "server down" state.
 
 ## Done when
 
-1. `npm run fetch && npm run index` builds both indexes from a corpus of at least 30
-   estimated pages (`npm run stats` shows the total).
-2. `npm run search -- "how does the planner validate a plan?"` returns
-   `first-agent` chunks at the top for both strategies, and a question about a topic
-   from `knowledge_database/` returns chunks from that folder.
-3. `npm run compare` produces `reports/comparison.md` with real numbers and findings.
-4. `npm test` passes offline.
+1. In the UI, the Knowledge agent answers a corpus question with citations and sources
+   in RAG mode, and without them in plain mode.
+2. `npm run eval:rag` completes all 20 runs and writes the report with real numbers and
+   findings.
+3. `npm test` passes offline in `first-agent` and `doc_index`.
+4. `http://localhost:3000/rag-report` shows the results of step 2.
 
-Run steps 1–4 yourself and fix what fails before reporting back. In the final message,
-include the summary table from `npm run compare`.
+Run all four yourself and fix what fails. Then **leave the `first-agent` server running
+on port 3000** (`npm start`; if the port is taken, say so instead of switching ports).
+Before finishing, check with a request to `http://localhost:3000/` and
+`http://localhost:3000/rag-report` that both respond.
+
+In the final message, include the summary table, the three most interesting
+per-question results, and the two URLs to open.

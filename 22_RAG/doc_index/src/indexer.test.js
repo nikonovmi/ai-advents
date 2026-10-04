@@ -108,3 +108,25 @@ test("search: refuses an index built with another model", async () => {
   assert.throws(() => createSearcher({ dbPath, embedder: fakeEmbedder({ modelId: "model-b" }) }), IndexMismatchError);
   assert.throws(() => createSearcher({ dbPath, embedder: fakeEmbedder({ modelId: "model-a", dims: 8 }) }), /dims 16 ≠ 8/);
 });
+
+test("search: a collections filter keeps only chunks of those collections", async () => {
+  const dbPath = tmpDb();
+  const e = fakeEmbedder();
+  await build(dbPath, e);
+  const searcher = createSearcher({ dbPath, embedder: e });
+  const all = await searcher.search("anything", { strategy: "structural", k: 1000 });
+  assert.deepEqual(new Set(all.map((h) => h.collection)), new Set(["knowledge", "projects"]));
+
+  const knowledge = await searcher.search("anything", { strategy: "structural", k: 1000, collections: ["knowledge"] });
+  assert.ok(knowledge.length > 0 && knowledge.length < all.length);
+  assert.ok(knowledge.every((h) => h.collection === "knowledge" && h.source === "a.md"));
+  for (let i = 1; i < knowledge.length; i++) assert.ok(knowledge[i - 1].score >= knowledge[i].score);
+
+  const top = await searcher.search("anything", { strategy: "fixed", k: 1, collections: ["projects"] });
+  assert.equal(top.length, 1);
+  assert.equal(top[0].source, "b.md");
+  assert.deepEqual(await searcher.search("anything", { strategy: "fixed", collections: ["nope"] }), []);
+  const fixedAll = await searcher.search("anything", { strategy: "fixed", k: 1000 });
+  assert.equal((await searcher.search("anything", { strategy: "fixed", k: 1000, collections: [] })).length, fixedAll.length, "empty list means all");
+  searcher.close();
+});

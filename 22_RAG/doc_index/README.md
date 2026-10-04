@@ -78,11 +78,19 @@ An index built with a different model, dtype or dims is refused by both `index` 
 
 ## Using search from another project
 
+`first-agent`'s Knowledge agent (Day 22) uses exactly this: `search()` with
+`strategy: "structural"`, `k: 5`, and optionally `collections` (its `RAG_COLLECTIONS`).
+
 ```js
 import { search } from "../doc_index/src/search.js";
 const hits = await search("how does the planner validate a plan?", { strategy: "structural", k: 5 });
-// [{ score, chunk_id, source, section, title, text, char_start, char_end, … }]
+// [{ score, chunk_id, source, section, title, collection, text, char_start, char_end, … }]
+
+// Only some collections (`knowledge`, `projects`, `downloads`); absent or [] means all.
+await search("what's new in Compose Multiplatform 1.8?", { k: 5, collections: ["knowledge"] });
 ```
+
+A failed first load (no index, another model) is not cached: the next call tries again.
 
 `createSearcher({ dbPath, embedder })` does the same with an injected embedder, which is
 how the tests use it.

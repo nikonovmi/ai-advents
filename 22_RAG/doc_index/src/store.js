@@ -163,11 +163,16 @@ export function openStore(dbPath = DEFAULT_DB_PATH, { readonly = false } = {}) {
       })();
     },
 
-    /** One strategy's chunks with their vectors, in a stable order. */
+    /**
+     * One strategy's chunks with their vectors, in a stable order. Each one
+     * carries its document's `collection`, so a search can be narrowed to some.
+     */
     chunksWithVectors(strategy) {
       return db
         .prepare(
-          `SELECT c.*, e.vector FROM chunks c JOIN embeddings e ON e.chunk_id = c.chunk_id
+          `SELECT c.*, d.collection, e.vector FROM chunks c
+           JOIN embeddings e ON e.chunk_id = c.chunk_id
+           LEFT JOIN documents d ON d.doc_id = c.doc_id
            WHERE c.strategy = ? ORDER BY c.doc_id, c.idx`,
         )
         .all(strategy)

@@ -15,7 +15,8 @@ import { openStore } from "./store.js";
  * ```js
  * import { search } from "doc_index/src/search.js";
  * const hits = await search("how does the planner validate a plan?", { strategy: "structural", k: 5 });
- * // [{ score, chunk_id, source, section, text, … }]
+ * // [{ score, chunk_id, source, section, collection, text, … }]
+ * await search("what's new in Compose 1.8?", { k: 5, collections: ["knowledge"] });
  * ```
  */
 
@@ -45,14 +46,21 @@ export function createSearcher({ dbPath = DEFAULT_DB_PATH, embedder }) {
 
   return {
     meta: () => ({ embedding: store.getMeta("embedding"), chunker: store.getMeta("chunker") }),
-    async search(query, { strategy = "structural", k = 5 } = {}) {
+    /**
+     * `collections` (optional) keeps only chunks whose document is in one of
+     * them (`knowledge`, `projects`, `downloads`); absent or empty means all.
+     */
+    async search(query, { strategy = "structural", k = 5, collections } = {}) {
       const { chunks, matrix, dims } = load(strategy);
+      const only = collections?.length ? new Set(collections) : null;
       const q = await embedder.embedQuery(query);
-      const scored = chunks.map((chunk, i) => {
+      const scored = [];
+      chunks.forEach((chunk, i) => {
+        if (only && !only.has(chunk.collection)) return;
         let score = 0;
         const off = i * dims;
         for (let d = 0; d < dims; d++) score += q[d] * matrix[off + d];
-        return { score, chunk };
+        scored.push({ score, chunk });
       });
       scored.sort((a, b) => b.score - a.score);
       return scored.slice(0, k).map(({ score, chunk }) => ({ ...chunk, score }));
@@ -62,8 +70,17 @@ export function createSearcher({ dbPath = DEFAULT_DB_PATH, embedder }) {
 }
 
 let defaultSearcher;
-/** The default searcher: `data/index.sqlite` and the real model, loaded on first use. */
+/**
+ * The default searcher: `data/index.sqlite` and the real model, loaded on first
+ * use. A failed load (no index yet, another model) is not cached, so the next
+ * call tries again once the index is built.
+ */
 export async function search(query, options = {}) {
-  defaultSearcher ??= loadEmbedder(embedSettings()).then((embedder) => createSearcher({ embedder }));
+  defaultSearcher ??= loadEmbedder(embedSettings())
+    .then((embedder) => createSearcher({ embedder }))
+    .catch((err) => {
+      defaultSearcher = undefined;
+      throw err;
+    });
   return (await defaultSearcher).search(query, options);
 }
