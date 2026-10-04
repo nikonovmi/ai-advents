@@ -359,8 +359,60 @@ function ragOf(value) {
       rewriteMs: number(value.timings?.rewriteMs),
       retrieveMs: number(value.timings?.retrieveMs),
       rerankMs: number(value.timings?.rerankMs),
+      clarifyMs: number(value.timings?.clarifyMs),
       llmMs: number(value.timings?.llmMs),
     },
+    ...contractOf(value),
+  };
+}
+
+/**
+ * Day 24's answer contract on a RAG reply: status, the verified citations
+ * (with where each quote sits in its chunk), the derived sources, the
+ * clarifying question, why it was "I don't know", and the verification
+ * outcome. Absent on a plain reply and on replies stored before Day 24.
+ */
+function contractOf(value) {
+  if (value?.status !== "answered" && value?.status !== "dont_know") return {};
+  const list = (x) => (Array.isArray(x) ? x : []);
+  const str = (x) => String(x ?? "");
+  const int = (x) => (Number.isInteger(x) ? x : null);
+  const v = value.verification;
+  return {
+    status: value.status,
+    citations: list(value.citations).map((c) => ({
+      id: str(c?.id),
+      chunk_id: str(c?.chunk_id),
+      quote: str(c?.quote),
+      n: int(c?.n),
+      source: str(c?.source),
+      section: str(c?.section),
+      ...(int(c?.start) !== null && int(c?.end) !== null ? { start: c.start, end: c.end } : {}),
+    })),
+    sources: list(value.sources).map((s) => ({
+      chunk_id: str(s?.chunk_id),
+      source: str(s?.source),
+      section: str(s?.section),
+      title: str(s?.title),
+      n: int(s?.n),
+      label: str(s?.label),
+      citations: list(s?.citations).map(str),
+    })),
+    clarifyingQuestion: str(value.clarifyingQuestion),
+    dontKnow: value.dontKnow?.reason ? { reason: str(value.dontKnow.reason) } : null,
+    verification: v
+      ? {
+          firstAttemptValid: v.firstAttemptValid === true,
+          retried: v.retried === true,
+          droppedCitations: list(v.droppedCitations).map((c) => ({ id: str(c?.id), chunk_id: str(c?.chunk_id), quote: str(c?.quote), reason: str(c?.reason) })),
+          droppedClaims: list(v.droppedClaims).map(str),
+          downgraded: v.downgraded === true,
+          firstAttemptCitations: int(v.firstAttemptCitations) ?? 0,
+          firstAttemptErrors: list(v.firstAttemptErrors).map(str),
+          fabricatedFirstAttempt: list(v.fabricatedFirstAttempt).map((c) => ({ id: str(c?.id), chunk_id: str(c?.chunk_id), quote: str(c?.quote) })),
+          finalErrors: list(v.finalErrors).map(str),
+        }
+      : null,
   };
 }
 

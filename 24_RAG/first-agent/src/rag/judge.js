@@ -63,14 +63,16 @@ export const JUDGE_SYSTEM = [
   "Set declined if the answer says it does not have the requested information instead of answering, even when it adds where to look.",
   "Question types: corpus, near_miss, paraphrased, messy and multi_part (details from specific articles; messy questions have filler around them,",
   "multi_part ones need facts from two articles), general (well-known Kotlin knowledge),",
-  "unanswerable and off_topic (the reference material does not cover it; the expected behaviour is to say so rather than invent an answer).",
+  "unanswerable and off_topic (the reference material does not cover it; the expected behaviour is to say so rather than invent an answer),",
+  "ambiguous (too vague to answer; the expected behaviour is to say so and ask a clarifying question).",
   "Call submit_grade exactly once.",
 ].join(" ");
 
-/** The answer as the judge sees it: no `[n]` markers. */
+/** The answer as the judge sees it: no `[n]` or `[cN]` markers. */
 export function blind(answer) {
   return String(answer ?? "")
     .replace(/\s?\[\d+(?:\s*[,–-]\s*\d+)*\]/g, "")
+    .replace(/\s?\[c\d+(?:\s*,\s*c\d+)*\]/gi, "")
     .trim();
 }
 

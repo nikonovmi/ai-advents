@@ -6,10 +6,10 @@ import test from "node:test";
 
 import { FakeProvider } from "../llm/anthropic.js";
 import { REJECTED_SHOWN, answerQuestion, mergeHits, modeLabel, parseModeLabel } from "./answer.js";
-import { DEFAULT_RERANK_THRESHOLD, RAG_MAX_TOKENS, RAG_QUESTIONS_PATH, ragSettings } from "./config.js";
+import { DEFAULT_RERANK_THRESHOLD, RAG_CONTRACT_MAX_TOKENS, RAG_MAX_TOKENS, RAG_QUESTIONS_PATH, ragSettings } from "./config.js";
 import { DECLINE_TYPES, QUESTION_TYPES, citationCheck, citedNumbers, outcome, rankMove, renderReport, retrievalHit, retrievalStats, summarize, summaryRows, validateQuestions, verifyAgainstIndex } from "./eval.js";
 import { GRADE_TOOL, blind, judgeAnswer, parseGrade } from "./judge.js";
-import { BASE_SYSTEM, DECLINE_ANSWER, RAG_SYSTEM, buildRagPrompt } from "./prompt.js";
+import { BASE_SYSTEM, RAG_SYSTEM, buildRagPrompt } from "./prompt.js";
 import { createReranker } from "./reranker.js";
 import { REWRITE_TOOL, parseQueries, rewriteQuery } from "./rewrite.js";
 import { RetrievalError, createRetriever, readableRetrievalError } from "./retriever.js";
@@ -35,15 +35,26 @@ function fakeSearch(hits = HITS) {
   return Object.assign(search, { calls });
 }
 
-/** A provider that records each call and answers with a fixed text. */
+/**
+ * A provider that records each call and answers with a fixed text, or, when a
+ * tool is forced, in that tool's shape: `submit_answer` quotes document 1 whole
+ * (so it verifies), `submit_clarification` asks a fixed question.
+ */
 function recordingProvider(text = "ok [1]") {
   const calls = [];
+  const usage = { inputTokens: 100, outputTokens: 10 };
+  const use = (name, input) => ({ text: "", content: [{ type: "tool_use", id: `toolu_${calls.length}`, name, input }], model: "stub-model", stopReason: "tool_use", usage });
   return {
     calls,
     model: "stub-model",
     async complete(params) {
       calls.push(params);
-      return { text, content: [{ type: "text", text }], model: "stub-model", stopReason: "end_turn", usage: { inputTokens: 100, outputTokens: 10 } };
+      if (params.toolChoice?.name === "submit_answer") {
+        const doc = /<doc n="1" chunk_id="([^"]*)"[^>]*>\n([\s\S]*?)\n<\/doc>/.exec(params.messages.at(-1).content);
+        return use("submit_answer", doc ? { status: "answered", answer: "ok [c1]", citations: [{ id: "c1", chunk_id: doc[1], quote: doc[2] }] } : { status: "dont_know", answer: "", citations: [], clarifying_question: "Which one?" });
+      }
+      if (params.toolChoice?.name === "submit_clarification") return use("submit_clarification", { clarifying_question: "Did you mean X or Y?" });
+      return { text, content: [{ type: "text", text }], model: "stub-model", stopReason: "end_turn", usage };
     },
   };
 }
@@ -57,8 +68,8 @@ test("buildRagPrompt: numbered docs with their metadata, then the question", () 
   const prompt = buildRagPrompt("How fast is it?", chunks);
   const lines = prompt.split("\n");
   assert.equal(lines[0], "<documents>");
-  assert.match(prompt, /<doc n="1" source="kb\/a.html" section="Intro" title="Alpha">\n/);
-  assert.match(prompt, /<doc n="2" source="kb\/b.html" section="Perf › iOS" title="Beta">\nIt is 3.6 times faster.\n<\/doc>/);
+  assert.match(prompt, /<doc n="1" chunk_id="a:structural:0" source="kb\/a.html" section="Intro" title="Alpha">\n/);
+  assert.match(prompt, /<doc n="2" chunk_id="b:structural:3" source="kb\/b.html" section="Perf › iOS" title="Beta">\nIt is 3.6 times faster.\n<\/doc>/);
   assert.ok(prompt.indexOf('n="1"') < prompt.indexOf('n="2"'));
   assert.ok(prompt.endsWith("</documents>\n\nQuestion: How fast is it?"));
   assert.equal(buildRagPrompt("How fast is it?", chunks), prompt, "pure: same input, same string");
@@ -111,7 +122,10 @@ test("answerQuestion rag: searches the question alone, sends the chunks in the l
   assert.deepEqual(call.messages.slice(0, 2), history);
   assert.equal(call.messages.at(-1).content, buildRagPrompt("How fast?", out.chunks));
   assert.equal(call.temperature, 0);
-  assert.equal(call.maxTokens, RAG_MAX_TOKENS, "same ceiling as plain");
+  assert.equal(call.maxTokens, RAG_CONTRACT_MAX_TOKENS, "room for the quotes and chunk_ids");
+  assert.deepEqual(call.toolChoice, { name: "submit_answer" });
+  assert.equal(out.answer, "ok [c1]");
+  assert.deepEqual(out.sources.map((s) => s.chunk_id), ["a:structural:0"]);
   assert.equal(out.mode, "rag");
   assert.equal(out.usage.inputTokens, 100);
   assert.ok(out.timings.retrieveMs >= 0 && out.timings.llmMs >= 0);
@@ -121,8 +135,9 @@ test("answerQuestion rag: minScore drops low chunks and the rest are renumbered;
   const lines = [];
   const out = await answerQuestion("q", { mode: "rag", provider: recordingProvider(), search: fakeSearch(), kFinal: 3, minScore: 0.5, log: (l) => lines.push(l) });
   assert.deepEqual(out.chunks.map((c) => [c.n, c.source]), [[1, "kb/a.html"], [2, "kb/b.html"]]);
-  assert.equal(lines.length, 1);
+  assert.equal(lines.length, 2, "the scores, then the contract's outcome");
   assert.match(lines[0], /0\.710 0\.550 0\.310 · minScore 0\.5 kept 2/);
+  assert.match(lines[1], /contract answered · 1 citation/);
 });
 
 test("answerQuestion with the FakeProvider: the reply shows whether documents were included", async () => {
@@ -133,8 +148,12 @@ test("answerQuestion with the FakeProvider: the reply shows whether documents we
   assert.match(rag.answer, /\[2\] kb\/b\.html › Perf › iOS/);
   const plain = await answerQuestion("How fast?", { mode: "plain", provider, search: fakeSearch(), log: quiet });
   assert.match(plain.answer, /without RAG\) No documents were included/);
+  assert.equal(rag.status, "answered");
+  assert.equal(rag.verification.firstAttemptValid, true, "the fake's quotes are verbatim");
+  assert.deepEqual(rag.citations.map((c) => c.chunk_id), ["a:structural:0", "b:structural:3"]);
   const none = await answerQuestion("How fast?", { mode: "rag", provider, search: fakeSearch([]), log: quiet });
-  assert.match(none.answer, /do not cover it/);
+  assert.match(none.answer, /^I don't know\./);
+  assert.equal(none.dontKnow.reason, "model");
 });
 
 test("answerQuestion: an unknown mode is refused", async () => {
@@ -150,7 +169,7 @@ const POOL = Array.from({ length: 8 }, (_, i) => ({
   section: `S${i}`,
   title: `T${i}`,
   chunk_id: `c${i}`,
-  text: `text ${i}`,
+  text: `This is text ${i} here.`,
 }));
 
 /** A fake cross-encoder: a fixed 0–1 score per chunk text; records each call. */
@@ -158,7 +177,7 @@ function fakeRerank(byText) {
   const calls = [];
   const score = async (query, passages) => {
     calls.push({ query, passages });
-    return passages.map((p) => byText[p] ?? 0);
+    return passages.map((p) => byText[/text \d+/.exec(p)?.[0]] ?? 0);
   };
   return Object.assign(score, { calls });
 }
@@ -196,19 +215,33 @@ test("rerank: re-sorts the candidates, applies the cutoff, keeps at most kFinal"
   assert.deepEqual(strict.chunks.map((c) => c.chunk_id), ["c6"]);
 });
 
-test("rerank: nothing passes the cutoff → declined, the model is not called, the best rejected chunks come back", async () => {
+test("low relevance: nothing passes the cutoff → the answering model is not called; one clarifying call; I don't know", async () => {
   const provider = recordingProvider();
   const rerankScores = fakeRerank({ "text 3": 0.04, "text 1": 0.03, "text 0": 0.02, "text 2": 0.01 });
   const out = await answerQuestion("Capital of France?", { mode: "rag", rerank: true, provider, search: fakeSearch(POOL), rerankScores, kFinal: 5, kRetrieve: 8, rerankThreshold: 0.1, log: quiet });
-  assert.equal(provider.calls.length, 0);
+  assert.equal(provider.calls.length, 1, "only the clarifying call");
+  const [call] = provider.calls;
+  assert.deepEqual(call.toolChoice, { name: "submit_clarification" });
+  assert.ok(!call.tools.some((t) => t.name === "submit_answer"), "the answering tool is never offered");
+  assert.equal(call.temperature, 0);
+  const sent = call.messages[0].content;
+  assert.ok(sent.startsWith("Question: Capital of France?"));
+  assert.ok(["T3 · section: S3", "T1 · section: S1", "T0 · section: S0"].every((x) => sent.includes(x)), "the top 3 rejected: title and section");
+  assert.ok(sent.includes("This is text 3 here.") && !sent.includes("text 2 here"), "their text, only the top 3");
   assert.equal(out.declined, true);
-  assert.equal(out.answer, DECLINE_ANSWER);
+  assert.equal(out.status, "dont_know");
+  assert.deepEqual(out.dontKnow, { reason: "low_relevance" });
+  assert.equal(out.clarifyingQuestion, "Did you mean X or Y?");
+  assert.equal(out.answer, "I don't know. Did you mean X or Y?");
+  assert.deepEqual(out.citations, []);
+  assert.deepEqual(out.sources, []);
   assert.deepEqual(out.chunks, []);
   assert.equal(out.rejected.length, REJECTED_SHOWN);
   assert.deepEqual(out.rejected.map((c) => [c.chunk_id, c.rerankScore]), [["c3", 0.04], ["c1", 0.03], ["c0", 0.02]]);
   assert.ok(out.rejected.every((c) => c.text), "rejected chunks carry their text for display");
   assert.ok(out.candidates.every((c) => !c.kept));
-  assert.deepEqual(out.usage, { inputTokens: 0, outputTokens: 0 });
+  assert.deepEqual(out.usage, { inputTokens: 100, outputTokens: 10 }, "the clarifying call is counted");
+  assert.deepEqual(out.usageByStage.llm, null);
   assert.equal(out.timings.llmMs, 0);
 });
 
@@ -277,7 +310,7 @@ test("rewrite + rerank: the reranker scores against the original question", asyn
   });
   assert.equal(rerankScores.calls.length, 1);
   assert.equal(rerankScores.calls[0].query, "the original?");
-  assert.deepEqual(rerankScores.calls[0].passages, ["text 0", "text 1", "text 2"], "each chunk scored once though both queries found it");
+  assert.deepEqual(rerankScores.calls[0].passages, POOL.slice(0, 3).map((h) => h.text), "each chunk scored once though both queries found it");
   assert.equal(out.label, "rag+rewrite+rerank");
   assert.deepEqual(out.chunks.map((c) => c.chunk_id), ["c0", "c1"]);
 });
@@ -383,21 +416,29 @@ test("ragSettings: defaults and validation", () => {
 
 // ---- the question file ------------------------------------------------------------
 
-test("questions.json: 16 entries — Day 22's 10 unchanged, plus 2 near_miss / 1 off_topic / 1 paraphrased / 1 messy / 1 multi_part", () => {
+test("questions.json: 17 entries — Day 22's 10 unchanged, Day 23's 6, Day 24's ambiguous one; 10 tagged citations", () => {
   const questions = JSON.parse(fs.readFileSync(RAG_QUESTIONS_PATH, "utf8"));
   assert.deepEqual(validateQuestions(questions), []);
-  assert.equal(questions.length, 16);
+  assert.equal(questions.length, 17);
   const count = (type) => questions.filter((q) => q.type === type).length;
   assert.deepEqual(
-    ["corpus", "general", "unanswerable", "near_miss", "off_topic", "paraphrased", "messy", "multi_part"].map(count),
-    [7, 2, 1, 2, 1, 1, 1, 1],
+    ["corpus", "general", "unanswerable", "near_miss", "off_topic", "paraphrased", "messy", "multi_part", "ambiguous"].map(count),
+    [7, 2, 1, 2, 1, 1, 1, 1, 1],
   );
+  const set = questions.filter((q) => q.sets?.includes("citations"));
+  assert.equal(set.length, 10);
+  assert.deepEqual(set.filter((q) => q.expect_decline).map((q) => q.type).sort(), ["ambiguous", "off_topic", "unanswerable"]);
+  const answerable = set.filter((q) => !q.expect_decline);
+  assert.equal(answerable.length, 7);
+  for (const type of ["corpus", "near_miss", "multi_part", "paraphrased", "messy"]) assert.ok(answerable.some((q) => q.type === type), type);
+  assert.ok(new Set(answerable.flatMap((q) => q.expected_sources)).size >= 6, "spread across documents");
+  assert.equal(questions.find((q) => q.type === "ambiguous").expect_decline, true);
   assert.deepEqual(questions.slice(0, 10).map((q) => q.id), ["q01", "q02", "q03", "q04", "q05", "q06", "q07", "q08", "q09", "q10"], "the regression set comes first");
   for (const q of questions) {
     for (const field of ["id", "type", "question", "expected_facts", "expected_sources", "notes"]) assert.ok(field in q, `${q.id}: ${field}`);
-    assert.equal(q.expect_decline === true, DECLINE_TYPES.includes(q.type), `${q.id}: expect_decline only on unanswerable / off_topic`);
+    assert.equal(q.expect_decline === true, DECLINE_TYPES.includes(q.type), `${q.id}: expect_decline only on unanswerable / off_topic / ambiguous`);
   }
-  assert.deepEqual(questions.filter((q) => q.expect_decline).map((q) => q.type).sort(), ["off_topic", "unanswerable"]);
+  assert.deepEqual(questions.filter((q) => q.expect_decline).map((q) => q.type).sort(), ["ambiguous", "off_topic", "unanswerable"]);
   // The corpus questions are spread over different files; the multi-part one needs two.
   assert.equal(new Set(questions.filter((q) => q.type === "corpus").map((q) => q.expected_sources[0])).size, 7);
   assert.equal(new Set(questions.find((q) => q.type === "multi_part").expected_sources).size, 2);
@@ -406,7 +447,11 @@ test("questions.json: 16 entries — Day 22's 10 unchanged, plus 2 near_miss / 1
 test("validateQuestions / verifyAgainstIndex fail loudly", () => {
   const good = { id: "x", type: "corpus", question: "q", expected_facts: ["a 1", "b 2"], evidence: ["one", "two"], expected_sources: ["s.html"], notes: "n" };
   const errors = validateQuestions([good, { ...good, id: "x", type: "unanswerable" }]);
-  assert.ok(errors.some((e) => /exactly 16/.test(e)));
+  assert.ok(errors.some((e) => /exactly 17/.test(e)));
+  assert.ok(errors.some((e) => /set "citations": expected 10 questions, got 0/.test(e)));
+  assert.ok(errors.some((e) => /expected 1 ambiguous/.test(e)));
+  assert.ok(validateQuestions([{ ...good, sets: ["nope"] }]).some((e) => /x: sets must be an array of citations/.test(e)));
+  assert.ok(validateQuestions([{ ...good, type: "ambiguous", expected_sources: [] }]).some((e) => /x: an ambiguous question needs expect_decline/.test(e)));
   assert.ok(errors.some((e) => /duplicate id/.test(e)));
   assert.ok(errors.some((e) => /unanswerable question has no expected sources/.test(e)));
   assert.ok(errors.some((e) => /unanswerable question needs expect_decline/.test(e)));
@@ -414,7 +459,7 @@ test("validateQuestions / verifyAgainstIndex fail loudly", () => {
   assert.ok(errors.some((e) => /expected 2 near_miss/.test(e)));
   assert.ok(validateQuestions([{ ...good, expected_facts: ["only one"] }]).some((e) => /2–4/.test(e)));
   assert.ok(validateQuestions([{ ...good, type: "multi_part" }]).some((e) => /two different documents/.test(e)));
-  assert.ok(validateQuestions([{ ...good, expect_decline: true }]).some((e) => /only unanswerable \/ off_topic/.test(e)));
+  assert.ok(validateQuestions([{ ...good, expect_decline: true }]).some((e) => /only unanswerable \/ off_topic \/ ambiguous/.test(e)));
   assert.ok(validateQuestions([{ ...good, type: "off_topic", expected_sources: [], expect_decline: true }]).every((e) => !e.startsWith("x:")));
 
   const docs = new Map([["s.html", "It has ONE\n  thing, and nothing else."]]);

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * **RAG modes compared, on 16 questions.** Real model, real index, real reranker.
+ * **RAG modes compared, on 17 questions.** Real model, real index, real reranker.
  *
  * Checks `eval/rag/questions.json` against the doc_index index (every expected
  * source exists, every fact's evidence quote is in its source) and rewrites
@@ -13,7 +13,7 @@
  * Modes (default: all four): `plain` (no documents), `rag` (Day 22 baseline),
  * `rag+rerank` (cross-encoder + cutoff), `rag+rewrite+rerank` (everything).
  *
- *   npm run eval:rag                              # 16 questions × 4 modes, plus one judge call each
+ *   npm run eval:rag                              # 17 questions × 4 modes, plus one judge call each
  *   npm run eval:rag -- q03 q12                   # some questions (the report then holds only them)
  *   npm run eval:rag -- --modes rag,rag+rerank    # some modes
  *   npm run eval:rag -- --check                   # only validate the questions and write questions.md
@@ -103,7 +103,7 @@ for (const q of selected) {
     const run = { ...result, grade };
     if (run.mode === "rag") {
       run.retrieval = retrievalStats(run, q.expected_sources);
-      run.citations = citationCheck(run.answer, run.chunks, q.expected_sources);
+      run.citationCheck = citationCheck(run.answer, run.chunks, q.expected_sources, run.citations);
     }
     run.outcome = outcome(q, run);
     row.runs[mode] = run;

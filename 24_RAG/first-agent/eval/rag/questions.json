@@ -37,7 +37,10 @@
     "expected_sources": [
       "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html"
     ],
-    "notes": "The stable version may be known to a strong model; the ~9 MB size cost and the 96% survey figure are specific to the post. A different size figure is a hallucination."
+    "notes": "The stable version may be known to a strong model; the ~9 MB size cost and the 96% survey figure are specific to the post. A different size figure is a hallucination.",
+    "sets": [
+      "citations"
+    ]
   },
   {
     "id": "q03",
@@ -79,7 +82,10 @@
     "expected_sources": [
       "knowledge_database/Compose Multiplatform 1.12.0 Released - The JetBrains Blog.html"
     ],
-    "notes": "Compose Multiplatform 1.12.0 feature. Phrased without 'MCP' so retrieval has to match on meaning. A plain answer will likely describe Hot Reload in general or say it does not know of such a feature."
+    "notes": "Compose Multiplatform 1.12.0 feature. Phrased without 'MCP' so retrieval has to match on meaning. A plain answer will likely describe Hot Reload in general or say it does not know of such a feature.",
+    "sets": [
+      "citations"
+    ]
   },
   {
     "id": "q05",
@@ -121,7 +127,10 @@
     "expected_sources": [
       "knowledge_database/Kotlin 2.2.0_ Game-Changing Features That Will Transform Your Development Workflow _ by praveen sharma _ Medium.html"
     ],
-    "notes": "Exact flag and property names. A strong model may know the two -X flags; the Latin-1 property and the 50% figure come from the article. A made-up property name is a hallucination."
+    "notes": "Exact flag and property names. A strong model may know the two -X flags; the Latin-1 property and the 50% figure come from the article. A made-up property name is a hallucination.",
+    "sets": [
+      "citations"
+    ]
   },
   {
     "id": "q07",
@@ -187,7 +196,10 @@
     ],
     "expected_sources": [],
     "notes": "The corpus has release posts for 1.7.0, 1.8.0, 1.10.0 and 1.12.0 but not 1.9.0, so retrieval will bring neighbouring releases. RAG should say the documents do not cover it instead of borrowing 1.8 or 1.10 features. Plain mode will probably answer from memory; record that.",
-    "expect_decline": true
+    "expect_decline": true,
+    "sets": [
+      "citations"
+    ]
   },
   {
     "id": "q11",
@@ -225,7 +237,10 @@
     "expected_sources": [
       "knowledge_database/What’s Next for Kotlin Multiplatform and Compose Multiplatform – August 2025 Update - The JetBrains Blog.html"
     ],
-    "notes": "Near miss: 'production-ready' is all over the 1.8.0 post (about iOS), and its web section says web is only 'one step closer' to production-ready. The specific answer (a Beta with most essential APIs) is one section of the August 2025 roadmap. Baseline vector search ranked that chunk 2nd, behind the 1.8.0 web section."
+    "notes": "Near miss: 'production-ready' is all over the 1.8.0 post (about iOS), and its web section says web is only 'one step closer' to production-ready. The specific answer (a Beta with most essential APIs) is one section of the August 2025 roadmap. Baseline vector search ranked that chunk 2nd, behind the 1.8.0 web section.",
+    "sets": [
+      "citations"
+    ]
   },
   {
     "id": "q13",
@@ -237,7 +252,10 @@
     ],
     "expected_sources": [],
     "expect_decline": true,
-    "notes": "Nothing in the corpus is about cooking; the best vector match scores about 0.19 (scheduler source code). With RAG the right answer is a decline; with rerank on, the cutoff should drop every candidate and decline without calling the model. Plain mode will answer from general knowledge, which counts as not declining."
+    "notes": "Nothing in the corpus is about cooking; the best vector match scores about 0.19 (scheduler source code). With RAG the right answer is a decline; with rerank on, the cutoff should drop every candidate and decline without calling the model. Plain mode will answer from general knowledge, which counts as not declining.",
+    "sets": [
+      "citations"
+    ]
   },
   {
     "id": "q14",
@@ -256,7 +274,10 @@
     "expected_sources": [
       "knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html"
     ],
-    "notes": "Paraphrased: none of 'Compose', 'drag', 'drop', 'desktop' or 'modifier' appears in the question. Baseline vector search still found the 1.7.0 post (its intro chunk 1st, the drag-and-drop section 2nd)."
+    "notes": "Paraphrased: none of 'Compose', 'drag', 'drop', 'desktop' or 'modifier' appears in the question. Baseline vector search still found the 1.7.0 post (its intro chunk 1st, the drag-and-drop section 2nd).",
+    "sets": [
+      "citations"
+    ]
   },
   {
     "id": "q15",
@@ -273,7 +294,10 @@
     "expected_sources": [
       "knowledge_database/Kotlin 2.4_ 10 New Features Android Developers Should Know _ Medium.html"
     ],
-    "notes": "Messy: a two-line question wrapped in backstory and filler. Rewriting should reduce it to one or two short queries; the answer is one short section of the Kotlin 2.4 features article."
+    "notes": "Messy: a two-line question wrapped in backstory and filler. Rewriting should reduce it to one or two short queries; the answer is one short section of the Kotlin 2.4 features article.",
+    "sets": [
+      "citations"
+    ]
   },
   {
     "id": "q16",
@@ -295,6 +319,24 @@
       "knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html",
       "knowledge_database/Compose Multiplatform 1.10.0_ Unified @Preview, Navigation 3, and Stable Compose Hot Reload - The JetBrains Blog.html"
     ],
-    "notes": "Multi-part: two facts from the 1.7.0 post and two from the 1.10.0 post. A single query can find both, but both have to reach the final chunks; rewriting should split it into one query per release."
+    "notes": "Multi-part: two facts from the 1.7.0 post and two from the 1.10.0 post. A single query can find both, but both have to reach the final chunks; rewriting should split it into one query per release.",
+    "sets": [
+      "citations"
+    ]
+  },
+  {
+    "id": "q17",
+    "type": "ambiguous",
+    "question": "How does it work?",
+    "expected_facts": [
+      "Says it cannot tell what \"it\" refers to, or that the documents do not answer this as asked",
+      "Asks a clarifying question instead of describing some feature as the answer"
+    ],
+    "expected_sources": [],
+    "expect_decline": true,
+    "sets": [
+      "citations"
+    ],
+    "notes": "Added on Day 24 for the \"I don't know\" mode. \"It\" has no referent and there is no earlier message, so any chunk retrieved is a guess. The right reply is \"I don't know\" plus a clarifying question (ideally offering topics the documents cover), not an explanation of whichever feature ranked first."
   }
 ]

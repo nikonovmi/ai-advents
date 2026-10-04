@@ -16,7 +16,8 @@
     "mcp:tools": "node scripts/mcp-tools.js",
     "mcp:call": "node scripts/mcp-call.js",
     "eval:planner": "node scripts/eval-planner.js",
-    "eval:rag": "node scripts/eval-rag.js"
+    "eval:rag": "node scripts/eval-rag.js",
+    "eval:citations": "node scripts/eval-citations.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.1",

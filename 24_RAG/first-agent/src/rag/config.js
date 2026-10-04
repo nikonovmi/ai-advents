@@ -20,6 +20,12 @@ export const RAG_QUESTIONS_PATH = path.join(PROJECT_DIR, "eval", "rag", "questio
 export const STRATEGIES = ["structural", "fixed"];
 /** Both modes answer with this ceiling, so a long answer is not a mode's advantage. */
 export const RAG_MAX_TOKENS = 1024;
+/**
+ * The `submit_answer` call's ceiling. Its output is the answer plus a chunk_id
+ * and a one-to-two-sentence quote per citation, so the same answer text takes
+ * about twice the tokens of a Day 22 free-text reply.
+ */
+export const RAG_CONTRACT_MAX_TOKENS = 2048;
 
 export function docIndexDir(env = process.env) {
   return path.resolve(PROJECT_DIR, env.DOC_INDEX_DIR || path.join("..", "doc_index"));

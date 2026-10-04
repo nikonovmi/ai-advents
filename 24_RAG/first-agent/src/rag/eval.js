@@ -8,11 +8,18 @@
  * `modeLabel` in `answer.js`).
  */
 
-/** Day 22's 10 (the regression set) and Day 23's 6. */
-export const QUESTION_TYPES = { corpus: 7, general: 2, unanswerable: 1, near_miss: 2, off_topic: 1, paraphrased: 1, messy: 1, multi_part: 1 };
+/** Day 22's 10 (the regression set), Day 23's 6 and Day 24's one ambiguous question. */
+export const QUESTION_TYPES = { corpus: 7, general: 2, unanswerable: 1, near_miss: 2, off_topic: 1, paraphrased: 1, messy: 1, multi_part: 1, ambiguous: 1 };
 export const QUESTION_COUNT = Object.values(QUESTION_TYPES).reduce((a, b) => a + b, 0);
 /** The types whose right answer is "the documents don't cover it": they carry `expect_decline: true`. */
-export const DECLINE_TYPES = ["unanswerable", "off_topic"];
+export const DECLINE_TYPES = ["unanswerable", "off_topic", "ambiguous"];
+/**
+ * Named subsets a question can be tagged with (`"sets": ["citations"]`), and
+ * how many of which kind each must hold. `citations` is Day 24's 10: 7 to be
+ * answered (corpus, near_miss, multi_part, paraphrased and messy among them)
+ * and 3 to be declined.
+ */
+export const QUESTION_SETS = { citations: { size: 10, answerable: 7, decline: 3, mustInclude: ["corpus", "near_miss", "multi_part", "paraphrased", "messy", "unanswerable", "off_topic", "ambiguous"] } };
 /** The types that must name at least one expected source (multi_part: two). */
 const SOURCED_TYPES = ["corpus", "near_miss", "paraphrased", "messy", "multi_part"];
 export const DEFAULT_MODES = ["plain", "rag", "rag+rerank", "rag+rewrite+rerank"];
@@ -53,6 +60,18 @@ export function validateQuestions(questions) {
     }
     if (DECLINE_TYPES.includes(q?.type) && q.expect_decline !== true) errors.push(`${at}: an ${q.type} question needs expect_decline: true`);
     if (!DECLINE_TYPES.includes(q?.type) && q?.expect_decline !== undefined) errors.push(`${at}: only ${DECLINE_TYPES.join(" / ")} questions carry expect_decline`);
+    if (q?.sets !== undefined && (!Array.isArray(q.sets) || !q.sets.every((name) => name in QUESTION_SETS))) {
+      errors.push(`${at}: sets must be an array of ${Object.keys(QUESTION_SETS).join(", ")}`);
+    }
+  }
+  for (const [name, rule] of Object.entries(QUESTION_SETS)) {
+    const members = questions.filter((q) => Array.isArray(q?.sets) && q.sets.includes(name));
+    if (members.length !== rule.size) errors.push(`set "${name}": expected ${rule.size} questions, got ${members.length}`);
+    const decline = members.filter((q) => q.expect_decline).length;
+    if (decline !== rule.decline || members.length - decline !== rule.answerable) {
+      errors.push(`set "${name}": expected ${rule.answerable} to answer and ${rule.decline} to decline, got ${members.length - decline} and ${decline}`);
+    }
+    for (const type of rule.mustInclude) if (!members.some((q) => q.type === type)) errors.push(`set "${name}": needs a ${type} question`);
   }
   for (const [type, want] of Object.entries(QUESTION_TYPES)) {
     const got = questions.filter((q) => q?.type === type).length;
@@ -130,18 +149,29 @@ export function citedNumbers(answer) {
 
 /**
  * Every `[n]` refers to a retrieved chunk, and at least one cited chunk comes
- * from an expected source (null when the question expects none).
+ * from an expected source (null when the question expects none). With the
+ * Day 24 contract's `citations`, `[cN]` markers are resolved through them to
+ * the chunk numbers they quote.
  */
-export function citationCheck(answer, chunks, expectedSources) {
-  const cited = citedNumbers(answer);
+export function citationCheck(answer, chunks, expectedSources, citations) {
+  let cited = citedNumbers(answer);
+  if (Array.isArray(citations)) {
+    const nOf = new Map(chunks.map((chunk) => [chunk.chunk_id, chunk.n]));
+    const byId = new Map(citations.map((c) => [c.id, c]));
+    cited = [];
+    for (const [, id] of String(answer ?? "").matchAll(/\[(c\d+)\]/gi)) {
+      const n = nOf.get(byId.get(id.toLowerCase())?.chunk_id) ?? -1;
+      if (!cited.includes(n)) cited.push(n);
+    }
+  }
   const byN = new Map(chunks.map((chunk) => [chunk.n, chunk]));
   const invalid = cited.filter((n) => !byN.has(n));
   const citesExpected = expectedSources?.length ? cited.some((n) => expectedSources.includes(byN.get(n)?.source)) : null;
   return { cited, invalid, valid: invalid.length === 0, citesExpected };
 }
 
-/** The pipeline declined (nothing passed the cutoff), or the judge read the answer as a decline. */
-export const isDeclined = (run) => Boolean(run.declined || run.grade?.declined);
+/** The pipeline declined (nothing passed the cutoff), the contract said dont_know, or the judge read the answer as a decline. */
+export const isDeclined = (run) => Boolean(run.declined || run.status === "dont_know" || run.grade?.declined);
 
 /** Whether a run counts as a pass for its question. */
 export function passed(question, run) {
@@ -165,7 +195,7 @@ export function outcome(question, run) {
   if (question.expect_decline) return "not declined";
   if (run.declined) return "wrong decline (cutoff)";
   if (run.mode !== "rag") return "fail";
-  if (run.grade.declined) return "wrong decline (model)";
+  if (isDeclined(run)) return "wrong decline (model)";
   if (!question.expected_sources?.length) return "not in corpus";
   return run.retrieval?.hit ? "generation miss" : "retrieval miss";
 }
@@ -215,8 +245,8 @@ export function summarize(rows, modes) {
             meanRankBefore: mean(withSources.map((row) => row.runs[mode]?.retrieval.rankBefore)),
             meanNoise: mean(withSources.map((row) => row.runs[mode]?.retrieval.noise)),
             meanChunks: mean(runs.map((run) => run.chunks.length)),
-            citationsValid: runs.filter((run) => run.citations.valid).length,
-            citesExpected: withSources.filter((row) => row.runs[mode]?.citations.citesExpected).length,
+            citationsValid: runs.filter((run) => citationsOf(run).valid).length,
+            citesExpected: withSources.filter((row) => row.runs[mode] && citationsOf(row.runs[mode]).citesExpected).length,
           }
         : {}),
       outcomes: countBy(runs.map((run) => run.outcome)),
@@ -224,6 +254,9 @@ export function summarize(rows, modes) {
   }
   return { count: rows.length, answerable: answerable.length, modes, byMode };
 }
+
+/** The `[n]` / `[cN]` check of a run: `citationCheck` since Day 24, `citations` before (old results files). */
+export const citationsOf = (run) => run.citationCheck ?? run.citations;
 
 const countBy = (xs) => xs.reduce((acc, x) => ((acc[x] = (acc[x] ?? 0) + 1), acc), {});
 
@@ -245,19 +278,20 @@ export function rankMove(retrieval) {
 
 /** `questions.md`: the question file as a table. */
 export function renderQuestionsMd(questions) {
-  const expect = (q) => (q.expect_decline ? "Says the documents don't cover it; nothing invented." : q.expected_facts.join("; "));
+  const expect = (q) => (q.expect_decline ? (q.type === "ambiguous" ? "I don't know + a clarifying question; nothing invented." : "Says the documents don't cover it; nothing invented.") : q.expected_facts.join("; "));
   return [
     "# RAG eval questions",
     "",
     "Generated from [`questions.json`](questions.json) by `npm run eval:rag -- --check`. Every",
     "expected source exists in the doc_index index, and every expected fact has an `evidence` quote",
     "found verbatim in that source. q01–q10 are Day 22's regression set, unchanged; q11–q16 were",
-    "added on Day 23 for reranking and query rewriting.",
+    "added on Day 23 for reranking and query rewriting; q17 (ambiguous) on Day 24. The 10 tagged",
+    "`citations` are the `npm run eval:citations` set.",
     "",
     "| id | type | question | expected outcome | sources |",
     "| --- | --- | --- | --- | --- |",
     ...questions.map(
-      (q) => `| ${q.id} | ${q.type}${q.expect_decline ? " (decline)" : ""} | ${cell(q.question)} | ${cell(expect(q))} | ${cell(q.expected_sources.map(shortSource).join("; ") || "—")} |`,
+      (q) => `| ${q.id}${q.sets?.includes("citations") ? " ᶜ" : ""} | ${q.type}${q.expect_decline ? " (decline)" : ""} | ${cell(q.question)} | ${cell(expect(q))} | ${cell(q.expected_sources.map(shortSource).join("; ") || "—")} |`,
     ),
     "",
     "## Notes",
@@ -336,7 +370,8 @@ export function renderReport({ generatedAt, settings, summary, rows, notes, exam
       const line = [`${run.usage?.inputTokens ?? "?"} in · ${run.usage?.outputTokens ?? "?"} out · ${ms(Object.values(run.timings).reduce((a, b) => a + (b ?? 0), 0))}`];
       if (run.mode === "rag") {
         line.push(`rank ${rankMove(run.retrieval)}`);
-        line.push(`cited ${run.citations.cited.map((n) => `[${n}]`).join("") || "nothing"}${run.citations.valid ? "" : ` · invalid ${run.citations.invalid.join(", ")}`}`);
+        const cc = citationsOf(run);
+        line.push(`cited ${cc.cited.map((n) => `[${n}]`).join("") || "nothing"}${cc.valid ? "" : ` · invalid ${cc.invalid.join(", ")}`}`);
       }
       line.push(run.outcome);
       out.push(

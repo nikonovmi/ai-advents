@@ -311,6 +311,13 @@ export class FakeProvider extends LlmProvider {
         const step = typeof next === "function" ? next({ system, messages, tools }) : next;
         return this.#scripted(step, { system, messages });
       }
+      // The Knowledge agent's forced calls, answered offline in their own shape.
+      const forced = tools.find((tool) => tool.name === toolChoice?.name)?.name;
+      const lastUser = plainText([...messages].reverse().find((m) => m.role === "user")?.content);
+      if (forced === "submit_answer") return this.#scripted({ toolUse: [{ name: forced, input: fakeContractAnswer(lastUser) }] }, { system, messages });
+      if (forced === "submit_clarification") {
+        return this.#scripted({ toolUse: [{ name: forced, input: { clarifying_question: "(fake) Which Kotlin or Compose Multiplatform topic do you mean?" } }] }, { system, messages });
+      }
     }
 
     const lastUser = [...messages].reverse().find((m) => m.role === "user");
@@ -412,6 +419,32 @@ function fakeRagAnswer(prompt) {
     ...docs.map(([, n, source, section]) => `- [${n}] ${source}${section ? " › " + section : ""}`),
     `The first one is the closest match [${docs[0][1]}].`,
   ].join("\n");
+}
+
+/**
+ * `submit_answer` offline: the documents read back with a citation each, the
+ * quote being the first sentence of each document, copied, so the answer
+ * verifies. No documents → `dont_know`.
+ */
+function fakeContractAnswer(prompt) {
+  const docs = [...prompt.matchAll(/<doc n="(\d+)" chunk_id="([^"]*)" source="([^"]*)" section="([^"]*)"[^>]*>\n([\s\S]*?)\n<\/doc>/g)];
+  const question = /\nQuestion: ([\s\S]*)$/.exec(prompt)?.[1]?.trim() ?? "";
+  if (!docs.length) return { status: "dont_know", answer: "", citations: [], clarifying_question: `(fake) No documents were retrieved for "${question}". Which topic do you mean?` };
+  const unescape = (v) => v.replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&amp;/g, "&");
+  const citations = docs.map(([, , chunkId, , , text], i) => {
+    const flat = text.replace(/\s+/g, " ").trim();
+    const sentence = /^.*?[.!?](?=\s|$)/.exec(flat)?.[0] ?? flat;
+    return { id: `c${i + 1}`, chunk_id: unescape(chunkId), quote: sentence.split(" ").slice(0, 40).join(" ") };
+  });
+  return {
+    status: "answered",
+    answer: [
+      `(fake reply, with RAG) I was given ${docs.length} document${docs.length === 1 ? "" : "s"} for "${question}":`,
+      ...docs.map(([, n, , source, section], i) => `- [${n}] ${unescape(source)}${section ? " › " + unescape(section) : ""} [c${i + 1}]`),
+    ].join("\n"),
+    citations,
+    clarifying_question: "",
+  };
 }
 
 function fakeKnowledgePlain(question) {

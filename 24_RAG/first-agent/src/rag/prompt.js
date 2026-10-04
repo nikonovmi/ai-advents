@@ -1,10 +1,10 @@
 /**
  * **What the Knowledge agent sends, in both modes.**
  *
- * The two modes differ in exactly one way: RAG adds document rules to the
- * system prompt and the retrieved chunks to the latest user message. Model,
- * max tokens and temperature are the same, so the documents are the only
- * variable a comparison measures.
+ * RAG adds document rules to the system prompt and the retrieved chunks to the
+ * latest user message, and (Day 24) answers through the forced `submit_answer`
+ * tool of `contract.js` instead of free text. Model and temperature are the
+ * same in both modes.
  *
  * The chunks go in the user message, not the system prompt: they are the
  * material for this one question, and the next question gets its own.
@@ -18,24 +18,21 @@ export const BASE_SYSTEM = [
 ].join(" ");
 
 export const RAG_RULES = [
-  "The user's message contains numbered documents inside <documents>, followed by the question.",
-  "Rules for using them:",
-  "- Answer only from these documents. Do not add facts from general knowledge.",
-  "- Cite the document after each claim it supports, as [n] with the document's number, e.g. [2] or [1][3].",
-  "- If the documents do not contain the answer, say plainly that the provided documents do not cover it, and stop there.",
-  "- If they cover only part of the question, answer that part with citations and name what is missing.",
+  "The user's message contains documents inside <documents>, each with a chunk_id, followed by the question.",
+  "Answer by calling submit_answer exactly once. Rules:",
+  "- Use only these documents. Do not add facts from general knowledge.",
+  "- Put a citation marker like [c1] at the end of every sentence that makes a factual claim, just before its final punctuation:",
+  "  'It adds about 9 MB to an iOS app [c2].' or, for two sources, '… [c1][c2].' Never put a marker at the start of a sentence,",
+  "  after a heading, label or colon, or around a phrase: the marker belongs to the sentence it ends.",
+  "- Each marker has one entry in citations: its id, the chunk_id of the document (copied exactly), and a quote copied verbatim from that document —",
+  "  one or two whole sentences, 4–60 words, the part that actually supports the claim. Do not reword, shorten, join or add '...' to a quote.",
+  "- Every citation is used in the answer.",
+  "- If the documents cover only part of the question, answer that part with citations and say what is missing.",
+  "- If the documents do not contain the answer, set status to dont_know, leave answer and citations empty, and write a short clarifying_question",
+  "  (it may name what the documents do cover nearby). Do not stretch loosely related text to fit the question.",
 ].join("\n");
 
 export const RAG_SYSTEM = `${BASE_SYSTEM}\n\n${RAG_RULES}`;
-
-/**
- * The reply when reranking leaves nothing above the cutoff. Fixed, and no
- * model is called: there is nothing to answer from, and the model would only
- * be tempted to answer from memory.
- */
-export const DECLINE_ANSWER =
-  "The provided documents do not cover this question: none of the retrieved passages was relevant enough to answer from, so no answer was generated. " +
-  "The closest passages are listed below.";
 
 /** `"` and `<` / `&` would break an attribute; the chunk body is left verbatim. */
 const attr = (value) => String(value ?? "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
@@ -49,12 +46,12 @@ const attr = (value) => String(value ?? "").replace(/&/g, "&amp;").replace(/"/g,
  * the document early; it becomes `<\/doc>`.
  *
  * @param {string} question
- * @param {Array<{ n: number, source: string, section?: string, title?: string, text: string }>} chunks
+ * @param {Array<{ n: number, chunk_id?: string, source: string, section?: string, title?: string, text: string }>} chunks
  */
 export function buildRagPrompt(question, chunks) {
   const docs = chunks.map(
     (chunk) =>
-      `<doc n="${chunk.n}" source="${attr(chunk.source)}" section="${attr(chunk.section)}" title="${attr(chunk.title)}">\n` +
+      `<doc n="${chunk.n}" chunk_id="${attr(chunk.chunk_id)}" source="${attr(chunk.source)}" section="${attr(chunk.section)}" title="${attr(chunk.title)}">\n` +
       `${String(chunk.text ?? "").replace(/<\/(doc|documents)>/g, "<\\/$1>").trim()}\n` +
       "</doc>",
   );

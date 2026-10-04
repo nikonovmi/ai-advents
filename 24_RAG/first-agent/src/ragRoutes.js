@@ -7,6 +7,7 @@ import { agentOf, isKnowledgeAgent } from "./agents.js";
 import { estimateCost } from "./llm/pricing.js";
 import { answerQuestion } from "./rag/answer.js";
 import { RAG_MAX_TOKENS, REPORTS_DIR, ragSettings } from "./rag/config.js";
+import { citationSummaryRows } from "./rag/citationsEval.js";
 import { summaryRows } from "./rag/eval.js";
 import { sharedReranker } from "./rag/reranker.js";
 import { RetrievalError, sharedRetriever } from "./rag/retriever.js";
@@ -29,8 +30,8 @@ import { RAG_MODES, isValidSessionId, nextMessageId, normaliseUsage } from "./st
  *   - `PUT /conversations/:id/rag` `{ mode?, rerank?, rewrite? }` — the With RAG / Without RAG switch and the two RAG stages;
  *   - `POST /rag/compare` `{ question, rerank?, rewrite? }` — both modes side by side, stored nowhere;
  *   - `GET /rag/status` — the retrieval settings, and whether the models are loaded;
- *   - `GET /rag-report` — the eval page; `GET /rag-report/data` — its JSON, read
- *     from `reports/` on every request.
+ *   - `GET /rag-report` — the eval page; `GET /rag-report/data` — its JSON (the
+ *     Day 23 modes eval and the Day 24 citations eval), read from `reports/` on every request.
  */
 
 /** Short-term memory: the last few exchanges, verbatim. Nothing older, nothing folded. */
@@ -157,6 +158,16 @@ export function ragRoutes({
           chunks: result.chunks,
           declined: result.declined,
           rejected: result.rejected,
+          ...(mode === "rag"
+            ? {
+                status: result.status,
+                citations: result.citations,
+                sources: result.sources,
+                clarifyingQuestion: result.clarifyingQuestion,
+                dontKnow: result.dontKnow,
+                verification: result.verification,
+              }
+            : {}),
           timings: result.timings,
         },
       };
@@ -253,11 +264,18 @@ export function ragRoutes({
     "/rag-report/data",
     route(async (_req, res) => {
       const read = (name) => fs.readFile(path.join(reportsDir, name), "utf8").catch((err) => (err.code === "ENOENT" ? null : Promise.reject(err)));
-      const [results, notes] = await Promise.all([read("rag_results.json"), read("rag_notes.md")]);
+      const [results, notes, citationResults, citationNotes] = await Promise.all([
+        read("rag_results.json"),
+        read("rag_notes.md"),
+        read("citations_results.json"),
+        read("citations_notes.md"),
+      ]);
       const parsed = results ? JSON.parse(results) : null;
-      // The summary table's rows, built by the same code as the Markdown report's.
+      // The summary tables' rows, built by the same code as the Markdown reports'.
       if (parsed?.summary?.byMode) parsed.summaryRows = summaryRows(parsed.summary);
-      res.json({ results: parsed, notes });
+      const citations = citationResults ? JSON.parse(citationResults) : null;
+      if (citations?.summary) citations.summaryRows = citationSummaryRows(citations.summary);
+      res.json({ results: parsed, notes, citations, citationNotes });
     }),
   );
 

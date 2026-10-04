@@ -15,6 +15,8 @@
     --user-ink: #ffffff;
     --agent: #efefea;
     --accent: #b8552f;
+    --ok: #2f7d4f;
+    --warn: #a07818;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -27,6 +29,8 @@
       --user-ink: #16161a;
       --agent: #26262d;
       --accent: #e08b63;
+      --ok: #6fbf8e;
+      --warn: #d9b45a;
     }
   }
 
@@ -1554,6 +1558,53 @@
   .knowledge-panel dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; }
   .knowledge-panel a { color: var(--accent); }
 
+  /* Day 24: the answer contract. [cN] chips in the answer open the quote,
+     highlighted in its full chunk; Sources (derived from the citations) and
+     Citations sit under the answer with the verification badge. */
+  .rag-idk-note { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+  .rag-idk-note[hidden] { display: none; }
+  .cite-chip {
+    display: inline-block;
+    margin: 0 1px;
+    padding: 0 5px;
+    border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    color: var(--accent);
+    font: 600 10.5px/16px ui-monospace, SFMono-Regular, Menlo, monospace;
+    vertical-align: 1px;
+    cursor: pointer;
+  }
+  .cite-chip:hover, .cite-chip[aria-expanded="true"] { background: var(--accent); color: var(--panel); }
+  .cite-chip.missing { opacity: 0.5; cursor: help; }
+  .contract { margin-top: 6px; max-width: 100%; font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
+  .contract h4 { margin: 4px 0 0; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); font-weight: 600; }
+  .contract ol, .contract ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; }
+  .contract li { overflow-wrap: anywhere; }
+  .contract .src-id { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10.5px; opacity: 0.8; }
+  .contract .quote { color: var(--ink); cursor: pointer; }
+  .contract .quote:hover { text-decoration: underline; text-decoration-color: var(--accent); }
+  .verify-badge {
+    align-self: flex-start;
+    padding: 0 7px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-size: 10.5px;
+    line-height: 17px;
+  }
+  .verify-badge.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 55%, transparent); }
+  .verify-badge.fixed { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 55%, transparent); }
+  .verify-badge.bad { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+  .cite-view { border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); border-radius: 8px; padding: 6px 9px; background: var(--panel); }
+  .cite-view .head { display: flex; gap: 8px; align-items: baseline; color: var(--muted); overflow-wrap: anywhere; }
+  .cite-view .head button { margin-left: auto; padding: 0 6px; font-size: 11px; }
+  .cite-view pre { margin: 4px 0 0; font: 11.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 260px; overflow-y: auto; color: var(--ink); }
+  .cite-view mark { background: color-mix(in srgb, var(--accent) 28%, transparent); color: inherit; border-radius: 2px; padding: 0 1px; }
+  .bubble.idk { border-left: 3px solid var(--warn); background: color-mix(in srgb, var(--warn) 9%, var(--agent)); }
+  .bubble.idk .idk-title { font-weight: 650; margin: 0 0 2px; }
+  .bubble.idk .idk-q { margin: 0; }
+  .bubble.idk .idk-why { margin: 6px 0 0; font-size: 11.5px; color: var(--muted); }
+
   dialog.compare .arm .rag-answer { font-size: 13px; line-height: 1.55; }
   dialog.compare .arm .rag-answer.error { color: var(--accent); }
 
@@ -1603,13 +1654,14 @@
          actually produced it. -->
     <div class="rag-controls knowledge-only">
       <div class="rag-toggle" role="group" aria-label="Answer mode">
-        <button type="button" data-mode="rag" aria-pressed="true" title="Retrieve 5 chunks from the document index and answer only from them, with [n] citations">With RAG</button>
+        <button type="button" data-mode="rag" aria-pressed="true" title="Retrieve 5 chunks from the document index and answer only from them: every claim cites a verbatim quote, checked in code, or the answer is &quot;I don't know&quot;">With RAG</button>
         <button type="button" data-mode="plain" aria-pressed="false" title="The same model and settings, no documents">Without RAG</button>
       </div>
       <div class="rag-stages" id="rag-stages" role="group" aria-label="RAG stages">
-        <button type="button" data-stage="rerank" aria-pressed="false" title="Fetch more candidates, score each against the question with a local cross-encoder (bge-reranker-v2-m3), drop those under the cutoff, keep the best few. If none pass, the answer is declined without calling the model.">Rerank</button>
+        <button type="button" data-stage="rerank" aria-pressed="false" title="Fetch more candidates, score each against the question with a local cross-encoder (bge-reranker-v2-m3), drop those under the cutoff, keep the best few. If none pass, the answer is &quot;I don't know&quot; plus a clarifying question, without calling the answering model.">Rerank</button>
         <button type="button" data-stage="rewrite" aria-pressed="false" title="One model call turns the question into 1–3 short search queries (one per part); each is searched and the results merged. The answer still uses your original question.">Rewrite</button>
       </div>
+      <span class="rag-idk-note" id="rag-idk-note" hidden title="The low-relevance rule needs the rerank score. With Rerank off, only the model's own dont_know produces &quot;I don't know&quot;.">IDK: model only (Rerank off)</span>
       <button type="button" id="rag-compare" title="Ask one question in both modes, side by side. Nothing is saved.">Compare</button>
       <a href="/rag-report" target="_blank" rel="noopener">Eval results ↗</a>
     </div>
@@ -2103,13 +2155,17 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
     // asterisks and backticks. What the *user* typed is left alone — echoing
     // their own asterisks back as bold is surprising and occasionally wrong —
     // and an error string is not Markdown either.
+    const contract = who !== "user" && !error && meta?.rag?.mode === "rag" && meta.rag.status ? meta.rag : null;
     if (who === "user" || error) {
       bubble.textContent = text;
+    } else if (contract?.status === "dont_know") {
+      fillDontKnow(bubble, contract);
     } else {
       bubble.classList.add("md");
       bubble.innerHTML = renderMarkdown(text);
     }
     row.appendChild(bubble);
+    if (contract?.status === "answered") row.appendChild(contractBlock(bubble, contract));
 
     if (meta?.truncated) row.appendChild(truncationWarning());
     if (who !== "user" && strategy?.overheadCalls) row.appendChild(overheadNote(strategy));
@@ -2118,6 +2174,7 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
     if (who !== "user" && meta?.steps?.length && meta.run?.runId) row.appendChild(stepStrip(meta.steps, meta.run.runId));
     // A RAG reply lists what it was given; a plain one was given nothing.
     if (who !== "user" && meta?.rag?.mode === "rag") row.appendChild(sourcesList(meta.rag));
+    if (contract?.status === "dont_know" && contract.verification) row.appendChild(verifyBadge(contract.verification));
 
     const line = document.createElement("div");
     line.className = "meta";
@@ -2181,6 +2238,158 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
     return badge;
   }
 
+  // ---- Day 24: the answer contract ------------------------------------------------
+
+  const DONT_KNOW_WHY = {
+    low_relevance: "No retrieved passage passed the relevance cutoff, so the answering model was not called.",
+    model: "The retrieved passages do not contain the answer (the model said so).",
+    verification_failed: "The answer's citations failed verification twice, so it was withdrawn.",
+  };
+
+  /** "I don't know.", the clarifying question, and why. Text, never Markdown. */
+  function fillDontKnow(bubble, rag) {
+    bubble.classList.add("idk");
+    const title = document.createElement("p");
+    title.className = "idk-title";
+    title.textContent = "I don't know.";
+    const question = document.createElement("p");
+    question.className = "idk-q";
+    question.textContent = rag.clarifyingQuestion || "";
+    const why = document.createElement("p");
+    why.className = "idk-why";
+    const reason = rag.dontKnow?.reason;
+    const best = rag.rejected?.[0]?.rerankScore;
+    why.textContent = `Reason: ${reason ?? "?"} — ${DONT_KNOW_WHY[reason] ?? ""}` + (reason === "low_relevance" && typeof best === "number" ? ` Best rerank score ${best.toFixed(3)}.` : "");
+    bubble.append(title, question, why);
+  }
+
+  /** "verified" / "retried → verified" / "1 citation dropped" / "downgraded". */
+  function verifyBadge(v) {
+    const badge = document.createElement("span");
+    const dropped = v.droppedCitations?.length ?? 0;
+    const parts = [];
+    if (v.firstAttemptValid) parts.push("verified");
+    else if (v.retried) parts.push(v.finalErrors?.length ? "retried" : "retried → verified");
+    if (dropped) parts.push(`${dropped} citation${dropped === 1 ? "" : "s"} dropped`);
+    if (v.downgraded) parts.push("downgraded");
+    badge.className = "verify-badge " + (v.downgraded ? "bad" : v.firstAttemptValid ? "ok" : "fixed");
+    badge.textContent = "✓ " + parts.join(" · ");
+    if (!v.firstAttemptValid || v.downgraded) badge.textContent = (v.downgraded ? "✗ " : "↻ ") + parts.join(" · ");
+    const lines = [];
+    if (v.firstAttemptErrors?.length) lines.push("First attempt:", ...v.firstAttemptErrors.map((e) => "• " + e));
+    if (dropped) lines.push("Dropped:", ...v.droppedCitations.map((c) => `• [${c.id}] ${c.reason}: "${c.quote}"`));
+    if (v.droppedClaims?.length) lines.push("Claims removed:", ...v.droppedClaims.map((c) => "• " + c));
+    badge.title = lines.length ? lines.join("\n") : "Every citation names a chunk that was sent, and every quote was found verbatim in it, on the first attempt.";
+    return badge;
+  }
+
+  /** The quote, highlighted inside its full chunk text, under the answer. */
+  function showCitation(box, rag, citation, chip) {
+    const open = box.querySelector(".cite-view");
+    const wasThis = open?.dataset.id === citation.id;
+    open?.remove();
+    for (const c of box.parentElement.querySelectorAll(".cite-chip[aria-expanded]")) c.setAttribute("aria-expanded", "false");
+    if (wasThis) return;
+    const chunk = (rag.chunks ?? []).find((c) => c.chunk_id === citation.chunk_id);
+    const view = document.createElement("div");
+    view.className = "cite-view";
+    view.dataset.id = citation.id;
+    const head = document.createElement("div");
+    head.className = "head";
+    const id = document.createElement("b");
+    id.textContent = `[${citation.id}]`;
+    const where = document.createElement("span");
+    where.textContent = `${shortWhere(citation.source, citation.section)} · ${citation.chunk_id}`;
+    const close = document.createElement("button");
+    close.type = "button";
+    close.textContent = "×";
+    close.title = "Close";
+    close.addEventListener("click", () => showCitation(box, rag, citation, chip));
+    head.append(id, where, close);
+    const pre = document.createElement("pre");
+    const text = chunk?.text ?? "";
+    if (text && Number.isInteger(citation.start) && Number.isInteger(citation.end)) {
+      const mark = document.createElement("mark");
+      mark.textContent = text.slice(citation.start, citation.end);
+      pre.append(text.slice(0, citation.start), mark, text.slice(citation.end));
+    } else {
+      pre.textContent = text || `“${citation.quote}”`;
+    }
+    view.append(head, pre);
+    box.prepend(view);
+    if (chip) chip.setAttribute("aria-expanded", "true");
+    pre.querySelector("mark")?.scrollIntoView({ block: "nearest" });
+  }
+
+  /**
+   * Turn every `[cN]` in the rendered answer into a chip, and build what goes
+   * under it: the verification badge, Sources (derived from the cited chunks,
+   * never written by the model) and Citations (each quote with where it is from).
+   */
+  function contractBlock(bubble, rag) {
+    const box = document.createElement("div");
+    box.className = "contract";
+    const byId = new Map((rag.citations ?? []).map((c) => [c.id, c]));
+    const walker = document.createTreeWalker(bubble, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (/\[c\d+\]/i.test(node.nodeValue) && !node.parentElement.closest("code, pre")) nodes.push(node);
+    }
+    for (const node of nodes) {
+      const frag = document.createDocumentFragment();
+      let last = 0;
+      for (const m of node.nodeValue.matchAll(/\[(c\d+)\]/gi)) {
+        frag.append(node.nodeValue.slice(last, m.index));
+        const citation = byId.get(m[1].toLowerCase());
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "cite-chip" + (citation ? "" : " missing");
+        chip.textContent = m[1].toLowerCase();
+        chip.dataset.cite = m[1].toLowerCase();
+        if (citation) {
+          chip.title = `“${citation.quote}” — ${shortWhere(citation.source, citation.section)}`;
+          chip.setAttribute("aria-expanded", "false");
+          chip.addEventListener("click", () => showCitation(box, rag, citation, chip));
+        } else chip.title = "No such citation";
+        frag.append(chip);
+        last = m.index + m[0].length;
+      }
+      frag.append(node.nodeValue.slice(last));
+      node.replaceWith(frag);
+    }
+
+    if (rag.verification) box.appendChild(verifyBadge(rag.verification));
+    const sourcesHead = document.createElement("h4");
+    sourcesHead.textContent = `Sources (${(rag.sources ?? []).length})`;
+    const sources = document.createElement("ol");
+    for (const s of rag.sources ?? []) {
+      const li = document.createElement("li");
+      const id = document.createElement("span");
+      id.className = "src-id";
+      id.textContent = ` · ${s.chunk_id}`;
+      li.append(shortWhere(s.source, s.section).replace(" · ", " › "), id);
+      li.title = s.label;
+      sources.appendChild(li);
+    }
+    const citesHead = document.createElement("h4");
+    citesHead.textContent = `Citations (${(rag.citations ?? []).length})`;
+    const cites = document.createElement("ul");
+    for (const c of rag.citations ?? []) {
+      const li = document.createElement("li");
+      const tag = document.createElement("b");
+      tag.textContent = `[${c.id}] `;
+      const quote = document.createElement("span");
+      quote.className = "quote";
+      quote.textContent = `“${c.quote}”`;
+      quote.title = "Show it in its chunk";
+      quote.addEventListener("click", () => showCitation(box, rag, c, bubble.querySelector(`.cite-chip[data-cite="${c.id}"]`)));
+      li.append(tag, quote, ` — ${shortWhere(c.source, c.section).replace(" · ", " › ")}`);
+      cites.appendChild(li);
+    }
+    box.append(sourcesHead, sources, citesHead, cites);
+    return box;
+  }
+
   const fmtScore = (x) => (typeof x === "number" ? x.toFixed(3) : "—");
   const shortWhere = (source, section) => String(source ?? "").replace(/^knowledge_database\//, "") + (section ? ` · ${section}` : "");
 
@@ -2227,11 +2436,14 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
     box.className = "sources" + (rag.declined ? " declined" : "");
     const summary = document.createElement("summary");
     const dropped = (rag.candidates ?? []).filter((c) => !c.kept);
+    // With the Day 24 contract, "Sources" is the derived list of cited chunks;
+    // this one is everything the model was given.
+    const noun = rag.status ? "Retrieved chunks" : "Sources";
     summary.textContent = rag.declined
-      ? `Declined: nothing passed the rerank cutoff (${(rag.candidates ?? []).length} candidates)`
+      ? `${rag.status ? "Low relevance" : "Declined"}: nothing passed the rerank cutoff (${(rag.candidates ?? []).length} candidates) — best rejected`
       : chunks.length
-        ? `Sources (${chunks.length}${dropped.length ? ` of ${(rag.candidates ?? []).length} candidates` : ""})`
-        : "Sources (none retrieved)";
+        ? `${noun} (${chunks.length}${dropped.length ? ` of ${(rag.candidates ?? []).length} candidates` : ""})`
+        : `${noun} (none retrieved)`;
     box.appendChild(summary);
     if (rag.declined) box.open = true;
 
@@ -4507,14 +4719,14 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
       };
       add("h3", "Mode");
       add("p", ragMode === "rag"
-        ? "With RAG: the question alone (never the history) is searched in the document index; the top chunks go into the message, and the answer must cite them as [n] or say they do not cover it."
+        ? "With RAG: the question alone (never the history) is searched in the document index; the top chunks go into the message, and the answer comes through a forced submit_answer call: a [cN] marker after every claim, each a verbatim quote from a chunk that was sent. Code checks every quote, retries once with the errors, then drops what still fails; the Sources are derived from the cited chunks. If the chunks don't contain the answer, it is \"I don't know\" with a clarifying question."
         : "Without RAG: the same model and settings, no documents.");
       if (ragMode === "rag") {
         add("p", [
           ragStages.rewrite ? "Rewrite on: one model call turns the question into 1–3 search queries; their results are merged." : "Rewrite off: the question is searched as typed.",
           ragStages.rerank
-            ? `Rerank on: ${s ? s.kRetrieve : "…"} candidates per query are scored against the question; those under ${s ? s.rerankThreshold : "…"} are dropped and the best ${s ? s.kFinal : "…"} kept. If none pass, the answer is declined without calling the model.`
-            : `Rerank off: the top ${s ? s.kFinal : "…"} by vector score (the Day 22 baseline).`,
+            ? `Rerank on: ${s ? s.kRetrieve : "…"} candidates per query are scored against the question; those under ${s ? s.rerankThreshold : "…"} are dropped and the best ${s ? s.kFinal : "…"} kept. If none pass, the answer is "I don't know" with a clarifying question, and the answering model is not called.`
+            : `Rerank off: the top ${s ? s.kFinal : "…"} by vector score (the Day 22 baseline). With no rerank score there is no low-relevance cutoff, so only the model's own dont_know gives "I don't know".`,
         ].join(" "));
       }
       add("h3", "Retrieval");
@@ -4558,6 +4770,8 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
       button.setAttribute("aria-pressed", String(button.dataset.mode === ragMode));
     }
     document.getElementById("rag-stages").hidden = ragMode !== "rag";
+    // The low-relevance "I don't know" needs the rerank score; say so when it is off.
+    document.getElementById("rag-idk-note").hidden = ragMode !== "rag" || ragStages.rerank;
     for (const button of document.querySelectorAll(".rag-stages button")) {
       button.setAttribute("aria-pressed", String(Boolean(ragStages[button.dataset.stage])));
     }
@@ -4663,8 +4877,12 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
         ].filter(Boolean).join(" · ");
         const body = document.createElement("div");
         body.className = "rag-answer bubble md";
-        body.innerHTML = renderMarkdown(result.answer);
         arm.append(title, who, body);
+        if (mode === "rag" && result.status === "dont_know") {
+          body.classList.remove("md");
+          fillDontKnow(body, result);
+        } else body.innerHTML = renderMarkdown(result.answer);
+        if (mode === "rag" && result.status === "answered") arm.appendChild(contractBlock(body, result));
         if (mode === "rag") arm.appendChild(sourcesList(result));
         ragCompareResults.appendChild(arm);
       }

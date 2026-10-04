@@ -19,8 +19,8 @@ import { MemoryStore } from "./store/memoryStore.js";
 const SESSION = "44444444-4444-4444-8444-444444444444";
 const OTHER = "55555555-5555-4555-8555-555555555555";
 const HITS = [
-  { score: 0.7, source: "kb/a.html", section: "Intro", title: "A", chunk_id: "a:0", text: "alpha" },
-  { score: 0.5, source: "kb/b.html", section: "", title: "B", chunk_id: "b:0", text: "beta" },
+  { score: 0.7, source: "kb/a.html", section: "Intro", title: "A", chunk_id: "a:0", text: "The alpha chunk says hello." },
+  { score: 0.5, source: "kb/b.html", section: "", title: "B", chunk_id: "b:0", text: "The beta chunk says goodbye." },
 ];
 
 async function serve(t, { search, rerankScores, rewriter, reportsDir = fs.mkdtempSync(path.join(os.tmpdir(), "rag-reports-")) } = {}) {
@@ -39,8 +39,8 @@ async function serve(t, { search, rerankScores, rewriter, reportsDir = fs.mkdtem
           searches.push({ question, options });
           return HITS.slice(0, options.k);
         }),
-      // By text length: "alpha" (5) and "beta" (4) both pass a 0.5 cutoff, in that order.
-      rerankScores: rerankScores ?? (async (_q, passages) => passages.map((p) => p.length / 10)),
+      // Alpha scores 0.5 (passes the 0.5 cutoff), beta 0.4 (does not).
+      rerankScores: rerankScores ?? (async (_q, passages) => passages.map((p) => (p.includes("alpha") ? 0.5 : 0.4))),
       rewriter: rewriter ?? (async (question) => ({ queries: [question, `${question} (again)`], usage: { inputTokens: 7, outputTokens: 3 } })),
       reportsDir,
       ready: () => false,
@@ -79,7 +79,14 @@ test("knowledge chat: RAG reply records its mode and chunks; plain reply has non
   assert.equal(record.agentId, "knowledge");
   assert.equal(record.ragMode, "plain", "the last mode used is the chat's mode");
   assert.deepEqual(record.messages.map((m) => [m.role, m.rag?.mode ?? null]), [["user", null], ["assistant", "rag"], ["user", null], ["assistant", "plain"]]);
-  assert.equal(record.messages[1].rag.chunks[0].text, "alpha");
+  assert.equal(record.messages[1].rag.chunks[0].text, HITS[0].text);
+  // The contract's fields travel with the reply and are stored.
+  assert.equal(rag.body.meta.rag.status, "answered");
+  assert.deepEqual(rag.body.meta.rag.sources.map((s) => s.chunk_id), ["a:0", "b:0"]);
+  assert.deepEqual(rag.body.meta.rag.citations.map((c) => [c.id, c.quote, c.start, c.end]), [["c1", HITS[0].text, 0, HITS[0].text.length], ["c2", HITS[1].text, 0, HITS[1].text.length]]);
+  assert.equal(rag.body.meta.rag.verification.firstAttemptValid, true);
+  assert.equal(record.messages[1].rag.citations.length, 2);
+  assert.equal(plain.body.meta.rag.citations, undefined, "plain mode is unchanged");
   assert.equal(record.usage.turnCount, 2);
 
   const loaded = await call("GET", `/conversations/${SESSION}`);
@@ -141,10 +148,11 @@ test("compare: both modes, stored nowhere", async (t) => {
 
 test("report data: null before the first eval, the files after", async (t) => {
   const { call, reportsDir } = await serve(t);
-  assert.deepEqual((await call("GET", "/rag-report/data")).body, { results: null, notes: null });
+  assert.deepEqual((await call("GET", "/rag-report/data")).body, { results: null, notes: null, citations: null, citationNotes: null });
   fs.writeFileSync(path.join(reportsDir, "rag_results.json"), JSON.stringify({ summary: { count: 10 } }));
   fs.writeFileSync(path.join(reportsDir, "rag_notes.md"), "**Findings.**");
-  assert.deepEqual((await call("GET", "/rag-report/data")).body, { results: { summary: { count: 10 } }, notes: "**Findings.**" });
+  fs.writeFileSync(path.join(reportsDir, "citations_notes.md"), "Citations findings.");
+  assert.deepEqual((await call("GET", "/rag-report/data")).body, { results: { summary: { count: 10 } }, notes: "**Findings.**", citations: null, citationNotes: "Citations findings." });
   const status = await call("GET", "/rag/status");
   assert.equal(status.body.kFinal, 2);
   assert.equal(status.body.rerankThreshold, 0.5);
@@ -180,15 +188,18 @@ test("rerank / rewrite switches: stored per chat, used by the next message, show
   assert.equal((await call("POST", "/chat", { message: "q", sessionId: SESSION, rerank: 1 })).status, 400);
 });
 
-test("a declined reply: fixed message, the rejected chunks, no model call", async (t) => {
+test("a low-relevance reply: I don't know, a clarifying question, the rejected chunks, no answering call", async (t) => {
   const { store, call } = await serve(t, { rerankScores: async (_q, passages) => passages.map(() => 0.01) });
   const res = await call("POST", "/chat", { message: "What is the capital of France?", sessionId: SESSION, agent: "knowledge", ragMode: "rag", rerank: true });
   assert.equal(res.status, 200);
-  assert.match(res.body.reply, /do not cover this question/);
+  assert.match(res.body.reply, /^I don't know\. \(fake\) Which Kotlin/);
   assert.equal(res.body.meta.rag.declined, true);
+  assert.equal(res.body.meta.rag.status, "dont_know");
+  assert.deepEqual(res.body.meta.rag.dontKnow, { reason: "low_relevance" });
+  assert.match(res.body.meta.rag.clarifyingQuestion, /Which Kotlin/);
   assert.deepEqual(res.body.meta.rag.chunks, []);
-  assert.deepEqual(res.body.meta.rag.rejected.map((c) => c.text), ["alpha", "beta"]);
-  assert.equal(res.body.meta.tokens.total, 0, "no model was called");
+  assert.deepEqual(res.body.meta.rag.rejected.map((c) => c.text), HITS.map((h) => h.text));
+  assert.equal(res.body.meta.rag.timings.llmMs, 0, "the answering model was not called");
   const saved = (await store.load(SESSION)).messages[1].rag;
   assert.equal(saved.declined, true);
   assert.equal(saved.rejected[0].rerankScore, 0.01);

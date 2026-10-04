@@ -16,7 +16,8 @@ The Knowledge agent also needs a built index: `cd ../doc_index && npm install &&
 | --- | --- |
 | `npm test` | offline tests: no key, no network |
 | `npm run eval:planner [-- <goal id>]` | plans 8 goals with the real model; exit 1 on a wrong tool sequence |
-| `npm run eval:rag [-- q03] [-- --modes rag,rag+rerank]` | 16 questions × 4 modes (`plain`, `rag`, `rag+rerank`, `rag+rewrite+rerank`), judged blind → [`reports/rag_comparison.md`](reports/rag_comparison.md), `reports/rag_results.json`; needs the key and a built `../doc_index` |
+| `npm run eval:rag [-- q03] [-- --modes rag,rag+rerank]` | 17 questions × 4 modes (`plain`, `rag`, `rag+rerank`, `rag+rewrite+rerank`), judged blind → [`reports/rag_comparison.md`](reports/rag_comparison.md), `reports/rag_results.json`; needs the key and a built `../doc_index` |
+| `npm run eval:citations [-- --mode rag] [-- q17]` | the 10 `citations` questions in one mode (default `rag+rerank`): sources, citations, fabricated quotes, faithfulness judge, "I don't know" → [`reports/citations_report.md`](reports/citations_report.md), `reports/citations_results.json`; `--report` re-renders with `reports/citations_notes.md` |
 | `npm run eval:rag -- --check` / `--report` | only validate [`eval/rag/questions.json`](eval/rag/questions.json) against the index (and write `questions.md`) / only re-render the report with `reports/rag_notes.md` |
 | `npm run mcp:tools [-- omdb]` | list one MCP server's tools |
 | `npm run mcp:call -- omdb get_movie '{"title":"Inception"}'` | call one MCP tool directly |
@@ -50,15 +51,18 @@ question → [rewrite] → vector search (K_RETRIEVE) → [rerank + cutoff] → 
 
 `answerQuestion(question, { mode, rerank, rewrite, history, provider, … })` in `answer.js` is
 used by the chat and the eval. It returns `{ answer, mode, label, queries, candidates, chunks,
-declined, rejected, usage, usageByStage, timings: { rewriteMs, retrieveMs, rerankMs, llmMs } }`.
+declined, rejected, usage, usageByStage, timings: { rewriteMs, retrieveMs, rerankMs, clarifyMs, llmMs } }`,
+and in RAG modes also `{ status, citations, sources, clarifyingQuestion, dontKnow, verification }`
+(the answer contract below).
 
 - **plain**: a short neutral system prompt (`BASE_SYSTEM`) and the question.
 - **rag** (both stages off, the Day 22 baseline): doc_index `search()` with the question alone
   (never the history), top `K_FINAL` by vector score, no cutoff. Chunks below `RAG_MIN_SCORE`
   are dropped and the scores are logged. The rest go into the **latest user message** as
-  `<documents><doc n source section title>…</doc></documents>`, built by
-  `buildRagPrompt(question, chunks)` (`prompt.js`), with document rules in the system prompt:
-  answer only from the documents, cite `[n]`, say plainly when they don't cover it.
+  `<documents><doc n chunk_id source section title>…</doc></documents>`, built by
+  `buildRagPrompt(question, chunks)` (`prompt.js`), with document rules in the system prompt.
+  The answer comes back through the **answer contract** (below): `[cN]` markers, verbatim
+  quotes, verified in code, or `dont_know`.
 - **Rewrite** (`rewrite.js`): one call to the chat model, temperature 0, forced
   `submit_queries`, turns the question into 1–3 standalone search queries (filler stripped,
   the documents' terms, one query per part). Each is searched and the results are merged by
@@ -66,12 +70,13 @@ declined, rejected, usage, usageByStage, timings: { rewriteMs, retrieveMs, reran
 - **Rerank** (`reranker.js` → `../doc_index/src/rerank.js`): `K_RETRIEVE` candidates per query
   are scored by a local cross-encoder, `onnx-community/bge-reranker-v2-m3-ONNX` (int8, ~570 MB,
   downloaded on first use), against the **original** question. Logit → sigmoid (0–1), sorted,
-  below `RAG_RERANK_THRESHOLD` dropped, top `K_FINAL` kept. **If nothing passes**, the model is
-  not called: the answer is a fixed "the documents do not cover this" message plus the 3 best
-  rejected chunks. Pairs are scored one at a time: the int8 model quantizes per batch, so
+  below `RAG_RERANK_THRESHOLD` dropped, top `K_FINAL` kept. **If nothing passes**, the answering
+  model is not called: the reply is "I don't know" plus a clarifying question from one small
+  call, and the 3 best rejected chunks are shown. Pairs are scored one at a time: the int8 model quantizes per batch, so
   padding a batch shifted every score depending on its neighbours (and was slower on CPU).
   About 7 s per 20 candidates on a laptop CPU.
-- Every mode uses the provider's default chat model, `temperature: 0`, max 1024 tokens.
+- Every mode uses the provider's default chat model and `temperature: 0`; plain answers get max
+  1024 tokens, `submit_answer` 2048.
 - The embedding model and the reranker each load on first use (one log line when ready) and
   are reused. A missing index or one built with another model is a readable 503, not a stack.
 
@@ -93,15 +98,101 @@ The numbers are in [`reports/rag_notes.md`](reports/rag_notes.md).
 
 Routes: `PUT /conversations/:id/rag` `{ mode?, rerank?, rewrite? }`, `POST /rag/compare`
 `{ question, rerank?, rewrite? }`, `GET /rag/status`, `GET /rag-report` (page) and
-`GET /rag-report/data` (reads `reports/rag_results.json` and `rag_notes.md` on every request).
+`GET /rag-report/data` (reads `reports/rag_results.json`, `rag_notes.md`, `citations_results.json` and
+`citations_notes.md` on every request; the page has a **Modes** tab and a **Citations** tab).
+
+### Answer contract (Day 24, `contract.js`)
+
+Every RAG answer is one forced `submit_answer` call (temperature 0, max 2048 tokens because the
+quotes and chunk_ids count too) instead of free text. Each document in the prompt carries its
+`chunk_id`.
+
+```js
+{
+  status: "answered" | "dont_know",
+  answer: "Text with a marker after each claim [c1].",      // empty for dont_know
+  citations: [{ id: "c1", chunk_id: "…", quote: "verbatim excerpt from that chunk" }],
+  clarifying_question: "…"                                  // required for dont_know
+}
+```
+
+The rules in the system prompt: every factual claim ends with at least one `[cN]` marker, just
+before its final punctuation; a quote is one or two sentences copied verbatim from the chunk it
+cites (4–60 words), the part that supports the claim; only the documents are used; if they don't
+contain the answer, return `dont_know` with a clarifying question rather than stretching loosely
+related text.
+
+**Sources are never written by the model.** `deriveSources` builds them from the cited chunk_ids:
+`source › section · chunk_id`, one per chunk, in the order the answer first cites them.
+
+**Verification**, in code after the call (`verifySubmission`):
+
+1. `answered` has ≥ 1 citation; `dont_know` has a non-empty `clarifying_question`.
+2. Every `[cN]` is a citation, and every citation is used.
+3. Every `chunk_id` is one of the chunks that were sent.
+4. Every quote is in its chunk (`quotes.js`: compared case-insensitively after normalising
+   whitespace, quote marks and backticks, dashes, `…`, and line-break hyphenation). A quote that
+   isn't found is a **fabricated quote**.
+5. A quote is 4–60 words.
+
+Any failure gets **one** retry, with the list of errors sent back as the tool result (the
+planner's pattern). If the retry fails too, the invalid citations are dropped, along with every
+sentence whose markers were all invalid. With no valid citation left, the answer becomes
+`dont_know`. The result records `verification: { firstAttemptValid, retried, droppedCitations,
+droppedClaims, downgraded, firstAttemptErrors, fabricatedFirstAttempt, … }`.
+
+**"I don't know"** has two triggers, and both reply "I don't know." plus a clarifying question:
+
+1. **Low relevance** (rerank on): if the best rerank score is under `RAG_RERANK_THRESHOLD`, the
+   answering model is not called. One small forced call (`clarify.js`, `submit_clarification`,
+   temperature 0) sees the question and the title, section and first 150 characters of the top 3
+   rejected chunks. It writes a clarifying question, which may offer what the documents cover
+   nearby ("Did you mean X or Y?") but never answers.
+2. **The model's own `dont_know`**, through the contract.
+
+With rerank off there is no relevance score, so only trigger 2 applies; the UI says so next to
+the switch. `dontKnow: { reason: "low_relevance" | "model" | "verification_failed" }`.
+
+**In the chat**, `[cN]` markers render as chips. Clicking one shows its quote highlighted in the
+full chunk text. Under the answer are a verification badge (`verified`, `retried → verified`,
+`1 citation dropped`, `downgraded`; hover for the errors), **Sources** (derived) and
+**Citations** (each quote with its source › section), then the retrieved chunks as before. An
+"I don't know" reply has its own style, with the clarifying question and the reason. A
+low-relevance one also shows the best rejected chunks.
+
+### Citations eval (`npm run eval:citations`)
+
+The 10 questions tagged `"sets": ["citations"]` in `questions.json`: 7 to answer (q02, q04, q06
+corpus, q12 near_miss, q14 paraphrased, q15 messy, q16 multi_part, across 7 documents) and 3 to
+decline (q10 unanswerable, q13 off_topic, and Day 24's q17 `ambiguous`, "How does it work?").
+They run in one mode, `rag+rerank` by default (`--mode` to change it). Per question:
+
+| check | how |
+| --- | --- |
+| has sources | answerable ⇒ answered with ≥ 1 derived source |
+| has citations | answerable ⇒ answered with ≥ 1 valid citation |
+| quotes are real | no fabricated quote on the **first** attempt, before the retry fixes it |
+| meaning matches citations | faithfulness judge ≥ 0.75 and no `unsupported` claim |
+| correct "I don't know" | to-decline ⇒ `dont_know` with a clarifying question; answerable ⇒ not `dont_know` (else a **false IDK**) |
+
+The **faithfulness judge** (`faithfulness.js`) is one forced `submit_faithfulness` call at
+temperature 0. It sees the answer cut into claims (sentences with their markers) and the quotes
+each cited claim uses, but not the chunks or the expected facts. It rates each cited claim
+`supported | partial | unsupported` and lists `uncited_claims`, the factual sentences with no
+marker. Faithfulness = supported / cited claims. Answerable questions also get Day 22's fact
+judge, to check that correctness didn't drop. Output: `reports/citations_results.json`,
+[`reports/citations_report.md`](reports/citations_report.md) with the hand-written
+[`reports/citations_notes.md`](reports/citations_notes.md), and the **Citations** tab at
+http://localhost:3000/rag-report#citations.
 
 ### Eval (`npm run eval:rag`)
 
-[`eval/rag/questions.json`](eval/rag/questions.json) holds 16 questions ([table](eval/rag/questions.md)):
+[`eval/rag/questions.json`](eval/rag/questions.json) holds 17 questions ([table](eval/rag/questions.md)):
 Day 22's 10 unchanged as the regression set (7 corpus, 2 general, 1 unanswerable) plus 6 for
 Day 23: 2 `near_miss` (baseline vector search ranks the answer chunk 4th and 2nd), 1
-`off_topic`, 1 `paraphrased`, 1 `messy`, 1 `multi_part` (two documents). The unanswerable and
-off-topic ones carry `expect_decline: true`. Each expected fact has an `evidence` quote, and
+`off_topic`, 1 `paraphrased`, 1 `messy`, 1 `multi_part` (two documents), and Day 24's 1 `ambiguous`.
+The unanswerable, off-topic and ambiguous ones carry `expect_decline: true`. 10 are tagged
+`"sets": ["citations"]`, and `validateQuestions` checks that set's mix too. Each expected fact has an `evidence` quote, and
 every run first checks that each quote appears verbatim in its expected source in the index,
 failing loudly if not.
 

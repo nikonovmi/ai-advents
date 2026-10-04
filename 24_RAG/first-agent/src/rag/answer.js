@@ -1,5 +1,7 @@
-import { RAG_MAX_TOKENS, ragSettings } from "./config.js";
-import { BASE_SYSTEM, DECLINE_ANSWER, RAG_SYSTEM, buildRagPrompt } from "./prompt.js";
+import { clarifyQuestion } from "./clarify.js";
+import { RAG_CONTRACT_MAX_TOKENS, RAG_MAX_TOKENS, ragSettings } from "./config.js";
+import { answerWithContract, dontKnowText } from "./contract.js";
+import { BASE_SYSTEM, RAG_SYSTEM, buildRagPrompt } from "./prompt.js";
 import { sharedReranker } from "./reranker.js";
 import { RetrievalError, readableRetrievalError, sharedRetriever } from "./retriever.js";
 import { rewriteQuery } from "./rewrite.js";
@@ -22,10 +24,19 @@ import { rewriteQuery } from "./rewrite.js";
  *   - `rerank`: `kRetrieve` candidates per query, scored by the cross-encoder
  *     against the **original** question; below `rerankThreshold` they are
  *     dropped, and the top `kFinal` of the rest go to the model. If none pass,
- *     the model is not called and the answer is `DECLINE_ANSWER`.
+ *     the answering model is not called: one small call writes a clarifying
+ *     question from the best rejected chunks (`clarify.js`), and the result is
+ *     "I don't know" with `dontKnow.reason: "low_relevance"`.
  *
- * The answering model always gets the original question. Same model, max
- * tokens and `temperature: 0` in every mode.
+ * Every RAG answer goes through the contract of `contract.js`: a forced
+ * `submit_answer` call with `[cN]` markers and verbatim quotes, verified in
+ * code, retried once, then repaired or downgraded. Its sources are derived
+ * from the cited chunk_ids. The model can also return `dont_know` itself
+ * (`reason: "model"`), and a failed verification can end in one
+ * (`"verification_failed"`). Plain mode is a free-text answer, as on Day 22.
+ *
+ * The answering model always gets the original question. Same model and
+ * `temperature: 0` in every mode.
  */
 
 const realSearch = (question, options) => sharedRetriever().search(question, options);
@@ -120,8 +131,8 @@ export async function answerQuestion(question, options = {}) {
   const useRerank = isRag && Boolean(rerank);
   const useRewrite = isRag && Boolean(rewrite);
 
-  const timings = { rewriteMs: 0, retrieveMs: 0, rerankMs: 0, llmMs: 0 };
-  const usageByStage = { rewrite: null, llm: null };
+  const timings = { rewriteMs: 0, retrieveMs: 0, rerankMs: 0, clarifyMs: 0, llmMs: 0 };
+  const usageByStage = { rewrite: null, clarify: null, llm: null };
   let queries = [];
   let candidates = [];
   let chunks = [];
@@ -198,22 +209,51 @@ export async function answerQuestion(question, options = {}) {
     content = buildRagPrompt(question, chunks);
   }
 
+  const messages = [...history.map(({ role, content }) => ({ role, content })), { role: "user", content }];
   let completion = null;
-  if (!declined) {
+  let contract = null;
+  let clarifying = "";
+  if (declined) {
+    // Low relevance: no answering call, one small clarifying one.
     const startedAt = Date.now();
-    completion = await provider.complete({
-      system: isRag ? RAG_SYSTEM : BASE_SYSTEM,
-      messages: [...history.map(({ role, content }) => ({ role, content })), { role: "user", content }],
-      temperature: 0,
-      maxTokens,
-      ...(model ? { model } : {}),
-    });
+    const clarified = await clarifyQuestion(question, rejected, { provider, model });
+    timings.clarifyMs = Date.now() - startedAt;
+    usageByStage.clarify = clarified.usage;
+    clarifying = clarified.clarifyingQuestion;
+  } else if (isRag) {
+    const startedAt = Date.now();
+    contract = await answerWithContract({ provider, system: RAG_SYSTEM, messages, chunks, model, maxTokens: maxTokens === RAG_MAX_TOKENS ? RAG_CONTRACT_MAX_TOKENS : maxTokens });
+    timings.llmMs = Date.now() - startedAt;
+    usageByStage.llm = contract.usage;
+    const v = contract.verification;
+    log(
+      `[rag] contract ${contract.status}${contract.dontKnow ? ` (${contract.dontKnow.reason})` : ""} · ${contract.citations.length} citation(s)` +
+        `${v.retried ? " · retried" : ""}${v.fabricatedFirstAttempt.length ? ` · ${v.fabricatedFirstAttempt.length} fabricated on attempt 1` : ""}` +
+        `${v.droppedCitations.length ? ` · dropped ${v.droppedCitations.length}` : ""}${v.downgraded ? " · downgraded" : ""}`,
+    );
+  } else {
+    const startedAt = Date.now();
+    completion = await provider.complete({ system: BASE_SYSTEM, messages, temperature: 0, maxTokens, ...(model ? { model } : {}) });
     timings.llmMs = Date.now() - startedAt;
     usageByStage.llm = completion.usage ?? null;
   }
 
+  const ragFields = !isRag
+    ? {}
+    : declined
+      ? { status: "dont_know", citations: [], sources: [], clarifyingQuestion: clarifying, dontKnow: { reason: "low_relevance" }, verification: null }
+      : {
+          status: contract.status,
+          citations: contract.citations,
+          sources: contract.sources,
+          clarifyingQuestion: contract.clarifyingQuestion,
+          dontKnow: contract.dontKnow,
+          verification: contract.verification,
+        };
+  const answer = !isRag ? completion.text : ragFields.status === "dont_know" ? dontKnowText(ragFields.clarifyingQuestion) : contract.answer;
+
   return {
-    answer: declined ? DECLINE_ANSWER : completion.text,
+    answer,
     mode,
     label: modeLabel({ mode, rerank: useRerank, rewrite: useRewrite }),
     rerank: useRerank,
@@ -223,10 +263,11 @@ export async function answerQuestion(question, options = {}) {
     chunks,
     declined,
     rejected,
-    usage: addUsage(usageByStage.rewrite, usageByStage.llm),
+    ...ragFields,
+    usage: addUsage(addUsage(usageByStage.rewrite, usageByStage.clarify), usageByStage.llm),
     usageByStage,
-    model: completion?.model ?? provider.model ?? null,
-    stopReason: completion?.stopReason ?? "declined",
+    model: completion?.model ?? contract?.model ?? provider.model ?? null,
+    stopReason: completion?.stopReason ?? contract?.stopReason ?? "declined",
     timings,
   };
 }

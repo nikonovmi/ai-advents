@@ -1,11 +1,45 @@
-# Day 23 — Reranking, filtering and query rewriting
+# Day 24 — Citations, sources and "I don't know"
+
+**Day 24:** every RAG answer in the Knowledge agent follows a strict, verified contract. One
+forced `submit_answer` call returns the answer with a `[cN]` marker after each claim, and each
+citation is a verbatim quote from a chunk that was sent. Code checks five rules: citations are
+present, every marker is matched, every chunk_id was sent, every quote is found in its chunk,
+and every quote is 4–60 words. A failure gets one retry with the errors; after that, bad
+citations and the claims that rely only on them are dropped, or the answer is downgraded. The
+**Sources** list is derived from the cited chunk_ids, never written by the model. **"I don't
+know"** plus a clarifying question comes either from a low rerank score (a small clarifying
+call; the answering model is not called) or from the model's own `dont_know`. In the chat,
+markers are clickable chips that show the quote highlighted in its chunk, next to a
+verification badge. `npm run eval:citations` runs 10 questions (7 to answer, 3 to decline,
+including a new `ambiguous` one) in `rag+rerank`
+([report](first-agent/reports/citations_report.md),
+[findings](first-agent/reports/citations_notes.md), and the **Citations** tab on `/rag-report`):
+
+| | rag+rerank |
+| --- | ---: |
+| answered with ≥ 1 source / valid citation | 6/6 · 6/6 |
+| fabricated quotes on the first attempt | 2 of 15 (both reformatted bullets / code, both fixed by the retry) |
+| retries · dropped citations · downgrades | 2 · 0 · 0 |
+| mean faithfulness (14 supported, 3 partial, 0 unsupported) | 0.86 |
+| uncited factual claims | 8 |
+| correct "I don't know" | 3/3 (1 low relevance, 2 model) |
+| false "I don't know" | 1: q14, a retrieval miss (the reranker drops the paraphrased answer chunk, as on Day 23) |
+| mean fact score (7 answerable; Day 23 rag+rerank: 0.79) | 0.76 |
+
+The model copies quotes faithfully. Its misses were punctuation and line structure, not
+invented text. The weak spot is **where it puts markers**: at a sentence start or after a
+colon, they pair with the wrong claim. One prompt rule lifted faithfulness from 0.69 to 0.86,
+but most of the 8 uncited claims still come from this. The contract costs about 2.6× the input
+tokens of Day 23 (3.5k vs 1.3k per question).
+
+## Day 23 — Reranking, filtering and query rewriting
 
 **Day 23:** the Knowledge agent's RAG gets two optional stages, switched per chat next to the
 RAG toggle: **Rewrite** (one model call → 1–3 search queries, results merged) and **Rerank**
 (a local cross-encoder, bge-reranker-v2-m3, scores 20 candidates against the question, drops
 those under **0.02**, keeps the top 5, and declines without calling the model if none pass).
 The Sources panel shows vector → rerank scores, the dropped candidates and the queries.
-`npm run eval:rag` now runs 16 questions × 4 modes
+`npm run eval:rag` then ran 16 questions × 4 modes
 ([report](first-agent/reports/rag_comparison.md), [findings](first-agent/reports/rag_notes.md)):
 
 | | plain | rag | rag+rerank | rag+rewrite+rerank |
@@ -85,7 +119,8 @@ The embedding model loads on the first RAG question (about 1–3 s) and stays lo
 
 ```bash
 cd first-agent
-npm run eval:rag                 # 16 questions × 4 modes, each judged → reports/rag_*.{md,json}
+npm run eval:rag                 # 17 questions × 4 modes, each judged → reports/rag_*.{md,json}
+npm run eval:citations           # 10 questions, rag+rerank: citations, faithfulness, I don't know → reports/citations_*
 npm run eval:rag -- q03          # one question
 npm run eval:rag -- --modes rag,rag+rerank   # some modes
 npm run eval:rag -- --check      # validate questions.json against the index, no API calls

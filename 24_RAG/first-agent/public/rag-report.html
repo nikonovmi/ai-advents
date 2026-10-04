@@ -130,6 +130,27 @@
   .empty { padding: 48px 24px; text-align: center; color: var(--muted); }
   .empty code { background: var(--agent); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
 
+  /* Tabs: the Day 23 modes eval and the Day 24 citations eval. */
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: 0 0 18px; }
+  .tabs button {
+    border: 0; border-bottom: 2px solid transparent; background: none; color: var(--muted);
+    font: inherit; font-size: 13px; padding: 6px 12px; cursor: pointer;
+  }
+  .tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
+  .chk { text-align: center; }
+  .chk.yes { color: var(--good); }
+  .chk.no { color: var(--accent); font-weight: 600; }
+  .chk.na { color: var(--muted); }
+  .chip { display: inline-block; padding: 0 5px; border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent); border-radius: 999px; color: var(--accent); font: 600 10.5px/16px ui-monospace, SFMono-Regular, Menlo, monospace; vertical-align: 1px; }
+  .idk-box { border-left: 3px solid #b08a1e; padding: 2px 0 2px 12px; margin: 0 0 10px; font-size: 13.5px; }
+  .idk-box b { display: block; }
+  .claims td { font-size: 12px; padding: 4px 8px; }
+  .verdict-supported { color: var(--good); }
+  .verdict-partial { color: #b08a1e; }
+  .verdict-unsupported { color: var(--accent); font-weight: 600; }
+  .claims .q { color: var(--muted); }
+  .cites li { font-size: 12.5px; margin: 2px 0; }
+
   @media (max-width: 720px) {
     .topbar, main { padding-left: 16px; padding-right: 16px; }
     .arm { flex-basis: 100%; }
@@ -140,7 +161,7 @@
 <div class="page">
   <div class="topbar">
     <h1>RAG eval results</h1>
-    <span class="sub" id="sub">Plain vs RAG vs rerank vs rewrite + rerank</span>
+    <span class="sub" id="sub">Modes (Day 23) · Citations (Day 24)</span>
     <a href="/">← Back to the chat</a>
   </div>
   <main id="main"><p class="empty">Loading…</p></main>
@@ -179,17 +200,32 @@
       main.replaceChildren(el("p", { class: "empty" }, "Could not load the results: " + err.message));
       return;
     }
-    if (!data.results) {
-      main.replaceChildren(
-        el("div", { class: "empty" },
-          el("p", {}, "No results yet."),
-          el("p", {}, "Run ", el("code", {}, "npm run eval:rag"), " in first-agent (needs the API key and a built doc_index), then reload."),
-        ),
-      );
-      return;
-    }
-    render(data.results, data.notes);
+    const tabs = [
+      ["modes", "Modes (Day 23)", () => (data.results ? render(data.results, data.notes) : empty("eval:rag"))],
+      ["citations", "Citations (Day 24)", () => (data.citations ? renderCitations(data.citations, data.citationNotes) : empty("eval:citations"))],
+    ];
+    const show = (key) => {
+      const [, , draw] = tabs.find(([k]) => k === key) ?? tabs[0];
+      const nodes = draw();
+      const bar = el("div", { class: "tabs", role: "tablist" },
+        tabs.map(([k, label]) => {
+          const b = el("button", { type: "button", role: "tab", "aria-selected": String(k === key) }, label);
+          b.addEventListener("click", () => {
+            history.replaceState(null, "", "#" + k);
+            show(k);
+          });
+          return b;
+        }));
+      main.replaceChildren(bar, ...nodes);
+    };
+    show(location.hash === "#citations" ? "citations" : location.hash === "#modes" ? "modes" : data.citations && !data.results ? "citations" : "modes");
   }
+
+  const empty = (script) => [
+    el("div", { class: "empty" },
+      el("p", {}, "No results yet."),
+      el("p", {}, "Run ", el("code", {}, `npm run ${script}`), " in first-agent (needs the API key and a built doc_index), then reload.")),
+  ];
 
   const isDeclined = (run) => Boolean(run.declined || run.grade?.declined);
   /** "3 → 1" before the rerank → in the final chunks; "—" when nothing was expected. */
@@ -204,7 +240,7 @@
     const modes = summary.modes;
     document.getElementById("sub").textContent =
       `Generated ${new Date(results.generatedAt).toLocaleString()} · ${rows.length} question${rows.length === 1 ? "" : "s"} × ${modes.length} modes`;
-    main.replaceChildren(
+    return [
       el("h2", {}, "Settings"),
       el("p", { class: "settings" },
         "Answers: ", el("code", {}, settings.model), ` in every mode, temperature 0, max ${settings.maxTokens} tokens. Judge: `,
@@ -221,7 +257,7 @@
       el("p", { class: "settings" }, "Click a row for every mode's answer, the queries searched, kept and dropped chunks, and the judge's per-fact grades. ⚠ = hallucination, ✗ = declined. Rank = first expected source before the rerank → in the final chunks."),
       el("div", { class: "scroll" }, questionTable(rows, modes, summary)),
       ...(notes?.trim() ? [el("h2", {}, "Findings"), el("div", { class: "findings", html: md(notes) })] : []),
-    );
+    ];
   }
 
   function summaryTable(results) {
@@ -290,7 +326,8 @@
     const facts = [`${run.usage?.inputTokens ?? "?"} in · ${run.usage?.outputTokens ?? "?"} out`, secs(total) + (stages.length > 1 ? ` (${stages.join(", ")})` : "")];
     if (run.mode === "rag") {
       facts.push(`rank ${rankMove(run.retrieval)}`);
-      facts.push(`cited ${run.citations.cited.map((n) => `[${n}]`).join("") || "nothing"}` + (run.citations.valid ? "" : ` · invalid ${run.citations.invalid.join(", ")}`));
+      const cc = run.citationCheck ?? run.citations;
+      facts.push(`cited ${cc.cited.map((n) => `[${n}]`).join("") || "nothing"}` + (cc.valid ? "" : ` · invalid ${cc.invalid.join(", ")}`));
     }
     facts.push(run.outcome);
     const box = el("div", { class: "arm" },
@@ -334,6 +371,120 @@
       }
     }
     return box;
+  }
+
+  // ---- the Citations tab (Day 24) -----------------------------------------------
+
+  const CHECKS = [["sources", "sources"], ["citations", "citations"], ["quotes", "quotes real"], ["faithful", "faithful"], ["idk", "IDK right"]];
+  const chk = (x) => el("td", { class: "chk " + (x === null || x === undefined ? "na" : x ? "yes" : "no") }, x === null || x === undefined ? "—" : x ? "✓" : "✗");
+  const vLabel = (run) => {
+    const v = run.verification;
+    if (!v) return run.dontKnow?.reason === "low_relevance" ? "low relevance (no answer call)" : "—";
+    const parts = [];
+    if (v.firstAttemptValid) parts.push("verified");
+    else if (v.retried) parts.push(v.finalErrors.length ? "retried, still invalid" : "retried → verified");
+    if (v.droppedCitations.length) parts.push(`${v.droppedCitations.length} citation${v.droppedCitations.length === 1 ? "" : "s"} dropped`);
+    if (v.downgraded) parts.push("downgraded");
+    return parts.join(" · ");
+  };
+  /** The answer as Markdown, with each [cN] drawn as a chip. */
+  const withChips = (answer) => md(answer).replace(/\[(c\d+)\]/gi, (_, id) => `<span class="chip">${id.toLowerCase()}</span>`);
+
+  function renderCitations(results, notes) {
+    const { settings, summary, rows } = results;
+    document.getElementById("sub").textContent =
+      `Citations eval · generated ${new Date(results.generatedAt).toLocaleString()} · ${rows.length} questions · ${settings.mode}`;
+    const body = el("tbody");
+    for (const row of rows) {
+      const run = row.run;
+      const applied = Object.values(row.checks).filter((x) => x !== null);
+      const tr = el("tr", { class: "q" },
+        el("td", {}, row.id),
+        el("td", {}, row.type + (row.expect_decline ? " (IDK)" : "")),
+        el("td", {}, row.question.length > 110 ? row.question.slice(0, 110) + "…" : row.question),
+        el("td", { class: run.status === "dont_know" ? "muted" : "" }, run.status + (run.dontKnow ? ` (${run.dontKnow.reason})` : "")),
+        CHECKS.map(([key]) => chk(row.checks[key])),
+        el("td", { class: "num" }, `${applied.filter(Boolean).length}/${applied.length}`),
+        el("td", { class: "num" }, num(row.faithfulness?.faithfulness)),
+        el("td", { class: "num" }, num(row.grade?.score)),
+        el("td", {}, vLabel(run)),
+      );
+      const detail = el("tr", { class: "detail", hidden: "" }, el("td", { colspan: String(9 + CHECKS.length) }));
+      tr.addEventListener("click", () => {
+        const open = detail.hidden;
+        detail.hidden = !open;
+        tr.classList.toggle("open", open);
+        if (open && !detail.firstChild.firstChild) detail.firstChild.append(citationDetail(row));
+      });
+      body.append(tr, detail);
+    }
+    return [
+      el("h2", {}, "Settings"),
+      el("p", { class: "settings" },
+        "Mode ", el("code", {}, settings.mode), ". Answers: ", el("code", {}, settings.model),
+        " through the forced submit_answer contract (temperature 0), verified in code, one retry with the errors. Judges: ",
+        el("code", {}, settings.judgeModel), " — the faithfulness judge (claims + the quotes they cite, not the chunks or the expected facts) and Day 22's fact judge. ",
+        `Rerank cutoff ${settings.rerankThreshold}, k_final ${settings.kFinal}, k_retrieve ${settings.kRetrieve}.`),
+      el("h2", {}, "Summary"),
+      el("div", { class: "scroll" }, el("table", { class: "summary" },
+        el("tbody", {}, (results.summaryRows ?? []).map(([label, value]) => el("tr", {}, el("td", {}, label), el("td", {}, value)))))),
+      el("h2", {}, "Per question"),
+      el("p", { class: "settings" }, "Click a row for the answer with its citations, the sources, every claim with the judge's verdict next to the quote it cites, and what verification did. — = the check does not apply."),
+      el("div", { class: "scroll" }, el("table", { class: "questions" },
+        el("thead", {}, el("tr", {},
+          el("th", {}, "id"), el("th", {}, "type"), el("th", {}, "question"), el("th", {}, "status"),
+          CHECKS.map(([, label]) => el("th", { class: "chk" }, label)),
+          el("th", { class: "num" }, "checks"), el("th", { class: "num" }, "faithful."), el("th", { class: "num" }, "facts"), el("th", {}, "verification"))),
+        body)),
+      ...(notes?.trim() ? [el("h2", {}, "Findings"), el("div", { class: "findings", html: md(notes) })] : []),
+    ];
+  }
+
+  function citationDetail(row) {
+    const run = row.run;
+    const v = run.verification;
+    const where = (x) => shortSource(x.source) + (x.section ? ` › ${x.section}` : "");
+    const box = el("div", { class: "arm" },
+      el("h3", {}, `${run.status}${run.dontKnow ? ` (${run.dontKnow.reason})` : ""} · ${vLabel(run)}`),
+      el("div", { class: "line" }, row.notes),
+      run.status === "dont_know"
+        ? el("div", { class: "idk-box" }, el("b", {}, "I don't know."), run.clarifyingQuestion)
+        : el("div", { class: "answer", html: withChips(run.answer) }),
+    );
+    if (run.sources?.length) {
+      box.append(el("div", { class: "sub-h" }, "Sources (derived from the citations)"),
+        el("ol", { class: "cites" }, run.sources.map((s) => el("li", {}, where(s), el("span", { class: "muted" }, " · " + s.chunk_id)))));
+    }
+    if (run.citations?.length) {
+      box.append(el("div", { class: "sub-h" }, "Citations"),
+        el("ul", { class: "cites" }, run.citations.map((c) => el("li", {}, el("span", { class: "chip" }, c.id), ` “${c.quote}” `, el("span", { class: "muted" }, "— " + where(c))))));
+    }
+    const f = row.faithfulness;
+    if (f) {
+      box.append(el("div", { class: "sub-h" }, `Claims — faithfulness ${num(f.faithfulness)}`),
+        el("table", { class: "claims" }, el("tbody", {}, f.claims.map((c) =>
+          el("tr", {},
+            el("td", {}, c.claim),
+            el("td", { class: "verdict-" + c.verdict }, c.verdict),
+            el("td", { class: "q" }, c.quotes.map((q, i) => [i ? el("br") : null, el("span", { class: "chip" }, q.id), ` “${q.quote ?? "?"}”`])),
+            el("td", { class: "muted" }, c.note || ""))))));
+      if (f.uncitedClaims.length) box.append(el("div", { class: "sub-h" }, "Uncited claims"), el("ul", { class: "cites" }, f.uncitedClaims.map((c) => el("li", {}, c))));
+    }
+    if (v?.firstAttemptErrors?.length) box.append(el("div", { class: "sub-h" }, "First-attempt errors"), el("ul", { class: "cites" }, v.firstAttemptErrors.map((e) => el("li", { class: "warn" }, e))));
+    if (v?.droppedCitations?.length) box.append(el("div", { class: "sub-h" }, "Dropped citations"), el("ul", { class: "cites" }, v.droppedCitations.map((c) => el("li", {}, `[${c.id}] ${c.reason}: “${c.quote}”`))));
+    if (v?.droppedClaims?.length) box.append(el("div", { class: "sub-h" }, "Claims removed"), el("ul", { class: "cites" }, v.droppedClaims.map((c) => el("li", {}, c))));
+    if (run.dontKnow?.reason === "low_relevance" && run.rejected?.length) {
+      box.append(el("div", { class: "sub-h" }, "Best rejected chunks (vector → rerank)"),
+        el("table", { class: "chunks" }, el("tbody", {}, run.rejected.map((c, i) =>
+          el("tr", {}, el("td", { class: "num" }, `✗${i + 1}`), el("td", { class: "num" }, num(c.score, 3), el("span", { class: "rr" }, " → " + num(c.rerankScore, 3))),
+            el("td", {}, el("details", {}, el("summary", {}, where(c)), el("pre", {}, c.text))))))));
+    }
+    if (row.grade) {
+      box.append(el("div", { class: "sub-h" }, `Fact judge — score ${num(row.grade.score)}`),
+        el("table", { class: "grades" }, el("tbody", {}, row.grade.facts.map((x) =>
+          el("tr", {}, el("td", {}, x.fact), el("td", { class: "grade-" + x.grade }, x.grade), el("td", { class: "muted" }, x.note || ""))))));
+    }
+    return el("div", { class: "detail-box" }, box);
   }
 
   load();
