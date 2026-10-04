@@ -1,6 +1,7 @@
 # first-agent
 
-A chat app with layered memory, a task lifecycle, MCP tools and planned pipelines.
+A chat app with layered memory, a task lifecycle, MCP tools, planned pipelines, and a
+**Knowledge** agent that answers with or without RAG over [`../doc_index`](../doc_index).
 Node + Express, vanilla front end, no build step.
 
 ```bash
@@ -8,6 +9,8 @@ npm install
 echo 'ANTHROPIC_API_KEY=sk-ant-…' > .env    # omit for the offline FakeProvider
 npm start                                   # http://localhost:3000
 ```
+
+The Knowledge agent also needs a built index: `cd ../doc_index && npm install && npm run index`.
 
 | script | does |
 | --- | --- |
@@ -64,6 +67,27 @@ by the chat and the eval, and returns `{ answer, mode, chunks, usage, timings }`
 Routes: `PUT /conversations/:id/rag` `{ mode }`, `POST /rag/compare` `{ question }`,
 `GET /rag/status`, `GET /rag-report` (page) and `GET /rag-report/data` (reads
 `reports/rag_results.json` and `rag_notes.md` on every request).
+
+### Eval (`npm run eval:rag`)
+
+[`eval/rag/questions.json`](eval/rag/questions.json) holds 10 questions: 7 corpus, 2 general
+and 1 unanswerable ([table](eval/rag/questions.md)). Each expected fact has an `evidence`
+quote, and every run first checks that each quote appears verbatim in its expected source
+in the index, failing loudly if not. Then for each question and mode it records:
+
+- **retrieval** (rag): hit@k and the rank of the first expected source. A failed RAG answer
+  is labelled a *retrieval miss* or a *generation miss*.
+- **judge**: one forced `submit_grade` call at temperature 0 that sees the question, type,
+  expected facts and answer, but not the mode (`[n]` markers are stripped). It grades each
+  fact `present | partial | missing | contradicted` and sets `hallucination` and `declined`.
+  Score = (present + 0.5 × partial) / facts.
+- **citations** (rag): every `[n]` is a retrieved chunk, and at least one comes from an
+  expected source.
+
+Output: [`reports/rag_comparison.md`](reports/rag_comparison.md) (summary, per-question
+table, both answers, chunks and grades) and `reports/rag_results.json`.
+[`reports/rag_notes.md`](reports/rag_notes.md) is the hand-written findings, included in
+the report. Latest run: mean fact score 0.21 plain vs 0.89 RAG, hallucinations 4 vs 0, hit@5 8/8.
 
 ## Pipelines
 
