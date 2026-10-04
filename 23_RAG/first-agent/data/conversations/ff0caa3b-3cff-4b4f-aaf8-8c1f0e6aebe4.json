@@ -1,0 +1,321 @@
+{
+  "id": "ff0caa3b-3cff-4b4f-aaf8-8c1f0e6aebe4",
+  "title": "what is the most recent Kotlin release?",
+  "createdAt": "2026-10-04T16:24:19.218Z",
+  "updatedAt": "2026-10-04T16:24:19.218Z",
+  "usage": {
+    "totalInputTokens": 2186,
+    "totalOutputTokens": 143,
+    "totalCostUsd": 0.002901,
+    "turnCount": 1,
+    "overheadInputTokens": 0,
+    "overheadOutputTokens": 0,
+    "overheadCostUsd": 0,
+    "overheadCalls": 0
+  },
+  "project": "default",
+  "agentId": "knowledge",
+  "forkedFrom": null,
+  "ragMode": "rag",
+  "ragOptions": {
+    "rerank": true,
+    "rewrite": true
+  },
+  "memory": {},
+  "messages": [
+    {
+      "role": "user",
+      "content": "what is the most recent Kotlin release?",
+      "id": "m1"
+    },
+    {
+      "role": "assistant",
+      "content": "Based on the provided documents, the most recent Kotlin release mentioned is **Kotlin 2.2.0** [1], which was published on September 13, 2025.\n\nHowever, I should note that document 2 also references Kotlin 2.1.0, which was released on November 27, 2024 [2]. The documents don't provide a complete timeline, so there may be other releases between these versions that aren't covered in these sources.",
+      "id": "m2",
+      "tokens": {
+        "input": 2186,
+        "output": 143,
+        "total": 2329
+      },
+      "cost": {
+        "input": 0.002186,
+        "output": 0.000715,
+        "total": 0.002901
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 6761,
+      "stopReason": "end_turn",
+      "rag": {
+        "mode": "rag",
+        "label": "rag+rewrite+rerank",
+        "rerank": true,
+        "rewrite": true,
+        "queries": [
+          "latest Kotlin release"
+        ],
+        "candidates": [
+          {
+            "chunk_id": "kb/kotlin-2.2.0-game-changing-features-that-will-transform-your-development-workflow-by-praveen-sharma-medium.html:structural:0",
+            "source": "knowledge_database/Kotlin 2.2.0_ Game-Changing Features That Will Transform Your Development Workflow _ by praveen sharma _ Medium.html",
+            "section": "",
+            "vectorScore": 0.5855015390118011,
+            "rerankScore": 0.9930193705834205,
+            "vectorRank": 13,
+            "rerankRank": 1,
+            "kept": true
+          },
+          {
+            "chunk_id": "kb/exploring-kotlin-2.1.0-new-features-by-youssef-moti-medium.html:structural:0",
+            "source": "knowledge_database/Exploring Kotlin 2.1.0_ New Features _ by youssef moti _ Medium.html",
+            "section": "",
+            "vectorScore": 0.645034439950786,
+            "rerankScore": 0.9620276920050265,
+            "vectorRank": 2,
+            "rerankRank": 2,
+            "kept": true
+          },
+          {
+            "chunk_id": "kb/kotlin-2.0.20-major-update-brings-performance-improvements-and-bug-fixes-tech-news-by-olena-chyrkova-major-digest-medium.html:structural:0",
+            "source": "knowledge_database/Kotlin 2.0.20_ Major Update Brings Performance Improvements and Bug Fixes — Tech News _ by Olena Chyrkova _ Major Digest _ Medium.html",
+            "section": "",
+            "vectorScore": 0.6506638411666209,
+            "rerankScore": 0.9598867158250539,
+            "vectorRank": 1,
+            "rerankRank": 3,
+            "kept": true
+          },
+          {
+            "chunk_id": "kb/kotlin-2.0.0-a-new-era-in-kotlin-development-by-halil-ozel-medium.html:structural:6",
+            "source": "knowledge_database/Kotlin 2.0.0_ A New Era in Kotlin Development _ by Halil Özel _ Medium.html",
+            "section": "Conclusion ✅",
+            "vectorScore": 0.6118078899043071,
+            "rerankScore": 0.9557343942386072,
+            "vectorRank": 5,
+            "rerankRank": 4,
+            "kept": true
+          },
+          {
+            "chunk_id": "kb/kotlin-2.0.0-a-new-era-in-kotlin-development-by-halil-ozel-medium.html:structural:0",
+            "source": "knowledge_database/Kotlin 2.0.0_ A New Era in Kotlin Development _ by Halil Özel _ Medium.html",
+            "section": "",
+            "vectorScore": 0.5911670252483383,
+            "rerankScore": 0.9489116460812667,
+            "vectorRank": 10,
+            "rerankRank": 5,
+            "kept": true
+          },
+          {
+            "chunk_id": "kb/kotlin-2.2.20-for-android-developers-5-changes-that-make-your-code-cleaner-by-jatin-gujjar-medium.html:structural:6",
+            "source": "knowledge_database/Kotlin 2.2.20 for Android Developers_ 5 Changes That Make Your Code Cleaner 🚀 _ by Jatin Gujjar _ Medium.html",
+            "section": "🚀 Final Thoughts",
+            "vectorScore": 0.5935440257288624,
+            "rerankScore": 0.9402845787697383,
+            "vectorRank": 8,
+            "rerankRank": 6,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/kotlin-2.4.20-release-what-s-new-why-it-matters-2026-medium.htm:structural:0",
+            "source": "knowledge_database/Kotlin 2.4.20 Release_ What's New & Why It Matters (2026) _ Medium.htm",
+            "section": "",
+            "vectorScore": 0.6312352294082387,
+            "rerankScore": 0.9283701408112528,
+            "vectorRank": 3,
+            "rerankRank": 7,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/kotlin-2.2.20-for-android-developers-5-changes-that-make-your-code-cleaner-by-jatin-gujjar-medium.html:structural:0",
+            "source": "knowledge_database/Kotlin 2.2.20 for Android Developers_ 5 Changes That Make Your Code Cleaner 🚀 _ by Jatin Gujjar _ Medium.html",
+            "section": "",
+            "vectorScore": 0.579250729741291,
+            "rerankScore": 0.9227210161370103,
+            "vectorRank": 20,
+            "rerankRank": 8,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/exploring-kotlin-1.9.0-what-s-new-in-the-latest-release-by-nandhu-raj-stackademic.html:structural:0",
+            "source": "knowledge_database/Exploring Kotlin 1.9.0_ What’s New in the Latest Release _ by Nandhu Raj _ Stackademic.html",
+            "section": "",
+            "vectorScore": 0.6166360821086806,
+            "rerankScore": 0.9210918608015174,
+            "vectorRank": 4,
+            "rerankRank": 9,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/kotlin-2.4-vs-kotlin-2.3-what-actually-changed-medium.html:structural:8",
+            "source": "knowledge_database/Kotlin 2.4 vs Kotlin 2.3_ What Actually Changed_ _ Medium.html",
+            "section": "TAKEAWAY:",
+            "vectorScore": 0.5815019655495192,
+            "rerankScore": 0.8998181317206649,
+            "vectorRank": 17,
+            "rerankRank": 10,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/kotlin-2.4-vs-kotlin-2.3-what-actually-changed-medium.html:structural:1",
+            "source": "knowledge_database/Kotlin 2.4 vs Kotlin 2.3_ What Actually Changed_ _ Medium.html",
+            "section": "Quick Context: 2.3 is where we left off",
+            "vectorScore": 0.5841403855778436,
+            "rerankScore": 0.8745027987068137,
+            "vectorRank": 15,
+            "rerankRank": 11,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/kotlin-2.0.0-a-new-era-in-kotlin-development-by-halil-ozel-medium.html:structural:5",
+            "source": "knowledge_database/Kotlin 2.0.0_ A New Era in Kotlin Development _ by Halil Özel _ Medium.html",
+            "section": "5. Community and Ecosystem Growth 🛟",
+            "vectorScore": 0.5927313174381412,
+            "rerankScore": 0.774125575043064,
+            "vectorRank": 9,
+            "rerankRank": 12,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/exploring-kotlin-2.1.0-new-features-by-youssef-moti-medium.html:structural:9",
+            "source": "knowledge_database/Exploring Kotlin 2.1.0_ New Features _ by youssef moti _ Medium.html",
+            "section": "10. Updating to Kotlin 2.1.0",
+            "vectorScore": 0.589980422779964,
+            "rerankScore": 0.7084831571947162,
+            "vectorRank": 11,
+            "rerankRank": 13,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/kotlin-2.0.0-a-new-era-in-kotlin-development-by-halil-ozel-medium.html:structural:3",
+            "source": "knowledge_database/Kotlin 2.0.0_ A New Era in Kotlin Development _ by Halil Özel _ Medium.html",
+            "section": "3. Expanded Multiplatform Support 🎗️",
+            "vectorScore": 0.6020869844046288,
+            "rerankScore": 0.6438085590611934,
+            "vectorRank": 7,
+            "rerankRank": 14,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/exploring-kotlin-1.9.0-what-s-new-in-the-latest-release-by-nandhu-raj-stackademic.html:structural:1",
+            "source": "knowledge_database/Exploring Kotlin 1.9.0_ What’s New in the Latest Release _ by Nandhu Raj _ Stackademic.html",
+            "section": "",
+            "vectorScore": 0.6045954029053916,
+            "rerankScore": 0.31912982859018657,
+            "vectorRank": 6,
+            "rerankRank": 15,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/kotlin-2.0.20-major-update-brings-performance-improvements-and-bug-fixes-tech-news-by-olena-chyrkova-major-digest-medium.html:structural:3",
+            "source": "knowledge_database/Kotlin 2.0.20_ Major Update Brings Performance Improvements and Bug Fixes — Tech News _ by Olena Chyrkova _ Major Digest _ Medium.html",
+            "section": "Support for New Gradle Versions",
+            "vectorScore": 0.5892575326437379,
+            "rerankScore": 0.26818502544436784,
+            "vectorRank": 12,
+            "rerankRank": 16,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/kotlin-2.0.20-major-update-brings-performance-improvements-and-bug-fixes-tech-news-by-olena-chyrkova-major-digest-medium.html:structural:4",
+            "source": "knowledge_database/Kotlin 2.0.20_ Major Update Brings Performance Improvements and Bug Fixes — Tech News _ by Olena Chyrkova _ Major Digest _ Medium.html",
+            "section": "Multiplatform Development Enhancements",
+            "vectorScore": 0.5794562821507535,
+            "rerankScore": 0.11483644798225855,
+            "vectorRank": 19,
+            "rerankRank": 17,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/kotlin-2.4-vs-kotlin-2.3-what-actually-changed-medium.html:structural:4",
+            "source": "knowledge_database/Kotlin 2.4 vs Kotlin 2.3_ What Actually Changed_ _ Medium.html",
+            "section": "What Kotlin 2.4 Actually Delivers › Platform support:",
+            "vectorScore": 0.5835955016243296,
+            "rerankScore": 0.026045512446934198,
+            "vectorRank": 16,
+            "rerankRank": 18,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/kotlin-2.4-10-new-features-android-developers-should-know-medium.html:structural:10",
+            "source": "knowledge_database/Kotlin 2.4_ 10 New Features Android Developers Should Know _ Medium.html",
+            "section": "Key Takeaways",
+            "vectorScore": 0.5799096833078914,
+            "rerankScore": 0.0008796619432196917,
+            "vectorRank": 18,
+            "rerankRank": 19,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/kotlin-2.4.20-release-what-s-new-why-it-matters-2026-medium.htm:structural:5",
+            "source": "knowledge_database/Kotlin 2.4.20 Release_ What's New & Why It Matters (2026) _ Medium.htm",
+            "section": "Quick Hits Worth Knowing",
+            "vectorScore": 0.5854916908843615,
+            "rerankScore": 0.00040120940020899954,
+            "vectorRank": 14,
+            "rerankRank": 20,
+            "kept": false
+          }
+        ],
+        "chunks": [
+          {
+            "n": 1,
+            "score": 0.5855015390118011,
+            "rerankScore": 0.9930193705834205,
+            "source": "knowledge_database/Kotlin 2.2.0_ Game-Changing Features That Will Transform Your Development Workflow _ by praveen sharma _ Medium.html",
+            "section": "",
+            "title": "Kotlin 2.2.0: Game-Changing Features That Will Transform Your Development Workflow",
+            "chunk_id": "kb/kotlin-2.2.0-game-changing-features-that-will-transform-your-development-workflow-by-praveen-sharma-medium.html:structural:0",
+            "text": "KotlinKotlin MultiplatformAndroid DevelopmentJVMTechupdates\n\nKotlin 2.2.0: Game-Changing Features That Will Transform Your Development Workflow\n\npraveen sharma8 min readSep 13, 2025\n\nHow the latest Kotlin release is revolutionizing the way we write cleaner, more maintainable code\n\nKotlin 2.2.0 latest release features\n\nAs a developer who’s been riding the Kotlin wave since its early days, I can confidently say that Kotlin 2.2.0 isn’t just another incremental update — it’s a paradigm shift that addresses some of our most persistent daily coding challenges. After spending weeks diving deep into these new features, I’m genuinely excited to share how they’re going to make your life as a developer significantly easier.\n\nLet me walk you through the features that are already changing how I approach software development, complete with real-world examples and practical insights you won’t find in the official docs."
+          },
+          {
+            "n": 2,
+            "score": 0.645034439950786,
+            "rerankScore": 0.9620276920050265,
+            "source": "knowledge_database/Exploring Kotlin 2.1.0_ New Features _ by youssef moti _ Medium.html",
+            "section": "",
+            "title": "Exploring Kotlin 2.1.0: New Features",
+            "chunk_id": "kb/exploring-kotlin-2.1.0-new-features-by-youssef-moti-medium.html:structural:0",
+            "text": "Exploring Kotlin 2.1.0: New Features\n\nyoussef moti5 min readJan 5, 2025\n\nKotlin 2.1.0, released on November 27, 2024, introduces several new features and improvements that enhance the language’s expressiveness and performance\n\nAll the features have IDE support in the latest 2024.3 version of IntelliJ IDEA with K2 mode enabled.\n\nLearn more in the IntelliJ IDEA 2024.3 blog post."
+          },
+          {
+            "n": 3,
+            "score": 0.6506638411666209,
+            "rerankScore": 0.9598867158250539,
+            "source": "knowledge_database/Kotlin 2.0.20_ Major Update Brings Performance Improvements and Bug Fixes — Tech News _ by Olena Chyrkova _ Major Digest _ Medium.html",
+            "section": "",
+            "title": "Kotlin 2.0.20: Major Update Brings Performance Improvements and Bug Fixes — Tech News",
+            "chunk_id": "kb/kotlin-2.0.20-major-update-brings-performance-improvements-and-bug-fixes-tech-news-by-olena-chyrkova-major-digest-medium.html:structural:0",
+            "text": "Kotlin 2.0.20: Major Update Brings Performance Improvements and Bug Fixes — Tech News\n\nPhoto by Louis Tsai on Unsplash\n\nKotlin has released an update to its popular programming language, Kotlin 2.0.20. This new version features significant performance enhancements and resolves issues introduced in the May 23 release of Kotlin 2.0.0."
+          },
+          {
+            "n": 4,
+            "score": 0.6118078899043071,
+            "rerankScore": 0.9557343942386072,
+            "source": "knowledge_database/Kotlin 2.0.0_ A New Era in Kotlin Development _ by Halil Özel _ Medium.html",
+            "section": "Conclusion ✅",
+            "title": "Kotlin 2.0.0: A New Era in Kotlin Development",
+            "chunk_id": "kb/kotlin-2.0.0-a-new-era-in-kotlin-development-by-halil-ozel-medium.html:structural:6",
+            "text": "Conclusion ✅\n\nKotlin 2.0.0 is a landmark release that cements Kotlin’s position as a leading language for modern development. With its enhanced language features, improved performance, expanded multiplatform support, better tooling, and a vibrant community, Kotlin 2.0.0 is set to empower developers to create more robust, efficient, and innovative applications.\n\nWhether you’re a seasoned Kotlin developer or just starting your journey, there’s never been a better time to dive into Kotlin and explore what this powerful language has to offer.\n\nIf you liked ❤️ the article 📃 , you can buy me a coffee! ☕️"
+          },
+          {
+            "n": 5,
+            "score": 0.5911670252483383,
+            "rerankScore": 0.9489116460812667,
+            "source": "knowledge_database/Kotlin 2.0.0_ A New Era in Kotlin Development _ by Halil Özel _ Medium.html",
+            "section": "",
+            "title": "Kotlin 2.0.0: A New Era in Kotlin Development",
+            "chunk_id": "kb/kotlin-2.0.0-a-new-era-in-kotlin-development-by-halil-ozel-medium.html:structural:0",
+            "text": "Kotlin 2.0.0: A New Era in Kotlin Development\n\nHalil Özel4 min readJul 4, 2024\n\nKotlin, the modern programming language that has taken the development world by storm, has reached a significant milestone with the release of Kotlin 2.0.0. This version marks a new era in Kotlin development, bringing a host of exciting features, improvements, and changes designed to make development more enjoyable, efficient, and powerful. In this blog post, we’ll explore the highlights of Kotlin 2.0.0 and what it means for developers.\n\nKotlin Programming Language"
+          }
+        ],
+        "declined": false,
+        "rejected": [],
+        "timings": {
+          "rewriteMs": 993,
+          "retrieveMs": 915,
+          "rerankMs": 3226,
+          "llmMs": 1625
+        }
+      }
+    }
+  ]
+}

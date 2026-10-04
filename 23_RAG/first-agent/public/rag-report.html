@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAG eval results</title>
+<style>
+  :root {
+    --bg: #f6f6f4;
+    --panel: #ffffff;
+    --ink: #1d1d1b;
+    --muted: #7a7a72;
+    --line: #e3e3dd;
+    --agent: #efefea;
+    --accent: #b8552f;
+    --good: #2f7d4f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16161a;
+      --panel: #1d1d22;
+      --ink: #ececea;
+      --muted: #8f8f96;
+      --line: #2c2c33;
+      --agent: #26262d;
+      --accent: #e08b63;
+      --good: #6fbf8e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+  }
+  .page {
+    max-width: 1320px;
+    margin: 0 auto;
+    min-height: 100vh;
+    background: var(--panel);
+    border-left: 1px solid var(--line);
+    border-right: 1px solid var(--line);
+  }
+  .topbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 18px;
+    row-gap: 6px;
+    padding: 10px 24px;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg);
+  }
+  .topbar h1 { margin: 0; font-size: 15px; letter-spacing: -0.01em; }
+  .topbar .sub { color: var(--muted); font-size: 12px; flex: 1; min-width: 200px; }
+  .topbar a { color: var(--accent); font-size: 13px; text-decoration: none; white-space: nowrap; }
+  .topbar a:hover { text-decoration: underline; }
+  main { padding: 20px 24px 48px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; margin: 28px 0 10px; }
+  h2:first-child { margin-top: 0; }
+  .muted { color: var(--muted); }
+  .settings { font-size: 12.5px; color: var(--muted); margin: 0 0 4px; }
+  .settings code { color: var(--ink); }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; }
+
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-weight: 600; color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  table.summary { max-width: 1100px; }
+  table.summary td.num { white-space: normal; }
+  .rank { font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--muted); }
+  .rank.up { color: var(--good); }
+  .queries code { background: var(--agent); padding: 0 5px; border-radius: 4px; }
+  .chunks tr.dropped td { opacity: 0.55; }
+  .chunks .rr { color: var(--accent); }
+  details.dropped-list > summary { cursor: pointer; font-size: 11.5px; color: var(--muted); margin: 4px 0; }
+  table.summary td:first-child { color: var(--muted); }
+  .better { color: var(--good); font-weight: 600; }
+  .worse { color: var(--accent); font-weight: 600; }
+
+  table.questions tr.q { cursor: pointer; }
+  table.questions tr.q:hover td { background: color-mix(in srgb, var(--ink) 4%, transparent); }
+  table.questions tr.q td:first-child::before { content: "▸ "; color: var(--muted); }
+  table.questions tr.q.open td:first-child::before { content: "▾ "; }
+  table.questions tr.detail > td { padding: 0 0 18px; background: var(--bg); }
+  .tag {
+    display: inline-block;
+    padding: 0 7px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-size: 11px;
+    line-height: 18px;
+    white-space: nowrap;
+  }
+  .tag.pass { color: var(--good); border-color: color-mix(in srgb, var(--good) 50%, transparent); }
+  .tag.fail { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
+  .warn { color: var(--accent); }
+
+  .detail-box { padding: 14px 16px 0; }
+  .detail-box .why { font-size: 12.5px; color: var(--muted); margin: 0 0 10px; }
+  .arms { display: flex; gap: 14px; flex-wrap: wrap; }
+  .arm { flex: 1 1 380px; min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .arm h3 { margin: 0 0 2px; font-size: 13px; }
+  .arm .line { font-size: 11.5px; color: var(--muted); margin-bottom: 8px; }
+  .answer { font-size: 13.5px; line-height: 1.6; border-left: 3px solid var(--line); padding: 2px 0 2px 12px; margin: 0 0 10px; }
+  .answer > :first-child { margin-top: 0; }
+  .answer > :last-child { margin-bottom: 0; }
+  .answer pre { background: var(--agent); padding: 8px 10px; border-radius: 6px; overflow-x: auto; font-size: 12px; }
+  .answer table { font-size: 12px; }
+  .grades { font-size: 12px; margin-bottom: 8px; }
+  .grades td { padding: 4px 8px; }
+  .grade-present { color: var(--good); }
+  .grade-partial { color: #b08a1e; }
+  .grade-missing { color: var(--muted); }
+  .grade-contradicted { color: var(--accent); font-weight: 600; }
+  .sub-h { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 10px 0 4px; }
+  .chunks { font-size: 12px; }
+  .chunks td { padding: 4px 8px; }
+  .chunks tr.expected td:first-child { color: var(--good); font-weight: 600; }
+  .chunks .text { color: var(--muted); }
+  .chunks details summary { cursor: pointer; }
+  .chunks pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11.5px; margin: 4px 0; color: var(--ink); max-height: 240px; overflow-y: auto; }
+
+  .findings { max-width: 900px; font-size: 14px; }
+  .findings h1, .findings h2, .findings h3 { text-transform: none; letter-spacing: 0; font-size: 15px; margin: 18px 0 6px; }
+  .findings li { margin: 3px 0; }
+  .empty { padding: 48px 24px; text-align: center; color: var(--muted); }
+  .empty code { background: var(--agent); padding: 2px 6px; border-radius: 5px; color: var(--ink); }
+
+  @media (max-width: 720px) {
+    .topbar, main { padding-left: 16px; padding-right: 16px; }
+    .arm { flex-basis: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="topbar">
+    <h1>RAG eval results</h1>
+    <span class="sub" id="sub">Plain vs RAG vs rerank vs rewrite + rerank</span>
+    <a href="/">← Back to the chat</a>
+  </div>
+  <main id="main"><p class="empty">Loading…</p></main>
+</div>
+
+<script type="module">
+  import { marked } from "/vendor/marked.js";
+  import DOMPurify from "/vendor/purify.js";
+  import { createMarkdown } from "/markdown.js";
+
+  // Answers and notes are Markdown written by a model or a person: parsed, then sanitized.
+  const md = createMarkdown({ marked, DOMPurify });
+  const main = document.getElementById("main");
+
+  const el = (tag, attrs = {}, ...children) => {
+    const node = document.createElement(tag);
+    for (const [key, value] of Object.entries(attrs)) {
+      if (key === "class") node.className = value;
+      else if (key === "html") node.innerHTML = value;
+      else node.setAttribute(key, value);
+    }
+    for (const child of children.flat()) if (child != null) node.append(child);
+    return node;
+  };
+  const num = (x, d = 2) => (x == null ? "—" : Number(x).toFixed(d));
+  const secs = (ms) => (ms == null ? "—" : (ms / 1000).toFixed(1) + " s");
+  const shortSource = (s) => String(s ?? "").replace(/^knowledge_database\//, "").replace(/\.html?$/, "");
+
+  async function load() {
+    let data;
+    try {
+      const res = await fetch("/rag-report/data");
+      data = await res.json();
+      if (!res.ok) throw new Error(data.error || res.status);
+    } catch (err) {
+      main.replaceChildren(el("p", { class: "empty" }, "Could not load the results: " + err.message));
+      return;
+    }
+    if (!data.results) {
+      main.replaceChildren(
+        el("div", { class: "empty" },
+          el("p", {}, "No results yet."),
+          el("p", {}, "Run ", el("code", {}, "npm run eval:rag"), " in first-agent (needs the API key and a built doc_index), then reload."),
+        ),
+      );
+      return;
+    }
+    render(data.results, data.notes);
+  }
+
+  const isDeclined = (run) => Boolean(run.declined || run.grade?.declined);
+  /** "3 → 1" before the rerank → in the final chunks; "—" when nothing was expected. */
+  const rankMove = (r) => {
+    if (!r || r.sourcesExpected === 0) return "—";
+    const before = r.rankBefore ?? "miss", after = r.rank ?? "miss";
+    return before === after ? String(after) : `${before} → ${after}`;
+  };
+
+  function render(results, notes) {
+    const { settings, summary, rows } = results;
+    const modes = summary.modes;
+    document.getElementById("sub").textContent =
+      `Generated ${new Date(results.generatedAt).toLocaleString()} · ${rows.length} question${rows.length === 1 ? "" : "s"} × ${modes.length} modes`;
+    main.replaceChildren(
+      el("h2", {}, "Settings"),
+      el("p", { class: "settings" },
+        "Answers: ", el("code", {}, settings.model), ` in every mode, temperature 0, max ${settings.maxTokens} tokens. Judge: `,
+        el("code", {}, settings.judgeModel), ", forced submit_grade, blind to the mode."),
+      el("p", { class: "settings" },
+        "Retrieval: doc_index search(), ", el("code", {}, settings.strategy), ", collections ",
+        el("code", {}, settings.collections.length ? settings.collections.join(", ") : "all"),
+        `; k_final ${settings.kFinal} chunks to the model, k_retrieve ${settings.kRetrieve} candidates per query when reranking. Rerank: `,
+        el("code", {}, String(settings.rerankModel ?? "bge-reranker-v2-m3").replace(/^onnx-community\//, "")),
+        `, cutoff ${settings.rerankThreshold}. Rewrite: one forced submit_queries call (1–3 queries).`),
+      el("h2", {}, "Summary"),
+      summaryTable(results),
+      el("h2", {}, "Per question"),
+      el("p", { class: "settings" }, "Click a row for every mode's answer, the queries searched, kept and dropped chunks, and the judge's per-fact grades. ⚠ = hallucination, ✗ = declined. Rank = first expected source before the rerank → in the final chunks."),
+      el("div", { class: "scroll" }, questionTable(rows, modes, summary)),
+      ...(notes?.trim() ? [el("h2", {}, "Findings"), el("div", { class: "findings", html: md(notes) })] : []),
+    );
+  }
+
+  function summaryTable(results) {
+    const { modes } = results.summary;
+    const rows = results.summaryRows ?? [];
+    return el("div", { class: "scroll" }, el("table", { class: "summary" },
+      el("thead", {}, el("tr", {}, el("th", {}, ""), modes.map((m) => el("th", { class: "num" }, m)))),
+      el("tbody", {}, rows.map(([label, values]) => el("tr", {}, el("td", {}, label), values.map((v) => el("td", { class: "num" }, v))))),
+    ));
+  }
+
+  function questionTable(rows, modes, summary) {
+    const ragModes = modes.filter((m) => summary.byMode[m].isRag);
+    const cols = 3 + modes.length + ragModes.length;
+    const body = el("tbody");
+    for (const row of rows) {
+      const score = (run) => run
+        ? [num(run.grade.score),
+           run.grade.hallucination ? el("span", { class: "warn", title: run.grade.hallucinationNote || "hallucination" }, " ⚠") : null,
+           isDeclined(run) ? el("span", { class: "muted", title: run.declined ? "declined by the rerank cutoff" : "the answer declined" }, " ✗") : null]
+        : "";
+      const tr = el("tr", { class: "q" },
+        el("td", {}, row.id),
+        el("td", {}, row.type),
+        el("td", {}, row.question.length > 140 ? row.question.slice(0, 140) + "…" : row.question),
+        modes.map((m) => el("td", { class: "num " + (row.runs[m] ? (row.runs[m].outcome === "pass" ? "better" : "worse") : "") , title: row.runs[m]?.outcome ?? "" }, score(row.runs[m]))),
+        ragModes.map((m) => {
+          const r = row.runs[m]?.retrieval;
+          const up = r && r.rankBefore != null && r.rank != null && r.rank < r.rankBefore;
+          return el("td", { class: "num rank" + (up ? " up" : "") }, rankMove(r));
+        }),
+      );
+      const detail = el("tr", { class: "detail", hidden: "" }, el("td", { colspan: String(cols) }));
+      tr.addEventListener("click", () => {
+        const open = detail.hidden;
+        detail.hidden = !open;
+        tr.classList.toggle("open", open);
+        if (open && !detail.firstChild.firstChild) detail.firstChild.append(detailBox(row, modes));
+      });
+      body.append(tr, detail);
+    }
+    return el("table", { class: "questions" },
+      el("thead", {}, el("tr", {},
+        el("th", {}, "id"), el("th", {}, "type"), el("th", {}, "question"),
+        modes.map((m) => el("th", { class: "num" }, m)),
+        ragModes.map((m) => el("th", { class: "num" }, "rank " + m)))),
+      body,
+    );
+  }
+
+  function detailBox(row, modes) {
+    return el("div", { class: "detail-box" },
+      el("p", { class: "why" }, el("b", {}, "Why: "), row.notes,
+        row.expected_sources.length ? [" Expected source: ", row.expected_sources.map(shortSource).join("; "), "."] : " No expected source.",
+        row.expect_decline ? " Should be declined." : ""),
+      el("div", { class: "arms" }, modes.filter((m) => row.runs[m]).map((m) => arm(row, m))),
+    );
+  }
+
+  function arm(row, mode) {
+    const run = row.runs[mode];
+    const g = run.grade;
+    const t = run.timings;
+    const total = Object.values(t).reduce((a, b) => a + (b ?? 0), 0);
+    const stages = [["rewrite", t.rewriteMs], ["retrieve", t.retrieveMs], ["rerank", t.rerankMs], ["answer", t.llmMs]].filter(([, v]) => v).map(([k, v]) => `${k} ${secs(v)}`);
+    const facts = [`${run.usage?.inputTokens ?? "?"} in · ${run.usage?.outputTokens ?? "?"} out`, secs(total) + (stages.length > 1 ? ` (${stages.join(", ")})` : "")];
+    if (run.mode === "rag") {
+      facts.push(`rank ${rankMove(run.retrieval)}`);
+      facts.push(`cited ${run.citations.cited.map((n) => `[${n}]`).join("") || "nothing"}` + (run.citations.valid ? "" : ` · invalid ${run.citations.invalid.join(", ")}`));
+    }
+    facts.push(run.outcome);
+    const box = el("div", { class: "arm" },
+      el("h3", {}, mode, ` — score ${num(g.score)}`,
+        g.hallucination ? el("span", { class: "warn" }, " · hallucination") : null,
+        isDeclined(run) ? (run.declined ? " · declined by the cutoff" : " · declined") : ""),
+      el("div", { class: "line" }, facts.join(" · ")),
+      run.rewrite ? el("p", { class: "line queries" }, "Searched: ", run.queries.flatMap((q, i) => [i ? " · " : null, el("code", {}, q)])) : null,
+      el("div", { class: "answer", html: md(run.answer) }),
+      el("div", { class: "sub-h" }, "Judge"),
+      el("table", { class: "grades" }, el("tbody", {}, g.facts.map((f) =>
+        el("tr", {}, el("td", {}, f.fact), el("td", { class: "grade-" + f.grade }, f.grade), el("td", { class: "muted" }, f.note || ""))))),
+      g.hallucination && g.hallucinationNote ? el("p", { class: "warn", style: "font-size:12px;margin:0 0 6px" }, "Hallucination: " + g.hallucinationNote) : null,
+    );
+    if (run.mode === "rag") {
+      const expected = (source) => row.expected_sources.includes(source);
+      const scoreCell = (vector, rerank) => el("td", { class: "num" }, num(vector, 3), rerank == null ? null : el("span", { class: "rr" }, " → " + num(rerank, 3)));
+      const shown = run.declined ? (run.rejected ?? []) : run.chunks;
+      box.append(
+        el("div", { class: "sub-h" }, run.declined ? "Declined — best rejected chunks (vector → rerank)" : `Kept chunks (vector${run.rerank ? " → rerank" : ""})`),
+        el("table", { class: "chunks" }, el("tbody", {}, shown.map((c, i) =>
+          el("tr", { class: expected(c.source) ? "expected" : "" },
+            el("td", { class: "num" }, run.declined ? `✗${i + 1}` : `[${c.n}]`),
+            scoreCell(c.score, c.rerankScore),
+            el("td", {},
+              el("details", {},
+                el("summary", {}, shortSource(c.source), c.section ? el("span", { class: "muted" }, " · " + c.section) : null),
+                el("pre", {}, c.text)),
+              el("div", { class: "text" }, c.text.slice(0, 200) + (c.text.length > 200 ? "…" : ""))),
+          )))),
+      );
+      const dropped = run.candidates.filter((c) => !c.kept);
+      if (dropped.length) {
+        box.append(el("details", { class: "dropped-list" },
+          el("summary", {}, `Dropped candidates (${dropped.length})`),
+          el("table", { class: "chunks" }, el("tbody", {}, dropped.map((c) =>
+            el("tr", { class: "dropped" + (expected(c.source) ? " expected" : "") },
+              el("td", { class: "num" }, `#${c.vectorRank}`),
+              scoreCell(c.vectorScore, c.rerankScore),
+              el("td", {}, shortSource(c.source), c.section ? el("span", { class: "muted" }, " · " + c.section) : null)))))));
+      }
+    }
+    return box;
+  }
+
+  load();
+</script>
+</body>
+</html>

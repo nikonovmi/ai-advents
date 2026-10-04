@@ -1,0 +1,174 @@
+{
+  "id": "110c07e8-0384-4c5e-8503-065444dc9f73",
+  "title": "Find all james bond movies in OMDB, pic…",
+  "createdAt": "2026-09-27T23:18:53.733Z",
+  "updatedAt": "2026-09-27T23:21:38.374Z",
+  "usage": {
+    "totalInputTokens": 1766,
+    "totalOutputTokens": 35,
+    "totalCostUsd": 0.003882,
+    "turnCount": 0,
+    "overheadInputTokens": 0,
+    "overheadOutputTokens": 0,
+    "overheadCostUsd": 0,
+    "overheadCalls": 0
+  },
+  "project": "default",
+  "agentId": "pipeline",
+  "forkedFrom": null,
+  "memory": {},
+  "messages": [
+    {
+      "role": "assistant",
+      "content": "⚠️ Run #38 failed at step 4 (get_movie): {{steps.3.candidates.0.imdbId}}: steps.3.candidates has no \"0\".",
+      "id": "m1",
+      "tokens": {
+        "input": 1766,
+        "output": 35,
+        "total": 1801
+      },
+      "cost": {
+        "input": 0.003532,
+        "output": 0.00034999999999999994,
+        "total": 0.003882
+      },
+      "model": "claude-sonnet-5",
+      "ms": 2045,
+      "run": {
+        "runId": 38,
+        "durationMs": 2045,
+        "tokens": 1801,
+        "ok": false,
+        "error": "{{steps.3.candidates.0.imdbId}}: steps.3.candidates has no \"0\"."
+      },
+      "steps": [
+        {
+          "index": 1,
+          "kind": "tool",
+          "label": "search_movies",
+          "status": "ok",
+          "ms": 238
+        },
+        {
+          "index": 2,
+          "kind": "tool",
+          "label": "search_movies",
+          "status": "ok",
+          "ms": 163
+        },
+        {
+          "index": 3,
+          "kind": "prompt",
+          "label": "prompt",
+          "status": "ok",
+          "ms": 1643
+        },
+        {
+          "index": 4,
+          "kind": "tool",
+          "label": "get_movie",
+          "status": "error",
+          "ms": 0
+        },
+        {
+          "index": 5,
+          "kind": "tool",
+          "label": "get_movie",
+          "status": "skipped",
+          "ms": null
+        },
+        {
+          "index": 6,
+          "kind": "tool",
+          "label": "get_movie",
+          "status": "skipped",
+          "ms": null
+        },
+        {
+          "index": 7,
+          "kind": "tool",
+          "label": "get_movie",
+          "status": "skipped",
+          "ms": null
+        },
+        {
+          "index": 8,
+          "kind": "tool",
+          "label": "get_movie",
+          "status": "skipped",
+          "ms": null
+        },
+        {
+          "index": 9,
+          "kind": "tool",
+          "label": "get_movie",
+          "status": "skipped",
+          "ms": null
+        },
+        {
+          "index": 10,
+          "kind": "tool",
+          "label": "get_movie",
+          "status": "skipped",
+          "ms": null
+        },
+        {
+          "index": 11,
+          "kind": "tool",
+          "label": "get_movie",
+          "status": "skipped",
+          "ms": null
+        },
+        {
+          "index": 12,
+          "kind": "tool",
+          "label": "get_movie",
+          "status": "skipped",
+          "ms": null
+        },
+        {
+          "index": 13,
+          "kind": "tool",
+          "label": "get_movie",
+          "status": "skipped",
+          "ms": null
+        },
+        {
+          "index": 14,
+          "kind": "tool",
+          "label": "get_movie",
+          "status": "skipped",
+          "ms": null
+        },
+        {
+          "index": 15,
+          "kind": "tool",
+          "label": "get_movie",
+          "status": "skipped",
+          "ms": null
+        },
+        {
+          "index": 16,
+          "kind": "prompt",
+          "label": "prompt",
+          "status": "skipped",
+          "ms": null
+        },
+        {
+          "index": 17,
+          "kind": "tool",
+          "label": "notion-create-pages",
+          "status": "skipped",
+          "ms": null
+        },
+        {
+          "index": 18,
+          "kind": "tool",
+          "label": "record",
+          "status": "skipped",
+          "ms": null
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "name": "doc-index",
+  "version": "1.0.0",
+  "description": "Turns a corpus of documents into a local vector index (EmbeddingGemma + SQLite) with two chunking strategies, and compares them.",
+  "type": "module",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "main": "src/search.js",
+  "exports": {
+    ".": "./src/search.js",
+    "./search": "./src/search.js",
+    "./embed": "./src/embed.js",
+    "./rerank": "./src/rerank.js"
+  },
+  "scripts": {
+    "fetch": "node scripts/fetch.js",
+    "index": "node scripts/index.js",
+    "search": "node scripts/search.js",
+    "compare": "node scripts/compare.js",
+    "stats": "node scripts/stats.js",
+    "export": "node scripts/export.js",
+    "test": "node --test src/"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^4.3.0",
+    "better-sqlite3": "^13.0.3",
+    "cheerio": "^1.2.0",
+    "dotenv": "^18.0.5",
+    "unpdf": "^1.8.1"
+  }
+}
