@@ -21,6 +21,8 @@
  * persona that was there at the time.
  */
 
+import { BASE_SYSTEM } from "./rag/prompt.js";
+
 /** What a conversation belongs to when nothing says otherwise. */
 export const DEFAULT_AGENT = "first-agent";
 
@@ -40,13 +42,17 @@ const AGENT_PATTERN = /^[a-z0-9][a-z0-9_-]{0,63}$/;
  * @property {string[]} [mcpServers] - Ids from `src/mcp/servers.js` whose
  *   tools this agent may call. Omitted means none: the agent is sent no tools
  *   and behaves exactly as it did before tools existed.
- * @property {"chat" | "scheduled"} [kind] - `chat` (the default) is a
+ * @property {"chat" | "scheduled" | "knowledge"} [kind] - `chat` (the default) is a
  *   conversation: you type, it answers, with memory and the task lifecycle.
  *   `scheduled` is a pipeline per chat: each chat holds one schedule (its
  *   steps, run once or on an interval) and the chat is a read-only feed of its
  *   runs. Every prompt step starts from a fresh context — the persona, the
  *   step's text, maybe the tools — and skips memory, extraction and the
  *   lifecycle entirely.
+ *   `knowledge` is plain Q&A over the document index (`src/rag/`): each
+ *   message is answered With RAG or Without RAG, with short-term history only
+ *   — no digest, profile, invariants or task lifecycle, which would leak
+ *   context into the comparison.
  * @property {Record<string, string[]>} [tools] - For a scheduled agent, the
  *   only tools a prompt step's model is offered, per server. Everything else a
  *   server has — the scheduler's app-only tools above all — never reaches it.
@@ -98,6 +104,15 @@ const AGENTS = [
       "If a tool fails, say so plainly instead of guessing.",
       "Keep replies short and conversational; a small Markdown table is welcome when comparing films.",
     ].join(" "),
+  },
+  {
+    id: "knowledge",
+    name: "Knowledge",
+    tagline: "Kotlin & KMP articles, with or without RAG",
+    kind: "knowledge",
+    // The plain-mode prompt; RAG mode adds the document rules to it. Both live
+    // in src/rag/prompt.js, next to the function that builds the documents.
+    systemPrompt: BASE_SYSTEM,
   },
   {
     id: "pipeline",
@@ -172,9 +187,15 @@ export function agentFor(id) {
   return BY_ID.get(agentOf(id));
 }
 
-/** `chat` or `scheduled`. Anything unknown is a chat, which is what every agent was before. */
+/** `chat`, `scheduled` or `knowledge`. Anything unknown is a chat, which is what every agent was before. */
 export function kindOf(id) {
-  return agentFor(id).kind === "scheduled" ? "scheduled" : "chat";
+  const { kind } = agentFor(id);
+  return kind === "scheduled" || kind === "knowledge" ? kind : "chat";
+}
+
+/** Whether a conversation of this agent is a Knowledge Q&A chat. Unknown ids are not. */
+export function isKnowledgeAgent(id) {
+  return isValidAgent(id) && kindOf(id) === "knowledge";
 }
 
 /**

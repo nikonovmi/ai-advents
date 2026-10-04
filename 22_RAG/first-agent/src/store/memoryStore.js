@@ -7,6 +7,7 @@ import {
   normaliseMessages,
   normaliseRecord,
   normaliseUsage,
+  ragModeOf,
   explicitTitle,
   titleFrom,
   UNTITLED,
@@ -54,6 +55,8 @@ export class MemoryStore extends ConversationStore {
       project: projectOf(extra?.project ?? existing?.project),
       agentId: agentOf(extra?.agentId ?? existing?.agentId),
       forkedFrom: extra?.forkedFrom ?? existing?.forkedFrom ?? null,
+      // Only a Knowledge chat has one; nothing else grows the field.
+      ...(ragModeOf(extra?.ragMode ?? existing?.ragMode) ? { ragMode: ragModeOf(extra?.ragMode ?? existing?.ragMode) } : {}),
       memory: memoryOf(extra?.memory ?? existing?.memory),
       messages: turns,
     };

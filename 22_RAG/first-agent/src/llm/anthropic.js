@@ -381,6 +381,8 @@ function approximateTokens(text) {
 
 /** Route the request to whichever of the three shapes it is asking for. */
 function fakeAnswer({ system, messages, lastUser }) {
+  if (lastUser.includes("<documents>")) return fakeRagAnswer(lastUser);
+  if (looksLikeKnowledgePlain(system)) return fakeKnowledgePlain(lastUser);
   if (looksLikeSummarisation(system)) return fakeSummary(lastUser);
   // Before the promotion check: both are stage-boundary calls and both open by
   // saying a piece of work has reached an edge, so the more specific test goes
@@ -393,6 +395,32 @@ function fakeAnswer({ system, messages, lastUser }) {
     `(fake reply) You said: "${lastUser}". ` +
     "No API key is configured, so nothing was sent to a real model."
   );
+}
+
+/**
+ * **The Knowledge agent, offline.** A RAG question gets the documents it was
+ * handed read back (number, source, section) with a citation, so it is plain
+ * from the reply that documents were included and which ones. A plain one says
+ * that none were. Nothing is answered: there is no model to answer.
+ */
+function fakeRagAnswer(prompt) {
+  const docs = [...prompt.matchAll(/<doc n="(\d+)" source="([^"]*)" section="([^"]*)"/g)];
+  const question = /\nQuestion: ([\s\S]*)$/.exec(prompt)?.[1]?.trim() ?? "";
+  if (!docs.length) return `(fake reply, with RAG) No documents were retrieved for "${question}", so the provided documents do not cover it.`;
+  return [
+    `(fake reply, with RAG) I was given ${docs.length} document${docs.length === 1 ? "" : "s"} for "${question}":`,
+    ...docs.map(([, n, source, section]) => `- [${n}] ${source}${section ? " › " + section : ""}`),
+    `The first one is the closest match [${docs[0][1]}].`,
+  ].join("\n");
+}
+
+function fakeKnowledgePlain(question) {
+  return `(fake reply, without RAG) No documents were included. Question: "${question}".`;
+}
+
+/** The Knowledge agent's plain-mode prompt (`src/rag/prompt.js`, BASE_SYSTEM), with no document rules. */
+function looksLikeKnowledgePlain(system) {
+  return typeof system === "string" && system.startsWith("You are a helpful, precise assistant.") && !system.includes("<documents>");
 }
 
 /**

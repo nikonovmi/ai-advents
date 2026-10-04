@@ -18,6 +18,7 @@ import { Planner, buildCatalog } from "./pipeline/planner.js";
 import { repairer } from "./pipeline/repair.js";
 import { PipelineRunner } from "./pipeline/runner.js";
 import { pipelineRoutes } from "./pipelineRoutes.js";
+import { ragRoutes } from "./ragRoutes.js";
 import { SchedulerClient } from "./scheduler/client.js";
 import { DEFAULT_TICK_MS, Ticker } from "./scheduler/ticker.js";
 import { JsonMcpAuthStore } from "./store/mcpAuthStore.js";
@@ -208,6 +209,11 @@ app.use(
     invalidate: (id) => sessions.delete(id),
   })
 );
+
+// The Knowledge agent's chats (Q&A, with or without RAG) and the eval page.
+// Nothing here touches MCP, so it works with every MCP server down; the
+// embedding model loads on the first RAG question, not at startup.
+app.use(ragRoutes({ store, provider, publicDir: PUBLIC_DIR, readableError }));
 
 /**
  * Which agents exist — the dropdown in the title, built from the registry.

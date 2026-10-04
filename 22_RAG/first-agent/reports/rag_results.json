@@ -1,0 +1,1850 @@
+{
+  "generatedAt": "2026-10-04T01:52:46.259Z",
+  "settings": {
+    "k": 5,
+    "strategy": "structural",
+    "collections": [],
+    "minScore": null,
+    "model": "claude-haiku-4-5-20251001",
+    "judgeModel": "claude-haiku-4-5-20251001",
+    "maxTokens": 1024
+  },
+  "summary": {
+    "count": 10,
+    "plain": {
+      "meanScore": 0.21296296296296294,
+      "meanScoreAll": 0.29166666666666663,
+      "hallucinations": 4,
+      "unanswerableDeclined": 1,
+      "unanswerable": 1,
+      "passed": 2,
+      "meanLatencyMs": 4009.5,
+      "meanInputTokens": 71.5,
+      "meanOutputTokens": 335.6
+    },
+    "rag": {
+      "meanScore": 0.8888888888888888,
+      "meanScoreAll": 0.9,
+      "hallucinations": 0,
+      "unanswerableDeclined": 1,
+      "unanswerable": 1,
+      "passed": 9,
+      "meanLatencyMs": 2634,
+      "meanInputTokens": 1486,
+      "meanOutputTokens": 193.2,
+      "hits": 8,
+      "withSources": 8,
+      "meanRank": 1,
+      "citationsValid": 10,
+      "citesExpected": 8,
+      "meanRetrieveMs": 163.8,
+      "outcomes": {
+        "pass": 9,
+        "retrieval miss": 0,
+        "generation miss": 0,
+        "not declined": 0,
+        "not in corpus": 1
+      }
+    }
+  },
+  "examplePrompt": "<documents>\n<doc n=\"1\" source=\"knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html\" section=\"Performance improvements on iOS\" title=\"Compose Multiplatform 1.7.0 Released\">\nPerformance improvements on iOS\n\nIn Kotlin 2.0.20, the Kotlin/Native team contributed significantly to making Compose apps on iOS perform faster and smoother. The Compose Multiplatform 1.7.0 release makes the best of these optimizations, along with performance improvements from Jetpack Compose 1.7.0.\n\nWe benchmarked Compose Multiplatform 1.6.11 paired with Kotlin 2.0.0 and Compose Multiplatform 1.7.0 paired with Kotlin 2.0.20, and the comparison shows the following improvements:\n\n- The LazyGrid benchmark simulates LazyVerticalGrid scrolling, which is closest to real-life use cases, and performs ~9% faster on average. It also shows a significantly reduced number of missed frames. Take a look at the p1/p50 percentile graph below: It shows increased frame stability and confirms that there are now hardly any missed frames, as the average processing time is less than the standard 8.33 ms latency of a 120Hz iPhone screen.\n\n- The VisualEffects benchmark renders many randomly placed components and works 3.6 times faster – the average CPU time per 1000 frames was reduced from 8.8 to 2.4 seconds.\n\n- The AnimatedVisibility composable animates showing and hiding an image and demonstrates ~6% faster rendering.\n\nFeel free to test it yourself and let us know whether your iOS app feels smoother!\n\nOn top of that, Kotlin 2.0.20 introduces experimental support for concurrent marking in the garbage collector (GC). Enabling concurrent marking shortens GC pauses and demonstrates even bigger improvements for all benchmarks. We measured only half as many missed frames as before, as well as a drop in the worst p25 GC pause time from 1.7 ms to 0.4 ms for the LazyGrid benchmark. Give it a try and share your feedback.\n\nUpdate to Compose Multiplatform 1.7.0\n</doc>\n<doc n=\"2\" source=\"knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html\" section=\"\" title=\"Compose Multiplatform 1.7.0 Released\">\nMultiplatform\n\nReleases\n\nCompose Multiplatform 1.7.0 Released\n\nCompose Multiplatform is a declarative UI framework built by JetBrains that allows developers to share UI implementations across different platforms. The 1.7.0 release brings more components to common code, support for type-safe navigation, significant performance improvements on iOS, and changes from the latest Jetpack Compose update.\n\nHere are the highlights of this release:\n\n- Material3 adaptive and WindowSizeClass are now available in common code.\n\n- Compose Multiplatform now provides compile-time safety for your navigation graph.\n\n- Compose Multiplatform 1.7.0 paired with Kotlin 2.0.20 performs significantly faster and smoother on iOS than the combination of previous stable releases.\n\nFor the complete list of changes, refer to our What’s New page or release notes on GitHub.\n\nGet Started with Compose Multiplatform\n</doc>\n<doc n=\"3\" source=\"knowledge_database/Kotlin 2.4.20 Release_ What's New &amp; Why It Matters (2026) _ Medium.html\" section=\"What Actually Changed › 2. Compose Multiplatform Gets Serious\" title=\"Kotlin 2.3 Is Making Multiplatform Development Actually Work\">\n2. Compose Multiplatform Gets Serious\n\nMultiplatform Jetpack Compose was also promising but also buggy. Compose for iOS is stabilized in Kotlin 2.3 with improvements performance wise that makes it usable:\n\n- 60fps animations on older iPhones\n\n- Native-feeling navigation without custom wrappers\n\n- Non-memory leaking lifecycle handling\n\n@Composable\nfun ProfileScreen(viewModel: ProfileViewModel) {\n    val state by viewModel.state.collectAsState()\n    LazyColumn(\n        modifier = Modifier.fillMaxSize()\n    ) {\n        item {\n            ProfileHeader(\n                user = state.user,\n                onEditClick = { viewModel.editProfile() }\n            )\n        }\n        items(state.posts) { post ->\n            PostCard(post = post)\n        }\n    }\n}\n\nThis will render the same on Android or iOS and without any platform check or conditional imports.\n</doc>\n<doc n=\"4\" source=\"knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html\" section=\"Performance that’s ready for production\" title=\"Compose Multiplatform 1.8.0 Released: Compose Multiplatform for iOS Is Stable and Production-Ready\">\nPerformance that’s ready for production\n\nA great user experience comes down to more than just UI behavior; it’s about performance, too. Smooth, responsive interactions are key to user satisfaction. That’s why performance was a core focus throughout this stabilization effort. With 1.8.0:\n\n- Startup time is comparable to native apps, so your first frame arrives just as fast.\n\n- Scrolling performance is on par with SwiftUI, even on high-refresh-rate devices.\n\n- Compose Multiplatform adds only ~9 MB to the size of an iOS app compared to a fully native SwiftUI app with the same UI logic and assets.\n\nYou can find the benchmark project on GitHub. A detailed description of the methodology will be published soon at KMP Development portal.\n\nAnd most importantly, this matches what developers are seeing in practice. According to our latest survey, over 96% of teams using Compose Multiplatform on iOS report no major performance concerns.\n</doc>\n<doc n=\"5\" source=\"knowledge_database/Kotlin 2.0.20_ Major Update Brings Performance Improvements and Bug Fixes — Tech News _ by Olena Chyrkova _ Major Digest _ Medium.html\" section=\"Main Features\" title=\"Kotlin 2.0.20: Major Update Brings Performance Improvements and Bug Fixes — Tech News\">\nMain Features\n\nKotlin 2.0.20 boasts concurrent marking for the garbage collector, which allows the marking phase to run simultaneously with application threads. This should significantly shorten GC pause times and improve overall application responsiveness.\n</doc>\n</documents>\n\nQuestion: After moving to Compose Multiplatform 1.7 with Kotlin 2.0.20, how much faster did iOS rendering get in JetBrains' benchmarks, and did GC pauses improve too?",
+  "rows": [
+    {
+      "id": "q01",
+      "type": "corpus",
+      "question": "After moving to Compose Multiplatform 1.7 with Kotlin 2.0.20, how much faster did iOS rendering get in JetBrains' benchmarks, and did GC pauses improve too?",
+      "expected_facts": [
+        "The VisualEffects benchmark runs 3.6 times faster",
+        "Average CPU time per 1000 frames dropped from 8.8 s to 2.4 s",
+        "LazyGrid scrolling is about 9% faster on average",
+        "With concurrent GC marking, the worst p25 GC pause fell from 1.7 ms to 0.4 ms"
+      ],
+      "evidence": [
+        "works 3.6 times faster",
+        "reduced from 8.8 to 2.4 seconds",
+        "performs ~9% faster on average",
+        "from 1.7 ms to 0.4 ms"
+      ],
+      "expected_sources": [
+        "knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html"
+      ],
+      "notes": "Four exact benchmark numbers from one post. A model without the post may know iOS got faster but will guess or omit the figures; a wrong number is a hallucination.",
+      "plain": {
+        "answer": "I don't have specific benchmark data about iOS rendering performance improvements in Compose Multiplatform 1.7 with Kotlin 2.0.20.\n\nWhile JetBrains has released both Compose Multiplatform 1.7 and Kotlin 2.0.20, I don't have access to detailed performance benchmarks comparing rendering speed or garbage collection pause improvements between versions.\n\nTo find this information, I'd recommend:\n\n1. **Check the official release notes** for Compose Multiplatform 1.7 and Kotlin 2.0.20 on JetBrains' website\n2. **Look for blog posts** from JetBrains announcing these releases, which often include performance highlights\n3. **Search the Kotlin/Compose forums or issue trackers** where developers discuss performance improvements\n4. **Check JetBrains' official YouTube channel** for release announcements with benchmark discussions\n\nIf you've seen specific benchmark numbers, I'd be happy to help you interpret them or discuss what they mean for iOS development!",
+        "mode": "plain",
+        "chunks": [],
+        "usage": {
+          "inputTokens": 92,
+          "outputTokens": 234,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0
+        },
+        "model": "claude-haiku-4-5-20251001",
+        "stopReason": "end_turn",
+        "timings": {
+          "retrieveMs": 0,
+          "llmMs": 2940
+        },
+        "grade": {
+          "facts": [
+            {
+              "fact": "The VisualEffects benchmark runs 3.6 times faster",
+              "grade": "missing",
+              "note": "Answer declines to provide specific benchmark data"
+            },
+            {
+              "fact": "Average CPU time per 1000 frames dropped from 8.8 s to 2.4 s",
+              "grade": "missing",
+              "note": "Answer declines to provide specific benchmark data"
+            },
+            {
+              "fact": "LazyGrid scrolling is about 9% faster on average",
+              "grade": "missing",
+              "note": "Answer declines to provide specific benchmark data"
+            },
+            {
+              "fact": "With concurrent GC marking, the worst p25 GC pause fell from 1.7 ms to 0.4 ms",
+              "grade": "missing",
+              "note": "Answer declines to provide specific benchmark data"
+            }
+          ],
+          "score": 0,
+          "hallucination": false,
+          "hallucinationNote": "",
+          "declined": true,
+          "usage": {
+            "inputTokens": 1624,
+            "outputTokens": 296,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "model": "claude-haiku-4-5-20251001"
+        }
+      },
+      "rag": {
+        "answer": "# iOS Performance Improvements with Compose Multiplatform 1.7.0 and Kotlin 2.0.20\n\n## Rendering Performance\n\nAccording to JetBrains' benchmarks comparing Compose Multiplatform 1.6.11 with Kotlin 2.0.0 to version 1.7.0 with Kotlin 2.0.20, iOS rendering improvements varied by benchmark [1]:\n\n- **LazyGrid benchmark** (scrolling): ~9% faster on average, with significantly reduced missed frames\n- **VisualEffects benchmark** (rendering many components): **3.6 times faster** – CPU time per 1000 frames dropped from 8.8 to 2.4 seconds\n- **AnimatedVisibility benchmark** (image animations): ~6% faster rendering\n\n## Garbage Collection Improvements\n\nYes, GC pauses improved significantly [1]:\n\n- With concurrent marking enabled in Kotlin 2.0.20, the number of missed frames was **cut in half**\n- The worst p25 GC pause time for the LazyGrid benchmark dropped from **1.7 ms to 0.4 ms**\n\nThe concurrent marking feature allows the garbage collector's marking phase to run simultaneously with application threads, which shortens GC pauses and improves overall responsiveness [5].",
+        "mode": "rag",
+        "chunks": [
+          {
+            "n": 1,
+            "score": 0.8072840034020686,
+            "source": "knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html",
+            "section": "Performance improvements on iOS",
+            "title": "Compose Multiplatform 1.7.0 Released",
+            "chunk_id": "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:3",
+            "text": "Performance improvements on iOS\n\nIn Kotlin 2.0.20, the Kotlin/Native team contributed significantly to making Compose apps on iOS perform faster and smoother. The Compose Multiplatform 1.7.0 release makes the best of these optimizations, along with performance improvements from Jetpack Compose 1.7.0.\n\nWe benchmarked Compose Multiplatform 1.6.11 paired with Kotlin 2.0.0 and Compose Multiplatform 1.7.0 paired with Kotlin 2.0.20, and the comparison shows the following improvements:\n\n- The LazyGrid benchmark simulates LazyVerticalGrid scrolling, which is closest to real-life use cases, and performs ~9% faster on average. It also shows a significantly reduced number of missed frames. Take a look at the p1/p50 percentile graph below: It shows increased frame stability and confirms that there are now hardly any missed frames, as the average processing time is less than the standard 8.33 ms latency of a 120Hz iPhone screen.\n\n- The VisualEffects benchmark renders many randomly placed components and works 3.6 times faster – the average CPU time per 1000 frames was reduced from 8.8 to 2.4 seconds.\n\n- The AnimatedVisibility composable animates showing and hiding an image and demonstrates ~6% faster rendering.\n\nFeel free to test it yourself and let us know whether your iOS app feels smoother!\n\nOn top of that, Kotlin 2.0.20 introduces experimental support for concurrent marking in the garbage collector (GC). Enabling concurrent marking shortens GC pauses and demonstrates even bigger improvements for all benchmarks. We measured only half as many missed frames as before, as well as a drop in the worst p25 GC pause time from 1.7 ms to 0.4 ms for the LazyGrid benchmark. Give it a try and share your feedback.\n\nUpdate to Compose Multiplatform 1.7.0"
+          },
+          {
+            "n": 2,
+            "score": 0.630343987707985,
+            "source": "knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html",
+            "section": "",
+            "title": "Compose Multiplatform 1.7.0 Released",
+            "chunk_id": "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:0",
+            "text": "Multiplatform\n\nReleases\n\nCompose Multiplatform 1.7.0 Released\n\nCompose Multiplatform is a declarative UI framework built by JetBrains that allows developers to share UI implementations across different platforms. The 1.7.0 release brings more components to common code, support for type-safe navigation, significant performance improvements on iOS, and changes from the latest Jetpack Compose update.\n\nHere are the highlights of this release:\n\n- Material3 adaptive and WindowSizeClass are now available in common code.\n\n- Compose Multiplatform now provides compile-time safety for your navigation graph.\n\n- Compose Multiplatform 1.7.0 paired with Kotlin 2.0.20 performs significantly faster and smoother on iOS than the combination of previous stable releases.\n\nFor the complete list of changes, refer to our What’s New page or release notes on GitHub.\n\nGet Started with Compose Multiplatform"
+          },
+          {
+            "n": 3,
+            "score": 0.6246431708748779,
+            "source": "knowledge_database/Kotlin 2.4.20 Release_ What's New & Why It Matters (2026) _ Medium.html",
+            "section": "What Actually Changed › 2. Compose Multiplatform Gets Serious",
+            "title": "Kotlin 2.3 Is Making Multiplatform Development Actually Work",
+            "chunk_id": "kb/kotlin-2.4.20-release-what-s-new-why-it-matters-2026-medium.html:structural:2",
+            "text": "2. Compose Multiplatform Gets Serious\n\nMultiplatform Jetpack Compose was also promising but also buggy. Compose for iOS is stabilized in Kotlin 2.3 with improvements performance wise that makes it usable:\n\n- 60fps animations on older iPhones\n\n- Native-feeling navigation without custom wrappers\n\n- Non-memory leaking lifecycle handling\n\n@Composable\nfun ProfileScreen(viewModel: ProfileViewModel) {\n    val state by viewModel.state.collectAsState()\n    LazyColumn(\n        modifier = Modifier.fillMaxSize()\n    ) {\n        item {\n            ProfileHeader(\n                user = state.user,\n                onEditClick = { viewModel.editProfile() }\n            )\n        }\n        items(state.posts) { post ->\n            PostCard(post = post)\n        }\n    }\n}\n\nThis will render the same on Android or iOS and without any platform check or conditional imports."
+          },
+          {
+            "n": 4,
+            "score": 0.5873579713295368,
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "Performance that’s ready for production",
+            "title": "Compose Multiplatform 1.8.0 Released: Compose Multiplatform for iOS Is Stable and Production-Ready",
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:3",
+            "text": "Performance that’s ready for production\n\nA great user experience comes down to more than just UI behavior; it’s about performance, too. Smooth, responsive interactions are key to user satisfaction. That’s why performance was a core focus throughout this stabilization effort. With 1.8.0:\n\n- Startup time is comparable to native apps, so your first frame arrives just as fast.\n\n- Scrolling performance is on par with SwiftUI, even on high-refresh-rate devices.\n\n- Compose Multiplatform adds only ~9 MB to the size of an iOS app compared to a fully native SwiftUI app with the same UI logic and assets.\n\nYou can find the benchmark project on GitHub. A detailed description of the methodology will be published soon at KMP Development portal.\n\nAnd most importantly, this matches what developers are seeing in practice. According to our latest survey, over 96% of teams using Compose Multiplatform on iOS report no major performance concerns."
+          },
+          {
+            "n": 5,
+            "score": 0.5646393500045362,
+            "source": "knowledge_database/Kotlin 2.0.20_ Major Update Brings Performance Improvements and Bug Fixes — Tech News _ by Olena Chyrkova _ Major Digest _ Medium.html",
+            "section": "Main Features",
+            "title": "Kotlin 2.0.20: Major Update Brings Performance Improvements and Bug Fixes — Tech News",
+            "chunk_id": "kb/kotlin-2.0.20-major-update-brings-performance-improvements-and-bug-fixes-tech-news-by-olena-chyrkova-major-digest-medium.html:structural:1",
+            "text": "Main Features\n\nKotlin 2.0.20 boasts concurrent marking for the garbage collector, which allows the marking phase to run simultaneously with application threads. This should significantly shorten GC pause times and improve overall application responsiveness."
+          }
+        ],
+        "usage": {
+          "inputTokens": 1779,
+          "outputTokens": 301,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0
+        },
+        "model": "claude-haiku-4-5-20251001",
+        "stopReason": "end_turn",
+        "timings": {
+          "retrieveMs": 890,
+          "llmMs": 4086
+        },
+        "grade": {
+          "facts": [
+            {
+              "fact": "The VisualEffects benchmark runs 3.6 times faster",
+              "grade": "present",
+              "note": "Explicitly stated: 'VisualEffects benchmark (rendering many components): 3.6 times faster'"
+            },
+            {
+              "fact": "Average CPU time per 1000 frames dropped from 8.8 s to 2.4 s",
+              "grade": "present",
+              "note": "Explicitly stated: 'CPU time per 1000 frames dropped from 8.8 to 2.4 seconds'"
+            },
+            {
+              "fact": "LazyGrid scrolling is about 9% faster on average",
+              "grade": "present",
+              "note": "Explicitly stated: 'LazyGrid benchmark (scrolling): ~9% faster on average'"
+            },
+            {
+              "fact": "With concurrent GC marking, the worst p25 GC pause fell from 1.7 ms to 0.4 ms",
+              "grade": "present",
+              "note": "Explicitly stated: 'The worst p25 GC pause time for the LazyGrid benchmark dropped from 1.7 ms to 0.4 ms'"
+            }
+          ],
+          "score": 1,
+          "hallucination": false,
+          "hallucinationNote": "",
+          "declined": false,
+          "usage": {
+            "inputTokens": 1685,
+            "outputTokens": 372,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "model": "claude-haiku-4-5-20251001"
+        },
+        "retrieval": {
+          "hit": true,
+          "rank": 1
+        },
+        "citations": {
+          "cited": [
+            1,
+            5
+          ],
+          "invalid": [],
+          "valid": true,
+          "citesExpected": true
+        },
+        "outcome": "pass"
+      },
+      "verdict": "RAG better (+1.00)"
+    },
+    {
+      "id": "q02",
+      "type": "corpus",
+      "question": "Is Compose Multiplatform for iOS production-ready yet, and how much does it add to app size compared with a pure SwiftUI app?",
+      "expected_facts": [
+        "Compose Multiplatform 1.8.0 made Compose for iOS Stable",
+        "It adds only about 9 MB to an iOS app compared with a native SwiftUI app",
+        "Over 96% of teams using it on iOS report no major performance concerns"
+      ],
+      "evidence": [
+        "brings Compose for iOS to Stable",
+        "adds only ~9 MB to the size of an iOS app",
+        "over 96% of teams using Compose Multiplatform on iOS report no major performance concerns"
+      ],
+      "expected_sources": [
+        "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html"
+      ],
+      "notes": "The stable version may be known to a strong model; the ~9 MB size cost and the 96% survey figure are specific to the post. A different size figure is a hallucination.",
+      "plain": {
+        "answer": "# Compose Multiplatform for iOS: Production Readiness\n\n## Status\n**Not officially production-ready** as of my last update (April 2024). JetBrains still marks it as in active development, though it's increasingly stable. Some companies use it in production, but it's not officially recommended for critical apps yet.\n\n## App Size Impact\n\nThis is a significant consideration:\n\n- **SwiftUI app baseline**: ~5-10 MB (minimal)\n- **Compose Multiplatform iOS app**: typically **+30-50 MB** additional overhead\n\nThe overhead comes from:\n- Kotlin runtime and standard library\n- Compose runtime\n- Skiko (rendering engine)\n- Additional dependencies\n\nSo a simple app might be 40-60 MB instead of 10 MB.\n\n## Practical Considerations\n\n**Pros:**\n- Code sharing across iOS/Android/Desktop\n- Familiar API for Android developers\n- Improving performance with each release\n\n**Cons:**\n- Larger app size (significant for users on limited storage)\n- Less native feel than SwiftUI\n- Smaller ecosystem and fewer third-party libraries\n- Debugging can be more complex\n\n## Recommendation\n\n- **Use SwiftUI** if building iOS-only apps\n- **Consider Compose Multiplatform** if you need significant code sharing across platforms and can accept the size/performance tradeoffs\n- **Wait** if production stability is critical for your use case\n\nCheck the [official Compose Multiplatform roadmap](https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-multiplatform-roadmap.html) for the latest status.",
+        "mode": "plain",
+        "chunks": [],
+        "usage": {
+          "inputTokens": 74,
+          "outputTokens": 376,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0
+        },
+        "model": "claude-haiku-4-5-20251001",
+        "stopReason": "end_turn",
+        "timings": {
+          "retrieveMs": 0,
+          "llmMs": 5085
+        },
+        "grade": {
+          "facts": [
+            {
+              "fact": "Compose Multiplatform 1.8.0 made Compose for iOS Stable",
+              "grade": "missing",
+              "note": "Answer states it's 'not officially production-ready' and only 'increasingly stable', contradicting the expected fact about 1.8.0 achieving Stable status."
+            },
+            {
+              "fact": "It adds only about 9 MB to an iOS app compared with a native SwiftUI app",
+              "grade": "contradicted",
+              "note": "Answer claims '+30-50 MB additional overhead', which directly contradicts the expected 9 MB figure."
+            },
+            {
+              "fact": "Over 96% of teams using it on iOS report no major performance concerns",
+              "grade": "missing",
+              "note": "No mention of any team survey or performance concern statistics."
+            }
+          ],
+          "score": 0,
+          "hallucination": true,
+          "hallucinationNote": "The answer claims Compose Multiplatform for iOS is 'not officially production-ready' and adds '30-50 MB' overhead, both of which contradict the expected facts (1.8.0 made it Stable, and it adds only ~9 MB).",
+          "declined": false,
+          "usage": {
+            "inputTokens": 1719,
+            "outputTokens": 359,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "model": "claude-haiku-4-5-20251001"
+        }
+      },
+      "rag": {
+        "answer": "Yes, Compose Multiplatform for iOS is production-ready. According to the documents, Compose Multiplatform 1.8.0 brings \"Compose for iOS to Stable\" and is described as \"Production-ready and easy to adopt\" with \"stable APIs, great performance, a native feel, and modern tooling.\" [4][2]\n\nRegarding app size, Compose Multiplatform adds only **~9 MB to the size of an iOS app** compared to a fully native SwiftUI app with the same UI logic and assets. [1]\n\nThe documents also note that over 96% of teams using Compose Multiplatform on iOS report no major performance concerns, and several large-scale apps including Markaz, Wrike, Feres, and Physics Wallah are already integrating it into their applications. [1][2]",
+        "mode": "rag",
+        "chunks": [
+          {
+            "n": 1,
+            "score": 0.7095862786223949,
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "Performance that’s ready for production",
+            "title": "Compose Multiplatform 1.8.0 Released: Compose Multiplatform for iOS Is Stable and Production-Ready",
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:3",
+            "text": "Performance that’s ready for production\n\nA great user experience comes down to more than just UI behavior; it’s about performance, too. Smooth, responsive interactions are key to user satisfaction. That’s why performance was a core focus throughout this stabilization effort. With 1.8.0:\n\n- Startup time is comparable to native apps, so your first frame arrives just as fast.\n\n- Scrolling performance is on par with SwiftUI, even on high-refresh-rate devices.\n\n- Compose Multiplatform adds only ~9 MB to the size of an iOS app compared to a fully native SwiftUI app with the same UI logic and assets.\n\nYou can find the benchmark project on GitHub. A detailed description of the methodology will be published soon at KMP Development portal.\n\nAnd most importantly, this matches what developers are seeing in practice. According to our latest survey, over 96% of teams using Compose Multiplatform on iOS report no major performance concerns."
+          },
+          {
+            "n": 2,
+            "score": 0.6327232882530556,
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "Production-ready and easy to adopt",
+            "title": "Compose Multiplatform 1.8.0 Released: Compose Multiplatform for iOS Is Stable and Production-Ready",
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:5",
+            "text": "Production-ready and easy to adopt\n\nCompose Multiplatform for iOS now gives you the full package: stable APIs, great performance, a native feel, and modern tooling. Your users will feel right at home with the UI, while your team will notice the difference: fewer bugs, less duplicated work, and faster delivery across platforms.\n\nAnd best of all, you don’t need to start from scratch. Many teams — including Markaz, Wrike, Feres, and Physics Wallah — are already integrating Compose Multiplatform into large-scale apps, one screen or feature at a time. It fits into your workflow and grows with your needs.\n\nCompose Multiplatform for iOS is Stable. The ecosystem is thriving. The tools are ready. And now, we can’t wait to see the apps that you‘ll build.\n\nGet started with Compose Multiplatform"
+          },
+          {
+            "n": 3,
+            "score": 0.6203295054510415,
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "Apps that feel truly native",
+            "title": "Compose Multiplatform 1.8.0 Released: Compose Multiplatform for iOS Is Stable and Production-Ready",
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:2",
+            "text": "Apps that feel truly native\n\nSmooth, native behavior is what iOS users expect – and notice. Compose Multiplatform for iOS focuses on getting the details right, so apps feel familiar and responsive on the platform:\n\n- Scrolling behavior that matches native iOS physics.\n\n- Text editing with native selection and right-to-left support.\n\n- Drag-and-drop integration with the system.\n\n- Adaptive UI that respects system settings like font size and contrast.\n\n- Navigation gestures that feel natural to iOS users.\n\nThe Respawn iOS app is built with Compose Multiplatform, sharing 96% of its code with Android.\n\nStaying true to the core Kotlin Multiplatform philosophy, Compose Multiplatform continues to bring together the best of native and cross-platform development. The 1.8.0 release introduces further improvements to interop with SwiftUI and UIKit, allowing you to seamlessly embed Compose in an existing app or incorporate native views into a Compose screen. This approach supports gradual adoption and gives you full control over how and where you share code."
+          },
+          {
+            "n": 4,
+            "score": 0.5769199199276356,
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "",
+            "title": "Compose Multiplatform 1.8.0 Released: Compose Multiplatform for iOS Is Stable and Production-Ready",
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:0",
+            "text": "Multiplatform\n\nCompose Multiplatform 1.8.0 Released: Compose Multiplatform for iOS Is Stable and Production-Ready\n\nToday marks a major milestone in the Kotlin Multiplatform journey: the release of Compose Multiplatform 1.8.0, which brings Compose for iOS to Stable. With this update, Kotlin Multiplatform becomes a complete solution for mobile development, enabling flexible code sharing across both business logic and UI without compromising app quality or losing control over platform-specific capabilities."
+          },
+          {
+            "n": 5,
+            "score": 0.5651121358556673,
+            "source": "knowledge_database/Kotlin 2.4.20 Release_ What's New & Why It Matters (2026) _ Medium.html",
+            "section": "What Actually Changed › 2. Compose Multiplatform Gets Serious",
+            "title": "Kotlin 2.3 Is Making Multiplatform Development Actually Work",
+            "chunk_id": "kb/kotlin-2.4.20-release-what-s-new-why-it-matters-2026-medium.html:structural:2",
+            "text": "2. Compose Multiplatform Gets Serious\n\nMultiplatform Jetpack Compose was also promising but also buggy. Compose for iOS is stabilized in Kotlin 2.3 with improvements performance wise that makes it usable:\n\n- 60fps animations on older iPhones\n\n- Native-feeling navigation without custom wrappers\n\n- Non-memory leaking lifecycle handling\n\n@Composable\nfun ProfileScreen(viewModel: ProfileViewModel) {\n    val state by viewModel.state.collectAsState()\n    LazyColumn(\n        modifier = Modifier.fillMaxSize()\n    ) {\n        item {\n            ProfileHeader(\n                user = state.user,\n                onEditClick = { viewModel.editProfile() }\n            )\n        }\n        items(state.posts) { post ->\n            PostCard(post = post)\n        }\n    }\n}\n\nThis will render the same on Android or iOS and without any platform check or conditional imports."
+          }
+        ],
+        "usage": {
+          "inputTokens": 1670,
+          "outputTokens": 193,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0
+        },
+        "model": "claude-haiku-4-5-20251001",
+        "stopReason": "end_turn",
+        "timings": {
+          "retrieveMs": 108,
+          "llmMs": 2662
+        },
+        "grade": {
+          "facts": [
+            {
+              "fact": "Compose Multiplatform 1.8.0 made Compose for iOS Stable",
+              "grade": "present",
+              "note": "Answer states 'Compose Multiplatform 1.8.0 brings \"Compose for iOS to Stable\"'"
+            },
+            {
+              "fact": "It adds only about 9 MB to an iOS app compared with a native SwiftUI app",
+              "grade": "present",
+              "note": "Answer explicitly states '~9 MB to the size of an iOS app' compared to 'fully native SwiftUI app'"
+            },
+            {
+              "fact": "Over 96% of teams using it on iOS report no major performance concerns",
+              "grade": "present",
+              "note": "Answer directly states 'over 96% of teams using Compose Multiplatform on iOS report no major performance concerns'"
+            }
+          ],
+          "score": 1,
+          "hallucination": false,
+          "hallucinationNote": "",
+          "declined": false,
+          "usage": {
+            "inputTokens": 1523,
+            "outputTokens": 288,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "model": "claude-haiku-4-5-20251001"
+        },
+        "retrieval": {
+          "hit": true,
+          "rank": 1
+        },
+        "citations": {
+          "cited": [
+            4,
+            2,
+            1
+          ],
+          "invalid": [],
+          "valid": true,
+          "citesExpected": true
+        },
+        "outcome": "pass"
+      },
+      "verdict": "RAG better (+1.00) · hallucination: plain"
+    },
+    {
+      "id": "q03",
+      "type": "corpus",
+      "question": "I know Kotlin and want to enter this year's RevenueCat Shipaton in the JetBrains category. What can I win, and when does it run?",
+      "expected_facts": [
+        "The JetBrains (Ship Kotlin Everywhere) award has a $30,000 prize pool",
+        "It is split among three winners: $15,000, $10,000 and $5,000",
+        "Shipaton 2026 runs from August 1 to September 30",
+        "The first-place app gets a feature on a Times Square billboard"
+      ],
+      "evidence": [
+        "$30,000 prize pool",
+        "$15,000, $10,000, and $5,000",
+        "runs August 1 to September 30",
+        "a feature on a Times Square billboard"
+      ],
+      "expected_sources": [
+        "knowledge_database/Know Kotlin_ Ship It Everywhere and Win at Shipaton 2026 - The JetBrains Blog.html"
+      ],
+      "notes": "A 2026 event, after most model training data: plain mode cannot know the amounts or dates. Day 21 found that structural chunking splits the intro and the prize section, so watch the retrieval rank.",
+      "plain": {
+        "answer": "I don't have current information about RevenueCat's Shipaton competition for this year, including specific details about:\n\n- The JetBrains category prizes\n- The exact dates it runs\n- Current eligibility requirements\n\nTo get accurate, up-to-date information, I'd recommend:\n\n1. **Visit RevenueCat's official website** - Check their blog or events page for Shipaton details\n2. **Check JetBrains announcements** - They often promote hackathons and competitions\n3. **Look for official social media** - RevenueCat's Twitter/X, LinkedIn, or Discord community\n4. **Contact RevenueCat directly** - Their team can provide current details about prizes and timeline\n\nSince hackathons and competitions update their details annually, checking official sources will give you the most reliable information about what's available this year.\n\nIs there anything else about Kotlin development or RevenueCat's SDK that I can help you with?",
+        "mode": "plain",
+        "chunks": [],
+        "usage": {
+          "inputTokens": 80,
+          "outputTokens": 213,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0
+        },
+        "model": "claude-haiku-4-5-20251001",
+        "stopReason": "end_turn",
+        "timings": {
+          "retrieveMs": 0,
+          "llmMs": 2728
+        },
+        "grade": {
+          "facts": [
+            {
+              "fact": "The JetBrains (Ship Kotlin Everywhere) award has a $30,000 prize pool",
+              "grade": "missing",
+              "note": ""
+            },
+            {
+              "fact": "It is split among three winners: $15,000, $10,000 and $5,000",
+              "grade": "missing",
+              "note": ""
+            },
+            {
+              "fact": "Shipaton 2026 runs from August 1 to September 30",
+              "grade": "missing",
+              "note": ""
+            },
+            {
+              "fact": "The first-place app gets a feature on a Times Square billboard",
+              "grade": "missing",
+              "note": ""
+            }
+          ],
+          "score": 0,
+          "hallucination": false,
+          "hallucinationNote": "",
+          "declined": true,
+          "usage": {
+            "inputTokens": 1585,
+            "outputTokens": 230,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "model": "claude-haiku-4-5-20251001"
+        }
+      },
+      "rag": {
+        "answer": "# Shipaton 2026 - JetBrains Category\n\n## When It Runs\nThe RevenueCat Shipaton 2026 runs from **August 1 to September 30** [1].\n\n## What You Can Win\n\nThe \"Ship Kotlin Everywhere Award\" has a **$30,000 prize pool** split among three winners [4]:\n- **1st place: $15,000** (plus a feature on a Times Square billboard, an invitation to RevenueCat's App Growth Annual conference in New York City on October 21, a custom Shippy trophy, and media spotlight) [4]\n- **2nd place: $10,000** [4]\n- **3rd place: $5,000** [4]\n\nAdditionally, your app stays in the running for the **$100,000 Grand Prize** and more than 20 other categories across the entire Shipaton competition, with over $1,000,000 in total prizes available [4].\n\n## The Challenge\nYou'll need to build one brand-new app using Kotlin Multiplatform and Compose Multiplatform and bring it to multiple platforms (Android, iOS, desktop, and/or web). You don't need to hit all four platforms—judges reward effective cross-platform development [2].",
+        "mode": "rag",
+        "chunks": [
+          {
+            "n": 1,
+            "score": 0.669166483453998,
+            "source": "knowledge_database/Know Kotlin_ Ship It Everywhere and Win at Shipaton 2026 - The JetBrains Blog.html",
+            "section": "",
+            "title": "Know Kotlin? Ship It Everywhere and Win at Shipaton 2026",
+            "chunk_id": "kb/know-kotlin-ship-it-everywhere-and-win-at-shipaton-2026-the-jetbrains-blog.html:structural:0",
+            "text": "Multiplatform\n\nNews\n\nKnow Kotlin? Ship It Everywhere and Win at Shipaton 2026\n\nSomewhere in your notes there’s an app idea waiting for a free weekend that never comes. Consider this its official deadline: RevenueCat Shipaton 2026, the world’s biggest mobile hackathon, runs August 1 to September 30.\n\nIf you know Kotlin, that idea is closer to the App Store than you think.\n\nJoin the Shipaton"
+          },
+          {
+            "n": 2,
+            "score": 0.6508817878700547,
+            "source": "knowledge_database/Know Kotlin_ Ship It Everywhere and Win at Shipaton 2026 - The JetBrains Blog.html",
+            "section": "The Ship Kotlin Everywhere Award",
+            "title": "Know Kotlin? Ship It Everywhere and Win at Shipaton 2026",
+            "chunk_id": "kb/know-kotlin-ship-it-everywhere-and-win-at-shipaton-2026-the-jetbrains-blog.html:structural:1",
+            "text": "The Ship Kotlin Everywhere Award\n\nJetBrains is a Gold Sponsor of Shipaton this year, with our own category. The idea is simple: reuse the Kotlin you already know to build one brand-new app and bring it to multiple platforms, including Android, iOS, desktop, and web, with Kotlin Multiplatform and Compose Multiplatform.\n\nYou don’t need to hit all four platforms. Judges reward effective cross-platform development, not platform count alone."
+          },
+          {
+            "n": 3,
+            "score": 0.6230982833231808,
+            "source": "knowledge_database/Know Kotlin_ Ship It Everywhere and Win at Shipaton 2026 - The JetBrains Blog.html",
+            "section": "What you get as a participant",
+            "title": "Know Kotlin? Ship It Everywhere and Win at Shipaton 2026",
+            "chunk_id": "kb/know-kotlin-ship-it-everywhere-and-win-at-shipaton-2026-the-jetbrains-blog.html:structural:3",
+            "text": "What you get as a participant\n\n- IntelliJ IDEA Ultimate, free for 3 months for the first 1,000 builders\n\n- Access to Junie, our AI coding agent, for 2 months for 200 builders ready to build in public\n\n- A Starter Guide, an AI Guide, weekly livestreams, and JetBrains advocates answering questions in Discord\n\nReady to ship?\n\nEverything you need is on the award page: rules, the starter kit, offers, and the timeline.\n\nJoin the Ship Kotlin Everywhere Award\n\nHappy shipping!"
+          },
+          {
+            "n": 4,
+            "score": 0.5848836012981142,
+            "source": "knowledge_database/Know Kotlin_ Ship It Everywhere and Win at Shipaton 2026 - The JetBrains Blog.html",
+            "section": "What you can win",
+            "title": "Know Kotlin? Ship It Everywhere and Win at Shipaton 2026",
+            "chunk_id": "kb/know-kotlin-ship-it-everywhere-and-win-at-shipaton-2026-the-jetbrains-blog.html:structural:2",
+            "text": "What you can win\n\nThe award has a $30,000 prize pool split among three winners: $15,000, $10,000, and $5,000. The first-place app also receives Shipaton’s first-place category winner package: a feature on a Times Square billboard, an invitation to RevenueCat’s App Growth Annual conference in New York City on October 21, a custom Shippy trophy, and a media spotlight.\n\nOne more thing: you submit once and compete everywhere. Your Kotlin Multiplatform app also stays in the running for the $100,000 Grand Prize and more than 20 other categories, from #BuildInPublic to the Best Game Award, with over $1,000,000 worth of prizes in total.\n\nDon’t just take our word for it. Here’s Chris Krueger, whose app Momental took first place in our KMP category at Shipaton 2025:\n\n“Building Momental with Kotlin Multiplatform was very enjoyable. Sharing one codebase for Android and iOS gave me so much more time to focus on user feedback and actually improving the app. I was amazed how quickly I could build a beautiful, complex UI — even features like a full music player with soundscapes worked smoothly across platforms. If you’re hesitating, just enter the challenge. It forces you to grow, explore new parts of KMP, and ship faster than you expect. You’ll reach way more users than you think possible.”\n\nChris Krueger with his award and Momental in Times Square."
+          },
+          {
+            "n": 5,
+            "score": 0.41370158911562127,
+            "source": "knowledge_database/What’s Next for Kotlin Multiplatform and Compose Multiplatform – August 2025 Update - The JetBrains Blog.html",
+            "section": "Key priorities",
+            "title": "What’s Next for Kotlin Multiplatform and Compose Multiplatform – August 2025 Update",
+            "chunk_id": "kb/what-s-next-for-kotlin-multiplatform-and-compose-multiplatform-august-2025-update-the-jetbrains-blog.html:structural:1",
+            "text": "Key priorities\n\nKotlin Multiplatform spans many areas, from language features and target-specific compilation to our IDE plugin. It’s a lot to track, so here are the three key priorities that guide our work:\n\n- Make the iOS target a pleasure to work withWhile the iOS target matures, the developer experience still has room for improvement. Build speed remains a common Kotlin/Native concern, so we’re addressing it by fixing key issues to speed up builds across project types. We’ll also continue developing the experimental Swift Export feature to provide a better experience when calling Kotlin code from Swift.\n\n- Enable more use cases for the web targetsKotlin/JS already powers robust web apps, and Kotlin/Wasm is on track to be able to do the same soon. By promoting Compose for Web and Kotlin/Wasm to Beta, we expect to see pioneers starting to ship small- to medium-sized apps to production. We’re also enhancing JavaScript export to improve business logic sharing across platforms.\n\n- Improve the developer experience in the IDEFollowing the first release of the Kotlin Multiplatform plugin earlier this year, we’re working to expand support with Windows and Linux versions, improved Swift integration, and essential web tooling. Our goal is to make IntelliJ IDEA and Android Studio exceptional environments for multiplatform development."
+          }
+        ],
+        "usage": {
+          "inputTokens": 1560,
+          "outputTokens": 292,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0
+        },
+        "model": "claude-haiku-4-5-20251001",
+        "stopReason": "end_turn",
+        "timings": {
+          "retrieveMs": 85,
+          "llmMs": 3184
+        },
+        "grade": {
+          "facts": [
+            {
+              "fact": "The JetBrains (Ship Kotlin Everywhere) award has a $30,000 prize pool",
+              "grade": "present",
+              "note": "Explicitly stated: '$30,000 prize pool' for the 'Ship Kotlin Everywhere Award'"
+            },
+            {
+              "fact": "It is split among three winners: $15,000, $10,000 and $5,000",
+              "grade": "present",
+              "note": "All three amounts correctly listed: 1st place $15,000, 2nd place $10,000, 3rd place $5,000"
+            },
+            {
+              "fact": "Shipaton 2026 runs from August 1 to September 30",
+              "grade": "present",
+              "note": "Explicitly stated: 'August 1 to September 30'"
+            },
+            {
+              "fact": "The first-place app gets a feature on a Times Square billboard",
+              "grade": "present",
+              "note": "Explicitly stated: 'a feature on a Times Square billboard' for 1st place"
+            }
+          ],
+          "score": 1,
+          "hallucination": false,
+          "hallucinationNote": "",
+          "declined": false,
+          "usage": {
+            "inputTokens": 1646,
+            "outputTokens": 345,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "model": "claude-haiku-4-5-20251001"
+        },
+        "retrieval": {
+          "hit": true,
+          "rank": 1
+        },
+        "citations": {
+          "cited": [
+            1,
+            4,
+            2
+          ],
+          "invalid": [],
+          "valid": true,
+          "citesExpected": true
+        },
+        "outcome": "pass"
+      },
+      "verdict": "RAG better (+1.00)"
+    },
+    {
+      "id": "q04",
+      "type": "corpus",
+      "question": "Can an AI coding agent work with my running Compose app through hot reload? What exactly can it do there?",
+      "expected_facts": [
+        "Compose Hot Reload ships an experimental MCP (Model Context Protocol) server for AI agents",
+        "The agent can trigger reloads and take screenshots",
+        "It can inspect the semantic tree and simulate clicks and text input",
+        "It can read the application logs"
+      ],
+      "evidence": [
+        "experimental Model Context Protocol (MCP) server",
+        "an agent can trigger reloads, take screenshots",
+        "inspect the semantic tree, simulate clicks and text input",
+        "read application logs"
+      ],
+      "expected_sources": [
+        "knowledge_database/Compose Multiplatform 1.12.0 Released - The JetBrains Blog.html"
+      ],
+      "notes": "Compose Multiplatform 1.12.0 feature. Phrased without 'MCP' so retrieval has to match on meaning. A plain answer will likely describe Hot Reload in general or say it does not know of such a feature.",
+      "plain": {
+        "answer": "# AI Coding Agent with Docker Compose Hot Reload\n\nYes, an AI coding agent can work with your running Compose app through hot reload, but **capabilities depend on how you've set it up**.\n\n## What It Can Do\n\n**With proper volume mounts:**\n- Edit source files on your host machine\n- Changes automatically reflect in the running container (if hot reload is configured)\n- Test changes immediately without rebuilding\n- Iterate quickly on code fixes and features\n\n**Typical workflow:**\n1. Agent modifies code files in your project directory\n2. Hot reload detects changes (via file watchers)\n3. App reloads without container restart\n4. Agent can verify changes by checking logs or making requests\n\n## Key Requirements\n\nFor this to work, you need:\n\n```yaml\n# docker-compose.yml example\nservices:\n  app:\n    volumes:\n      - ./src:/app/src  # Mount source code\n    environment:\n      - NODE_ENV=development  # Enable hot reload\n```\n\n**Language-specific setup:**\n- **Node.js**: nodemon, ts-node-dev\n- **Python**: watchdog, auto-reload\n- **Go**: air, CompileDaemon\n- **Java**: Spring DevTools\n\n## Limitations\n\n- Agent can't directly execute commands in the container (unless you expose an API)\n- Can't see real-time logs unless you stream them\n- Can't interact with databases or external services directly\n- Changes must be file-based (not in-memory modifications)\n\n## Best Practice\n\nExpose a **health check endpoint** or **API** so the agent can verify changes worked without manual testing.\n\nWhat tech stack are you using?",
+        "mode": "plain",
+        "chunks": [],
+        "usage": {
+          "inputTokens": 65,
+          "outputTokens": 376,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0
+        },
+        "model": "claude-haiku-4-5-20251001",
+        "stopReason": "end_turn",
+        "timings": {
+          "retrieveMs": 0,
+          "llmMs": 4690
+        },
+        "grade": {
+          "facts": [
+            {
+              "fact": "Compose Hot Reload ships an experimental MCP (Model Context Protocol) server for AI agents",
+              "grade": "missing",
+              "note": "The answer discusses Docker Compose hot reload with volume mounts but does not mention MCP server at all."
+            },
+            {
+              "fact": "The agent can trigger reloads and take screenshots",
+              "grade": "missing",
+              "note": "The answer does not mention the agent's ability to trigger reloads or take screenshots."
+            },
+            {
+              "fact": "It can inspect the semantic tree and simulate clicks and text input",
+              "grade": "missing",
+              "note": "No mention of semantic tree inspection or UI interaction capabilities like clicks and text input."
+            },
+            {
+              "fact": "It can read the application logs",
+              "grade": "partial",
+              "note": "The answer mentions 'can't see real-time logs unless you stream them' but doesn't clearly state that the agent can read logs as a capability."
+            }
+          ],
+          "score": 0.125,
+          "hallucination": true,
+          "hallucinationNote": "The answer discusses Docker Compose hot reload with volume mounts and language-specific tools (nodemon, watchdog, air, Spring DevTools), which is about general container development practices, not about Compose Multiplatform's experimental MCP server for AI agents. The question appears to be about Compose Multiplatform (a JetBrains tool for UI development), not Docker Compose. The answer conflates two entirely different technologies.",
+          "declined": false,
+          "usage": {
+            "inputTokens": 1705,
+            "outputTokens": 426,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "model": "claude-haiku-4-5-20251001"
+        }
+      },
+      "rag": {
+        "answer": "Yes, an AI coding agent can work with your running Compose app through hot reload. [1]\n\nSpecifically, using the Model Context Protocol (MCP) server that ships with Compose Hot Reload, an agent can: [1]\n\n- **Trigger reloads** of your application\n- **Take screenshots** to see the current state\n- **Inspect the semantic tree** of your UI\n- **Simulate clicks and text input** to interact with the app\n- **Read application logs** for debugging\n\nThe practical benefit is that the agent can verify the results of its own edits without requiring manual description. It can confirm that a reload succeeded, inspect the rendered UI, catch runtime exceptions, and iterate on changes autonomously. [1]\n\nThis MCP server capability was introduced as an experimental feature in Compose Multiplatform 1.12.0. [1] For the complete list of available tools and connection instructions, you can refer to the Compose Hot Reload documentation. [1]",
+        "mode": "rag",
+        "chunks": [
+          {
+            "n": 1,
+            "score": 0.6237227414405178,
+            "source": "knowledge_database/Compose Multiplatform 1.12.0 Released - The JetBrains Blog.html",
+            "section": "MCP server for AI agents in Compose Hot Reload",
+            "title": "Compose Multiplatform 1.12.0 Released",
+            "chunk_id": "kb/compose-multiplatform-1.12.0-released-the-jetbrains-blog.html:structural:1",
+            "text": "MCP server for AI agents in Compose Hot Reload\n\nCompose Hot Reload now ships with an experimental Model Context Protocol (MCP) server that connects AI coding agents to your running application.\n\nUsing the MCP server, an agent can trigger reloads, take screenshots, inspect the semantic tree, simulate clicks and text input, and read application logs. In practice, this means the agent can verify the results of its own edits. It can confirm that the reload succeeded, inspect the rendered UI, catch a runtime exception, and iterate – all without you describing what’s on screen.\n\nFor the full list of available tools and instructions on connecting your agent, see the Compose Hot Reload documentation.\n\nTry Compose Hot Reload"
+          },
+          {
+            "n": 2,
+            "score": 0.5268736966132925,
+            "source": "knowledge_database/Compose Multiplatform 1.10.0_ Unified @Preview, Navigation 3, and Stable Compose Hot Reload - The JetBrains Blog.html",
+            "section": "Compose Hot Reload",
+            "title": "Compose Multiplatform 1.10.0: Unified @Preview, Navigation 3, and Stable Compose Hot Reload",
+            "chunk_id": "kb/compose-multiplatform-1.10.0-unified-preview-navigation-3-and-stable-compose-hot-reload-the-jetbrains-blog.html:structural:3",
+            "text": "Compose Hot Reload\n\nCompose Hot Reload is designed to speed up UI iteration by letting you instantly see changes without restarting the application:\n\nThe Compose Hot Reload plugin is now stable – check out this deep-dive blog post to learn more about how it works. It’s now bundled with the Compose Multiplatform Gradle plugin and enabled by default, so no additional configuration is required.\n\nTry Compose Hot Reload\n\nThese are just the highlights – this release includes numerous updates across platforms, including the introduction of more transparent dependency management for Compose Multiplatform libraries with direct library references.\n\nMake sure to check out the full version in our documentation. If you encounter any issues, please report them on our issue tracker."
+          },
+          {
+            "n": 3,
+            "score": 0.4952095000551544,
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "Development tools that boost your efficiency",
+            "title": "Compose Multiplatform 1.8.0 Released: Compose Multiplatform for iOS Is Stable and Production-Ready",
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:4",
+            "text": "Development tools that boost your efficiency\n\nTo make building Compose Multiplatform apps faster, smoother, and more enjoyable, we’re actively improving the KMP tooling. A new KMP plugin is coming soon for both IntelliJ IDEA and Android Studio. Besides features for writing common logic, it will bring support for Compose Previews in common code, and tools for managing resources.\n\nEven more exciting: Compose Hot Reload is already available. It lets you make changes to your UI code and see the results instantly, without restarting the app or losing the current state. It intelligently reloads code as you work – making UI iteration faster and smoother than ever.\n\nTry Compose Hot Reload"
+          },
+          {
+            "n": 4,
+            "score": 0.47880686130536904,
+            "source": "knowledge_database/Compose Multiplatform 1.12.0 Released - The JetBrains Blog.html",
+            "section": "",
+            "title": "Compose Multiplatform 1.12.0 Released",
+            "chunk_id": "kb/compose-multiplatform-1.12.0-released-the-jetbrains-blog.html:structural:0",
+            "text": "Multiplatform\n\nReleases\n\nCompose Multiplatform 1.12.0 Released\n\nCompose Multiplatform 1.12.0 is out! This version brings new tooling for AI assistants, improvements to web resource management, and finer control over desktop window states.\n\nHere are the highlights of this release:\n\n- MCP server for AI agents in Compose Hot Reload\n\n- Automatic font fallback for web\n\n- v2 version of the window and dialog API for desktop\n\nFor a complete overview of the changes, check out What’s new in Compose Multiplatform 1.12.0 or the release notes on GitHub.\n\nGet Started with Compose Multiplatform"
+          },
+          {
+            "n": 5,
+            "score": 0.4091643495848356,
+            "source": "knowledge_database/Compose Multiplatform 1.10.0_ Unified @Preview, Navigation 3, and Stable Compose Hot Reload - The JetBrains Blog.html",
+            "section": "",
+            "title": "Compose Multiplatform 1.10.0: Unified @Preview, Navigation 3, and Stable Compose Hot Reload",
+            "chunk_id": "kb/compose-multiplatform-1.10.0-unified-preview-navigation-3-and-stable-compose-hot-reload-the-jetbrains-blog.html:structural:0",
+            "text": "Multiplatform\n\nReleases\n\nCompose Multiplatform 1.10.0: Unified @Preview, Navigation 3, and Stable Compose Hot Reload\n\nCompose Multiplatform 1.10.0 has been released! We’re continually developing our multiplatform APIs and expanding support for Jetpack libraries commonly used on Android.\n\nHere are the highlights of this release:\n\n- One common @Preview annotation to rule them all\n\n- Navigation 3 is available on non-Android targets\n\n- Stable and bundled Compose Hot Reload\n\nGet Started with Compose Multiplatform\n\nFor a complete overview of the changes, check out What’s new in Compose Multiplatform 1.10.0 or the release notes on GitHub."
+          }
+        ],
+        "usage": {
+          "inputTokens": 1418,
+          "outputTokens": 217,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0
+        },
+        "model": "claude-haiku-4-5-20251001",
+        "stopReason": "end_turn",
+        "timings": {
+          "retrieveMs": 83,
+          "llmMs": 3265
+        },
+        "grade": {
+          "facts": [
+            {
+              "fact": "Compose Hot Reload ships an experimental MCP (Model Context Protocol) server for AI agents",
+              "grade": "present",
+              "note": "Clearly stated that MCP server ships with Compose Hot Reload"
+            },
+            {
+              "fact": "The agent can trigger reloads and take screenshots",
+              "grade": "present",
+              "note": "Both capabilities explicitly listed"
+            },
+            {
+              "fact": "It can inspect the semantic tree and simulate clicks and text input",
+              "grade": "present",
+              "note": "Both capabilities explicitly listed"
+            },
+            {
+              "fact": "It can read the application logs",
+              "grade": "present",
+              "note": "Explicitly stated in the bullet list"
+            }
+          ],
+          "score": 1,
+          "hallucination": false,
+          "hallucinationNote": "",
+          "declined": false,
+          "usage": {
+            "inputTokens": 1531,
+            "outputTokens": 259,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "model": "claude-haiku-4-5-20251001"
+        },
+        "retrieval": {
+          "hit": true,
+          "rank": 1
+        },
+        "citations": {
+          "cited": [
+            1
+          ],
+          "invalid": [],
+          "valid": true,
+          "citesExpected": true
+        },
+        "outcome": "pass"
+      },
+      "verdict": "RAG better (+0.88) · hallucination: plain"
+    },
+    {
+      "id": "q05",
+      "type": "corpus",
+      "question": "Which well-known companies have given KotlinConf talks about running KMP in production, and how much code did the fintech one end up sharing?",
+      "expected_facts": [
+        "StoneCo (a fintech) reached 55% shared code",
+        "StoneCo trained 130 mobile engineers for the shift",
+        "Duolingo ships weekly to 40M+ daily users with KMP",
+        "McDonald's uses KMP to drive navigation state while the UI stays native"
+      ],
+      "evidence": [
+        "55% code sharing",
+        "training 130 mobile engineers",
+        "40M+ daily users",
+        "They use KMP to drive the navigation state itself"
+      ],
+      "expected_sources": [
+        "knowledge_database/The Ultimate KMP Watchlist_ Level Up Your Skills in 10 Talks - The JetBrains Blog.html"
+      ],
+      "notes": "Names and numbers from the curated talk list. A plain answer may name other companies (Netflix, Cash App, …) that are real KMP users but not in this list; those are not wrong, but the 55% / 130 figures are needed.",
+      "plain": {
+        "answer": "I don't have specific information about which companies have given KotlinConf talks about running Kotlin Multiplatform (KMP) in production, or details about a fintech company's code-sharing metrics from such a talk.\n\nTo find this information, I'd recommend:\n\n1. **Checking KotlinConf's official resources** - Visit the KotlinConf website or YouTube channel where talks are typically recorded and archived\n2. **Searching Kotlin's blog** - JetBrains often publishes summaries of notable talks\n3. **Looking at talk abstracts** - Conference schedules usually list speaker names and companies\n4. **Checking the Kotlin Slack or forums** - The community often discusses notable talks\n\nIf you remember any other details about the fintech talk (year, speaker name, or company), that would help narrow down the search. Alternatively, if you have a link to the talk or more context, I'd be happy to help you find the specific code-sharing percentage or other details you're looking for.",
+        "mode": "plain",
+        "chunks": [],
+        "usage": {
+          "inputTokens": 75,
+          "outputTokens": 228,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0
+        },
+        "model": "claude-haiku-4-5-20251001",
+        "stopReason": "end_turn",
+        "timings": {
+          "retrieveMs": 0,
+          "llmMs": 2718
+        },
+        "grade": {
+          "facts": [
+            {
+              "fact": "StoneCo (a fintech) reached 55% shared code",
+              "grade": "missing",
+              "note": ""
+            },
+            {
+              "fact": "StoneCo trained 130 mobile engineers for the shift",
+              "grade": "missing",
+              "note": ""
+            },
+            {
+              "fact": "Duolingo ships weekly to 40M+ daily users with KMP",
+              "grade": "missing",
+              "note": ""
+            },
+            {
+              "fact": "McDonald's uses KMP to drive navigation state while the UI stays native",
+              "grade": "missing",
+              "note": ""
+            }
+          ],
+          "score": 0,
+          "hallucination": false,
+          "hallucinationNote": "",
+          "declined": true,
+          "usage": {
+            "inputTokens": 1578,
+            "outputTokens": 213,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "model": "claude-haiku-4-5-20251001"
+        }
+      },
+      "rag": {
+        "answer": "Based on the documents, the well-known companies that have given KotlinConf talks about running KMP in production are: [2]\n\n1. **Duolingo** - Ships weekly to 40M+ daily users across Android, iOS, and Web [2]\n2. **McDonald's** - Uses KMP to drive navigation state in their app [2]\n3. **StoneCo** - A fintech company serving 4 million users [2]\n\nThe fintech company, **StoneCo, achieved 55% code sharing** across two massive apps after two years with KMP. This involved training 130 mobile engineers to shift their development paradigm. [2]",
+        "mode": "rag",
+        "chunks": [
+          {
+            "n": 1,
+            "score": 0.5476356694037454,
+            "source": "knowledge_database/The Ultimate KMP Watchlist_ Level Up Your Skills in 10 Talks - The JetBrains Blog.html",
+            "section": "?️ Part 2: Getting Your Hands Dirty",
+            "title": "The Ultimate KMP Watchlist: Level Up Your Skills in 10 Talks",
+            "chunk_id": "kb/the-ultimate-kmp-watchlist-level-up-your-skills-in-10-talks-the-jetbrains-blog.html:structural:2",
+            "text": "?️ Part 2: Getting Your Hands Dirty\n\nOkay, you’re inspired. Now let’s look at the code.\n\nCompose Multiplatform for iOS: Ready for Production | Sebastian Aigner (2025)Compose Multiplatform is no longer experimental—it’s stable on iOS. Sebastian gives you the tour of the ecosystem, showing how to build production-grade UIs that share rendering logic while still feeling at home on Apple devices. Perfect for understanding the current state of the art.\n\nConfetti: Building a Conference App in 40 Minutes | John O’Reilly & Martin Bonnin (2023)This is a live-coding masterclass in “Full Stack Kotlin.” Watch John and Martin build a working app from scratch in real-time. They spin up a Spring Boot backend with GraphQL, generate type-safe Kotlin models on the client with Apollo, and wire it up to native UIs (Compose & SwiftUI). It’s the best demo of how tight the loop can be when you use Kotlin end-to-end."
+          },
+          {
+            "n": 2,
+            "score": 0.5457038300071133,
+            "source": "knowledge_database/The Ultimate KMP Watchlist_ Level Up Your Skills in 10 Talks - The JetBrains Blog.html",
+            "section": "? Part 1: Production Case Studies",
+            "title": "The Ultimate KMP Watchlist: Level Up Your Skills in 10 Talks",
+            "chunk_id": "kb/the-ultimate-kmp-watchlist-level-up-your-skills-in-10-talks-the-jetbrains-blog.html:structural:1",
+            "text": "? Part 1: Production Case Studies\n\nTheory is nice, but does it scale? These teams proved it does.\n\nDuolingo + KMP: A Case Study in Productivity | John Rodriguez & Johnny Ye (2025)Duolingo ships weekly to 40M+ daily users across Android, iOS, and Web. Shipping that fast requires efficiency. This talk breaks down their specific rubric for deciding what to share, from Video Calls to Math lessons, and how they handle the velocity required to ship constantly without breaking platform quality.\n\nLeveraging KMP for Navigation in the McDonald’s App | Cas van Luijtelaar & Anthony Bassey (2025)Most teams start by sharing the data layer, but McDonald’s went much further. They use KMP to drive the navigation state itself. In this talk, they show how they keep the UI 100% native (Compose & SwiftUI) but let the shared KMP layer decide where to go and what data to pass, effectively creating a scalable “dumb client” architecture.\n\nTwo Years with KMP: From Zero to 55% Shared Code | Rodrigo Sicarelli (2024)StoneCo is a fintech giant serving 4 million users. This isn’t a “hello world” story; it’s about training 130 mobile engineers to shift their paradigm. They break down how they achieved 55% code sharing across two massive apps and the measurable impact on developer satisfaction and velocity.\n\nMeetup with KMM Libraries | Colin Lee (2023)If you are overwhelmed by the library ecosystem, watch this. Colin walks through the transition from a legacy codebase to a greenfield KMP app. He highlights the specific stack that saved them (Apollo GraphQL, SQLDelight, Moko Resources) and how they survived the initial “panic” from the iOS team to reach a point where everyone loves the shared workflow."
+          },
+          {
+            "n": 3,
+            "score": 0.5253027643932947,
+            "source": "knowledge_database/The Ultimate KMP Watchlist_ Level Up Your Skills in 10 Talks - The JetBrains Blog.html",
+            "section": "",
+            "title": "The Ultimate KMP Watchlist: Level Up Your Skills in 10 Talks",
+            "chunk_id": "kb/the-ultimate-kmp-watchlist-level-up-your-skills-in-10-talks-the-jetbrains-blog.html:structural:0",
+            "text": "Multiplatform\n\nThe Ultimate KMP Watchlist: Level Up Your Skills in 10 Talks\n\nThe best way to skip the “beginner mistakes” phase is to learn from the teams who have already solved them at scale.\n\nFor Week 3 of KMP Level Up, we’ve curated the Top 10 KotlinConf talks that cover the full spectrum of adoption, from massive production case studies to deep dives into the compiler. Whether you are looking for architectural inspiration, hard data to convince your stakeholders, or just want to understand the engineering magic under the hood, the answers are out there.\n\nHere is your KMP marathon for the week."
+          },
+          {
+            "n": 4,
+            "score": 0.5239544476693486,
+            "source": "knowledge_database/Kotlin 2.4.20 Release_ What's New & Why It Matters (2026) _ Medium.html",
+            "section": "The Real-World Impact",
+            "title": "Kotlin 2.3 Is Making Multiplatform Development Actually Work",
+            "chunk_id": "kb/kotlin-2.4.20-release-what-s-new-why-it-matters-2026-medium.html:structural:4",
+            "text": "The Real-World Impact\n\nIn an article about their migration to KMP with Kotlin 2.3, Basecamp reported that code duplication was reduced by 40%. Auth, data sync, and API networking — one validation — everywhere work on their common business logic layer.\n\nFrom JetBrains own data, teams using kotlin multiplatform with 2.3 are seeing:\n\n- Faster feature development for cross-platform features by 30–50%\n\n- Shared testing infrastructure leads to fewer platform-specific bugs\n\n- Improved API consistency between mobile and backend"
+          },
+          {
+            "n": 5,
+            "score": 0.4990411220486472,
+            "source": "knowledge_database/Kotlin 2.4.20 Release_ What's New & Why It Matters (2026) _ Medium.html",
+            "section": "Key Takeaways",
+            "title": "Kotlin 2.3 Is Making Multiplatform Development Actually Work",
+            "chunk_id": "kb/kotlin-2.4.20-release-what-s-new-why-it-matters-2026-medium.html:structural:8",
+            "text": "Key Takeaways\n\n- Real KMP pain points solved for Kotlin 2.3 — better iOS interop, stable Compose, better tooling\n\n- Compose Multiplatform If you need to share corner of your UI across platforms, it’s production ready for the right enrichment\n\n- Backend integration enables true full stack code sharing with Ktor and shared validation\n\n- Start Gradually — expose business logic first, UI when its needed\n\nWriting Once, Rerunning Everywhere When Multiplatform??? It’s showing up and sharing what is really valuable and being native when it matters. That’s where Kotlin 2.3 finally gives you the tools to make it work.\n\nFor the people who have been holding out for KMP to come of age, this is the release where it is worth another look."
+          }
+        ],
+        "usage": {
+          "inputTokens": 1679,
+          "outputTokens": 154,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0
+        },
+        "model": "claude-haiku-4-5-20251001",
+        "stopReason": "end_turn",
+        "timings": {
+          "retrieveMs": 81,
+          "llmMs": 1866
+        },
+        "grade": {
+          "facts": [
+            {
+              "fact": "StoneCo (a fintech) reached 55% shared code",
+              "grade": "present",
+              "note": "Explicitly stated: 'StoneCo, achieved 55% code sharing'"
+            },
+            {
+              "fact": "StoneCo trained 130 mobile engineers for the shift",
+              "grade": "present",
+              "note": "Explicitly stated: 'training 130 mobile engineers'"
+            },
+            {
+              "fact": "Duolingo ships weekly to 40M+ daily users with KMP",
+              "grade": "present",
+              "note": "Explicitly stated: 'Ships weekly to 40M+ daily users'"
+            },
+            {
+              "fact": "McDonald's uses KMP to drive navigation state while the UI stays native",
+              "grade": "present",
+              "note": "Explicitly stated: 'Uses KMP to drive navigation state in their app'"
+            }
+          ],
+          "score": 1,
+          "hallucination": false,
+          "hallucinationNote": "",
+          "declined": false,
+          "usage": {
+            "inputTokens": 1489,
+            "outputTokens": 301,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "model": "claude-haiku-4-5-20251001"
+        },
+        "retrieval": {
+          "hit": true,
+          "rank": 1
+        },
+        "citations": {
+          "cited": [
+            2
+          ],
+          "invalid": [],
+          "valid": true,
+          "citesExpected": true
+        },
+        "outcome": "pass"
+      },
+      "verdict": "RAG better (+1.00)"
+    },
+    {
+      "id": "q06",
+      "type": "corpus",
+      "question": "Which compiler flags turn on context parameters and context-sensitive resolution in Kotlin 2.2.0, and is there a Kotlin/Native switch that reduces string memory?",
+      "expected_facts": [
+        "Context parameters are enabled with -Xcontext-parameters",
+        "Context-sensitive resolution is enabled with -Xcontext-sensitive-resolution",
+        "kotlin.native.binary.latin1Strings=true enables Latin-1 strings on Kotlin/Native",
+        "Latin-1 strings use about 50% less memory"
+      ],
+      "evidence": [
+        "Enable context parameters with -Xcontext-parameters",
+        "-Xcontext-sensitive-resolution",
+        "kotlin.native.binary.latin1Strings=true",
+        "50% less memory"
+      ],
+      "expected_sources": [
+        "knowledge_database/Kotlin 2.2.0_ Game-Changing Features That Will Transform Your Development Workflow _ by praveen sharma _ Medium.html"
+      ],
+      "notes": "Exact flag and property names. A strong model may know the two -X flags; the Latin-1 property and the 50% figure come from the article. A made-up property name is a hallucination.",
+      "plain": {
+        "answer": "# Kotlin 2.2.0 Compiler Flags\n\n## Context Parameters and Context-Sensitive Resolution\n\nIn Kotlin 2.2.0, context parameters are controlled by:\n\n**`-Xcontext-receivers`**\n\nThis flag enables context receiver support, which allows functions and classes to declare implicit context parameters that are resolved based on the types in scope.\n\nExample usage:\n```bash\nkotlinc -Xcontext-receivers myfile.kt\n```\n\nIn Gradle:\n```kotlin\nkotlin {\n    compilerOptions {\n        freeCompilerArgs.add(\"-Xcontext-receivers\")\n    }\n}\n```\n\n## Kotlin/Native String Memory Optimization\n\nFor Kotlin/Native, there isn't a single dedicated flag specifically named for \"reducing string memory.\" However, relevant optimizations include:\n\n- **`-Xoptimize`** - Enables optimizations (including string handling)\n- **`-Xgc=`** - Controls garbage collection strategy, which affects memory usage\n- **`-Xallocator=`** - Selects memory allocator (can impact string memory efficiency)\n\nFor more aggressive memory optimization in Kotlin/Native, you might also consider:\n- Using `-opt` (optimization level)\n- Configuring the binary type appropriately\n\n**Note:** If you're looking for a specific string interning or memory pooling feature, it may not have a dedicated flag in 2.2.0. Check the official Kotlin release notes or documentation for the most current memory optimization options.",
+        "mode": "plain",
+        "chunks": [],
+        "usage": {
+          "inputTokens": 78,
+          "outputTokens": 348,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0
+        },
+        "model": "claude-haiku-4-5-20251001",
+        "stopReason": "end_turn",
+        "timings": {
+          "retrieveMs": 0,
+          "llmMs": 3967
+        },
+        "grade": {
+          "facts": [
+            {
+              "fact": "Context parameters are enabled with -Xcontext-parameters",
+              "grade": "contradicted",
+              "note": "Answer states -Xcontext-receivers, not -Xcontext-parameters"
+            },
+            {
+              "fact": "Context-sensitive resolution is enabled with -Xcontext-sensitive-resolution",
+              "grade": "missing",
+              "note": "Not mentioned in the answer at all"
+            },
+            {
+              "fact": "kotlin.native.binary.latin1Strings=true enables Latin-1 strings on Kotlin/Native",
+              "grade": "missing",
+              "note": "Answer mentions -Xoptimize, -Xgc, -Xallocator but not the specific latin1Strings property"
+            },
+            {
+              "fact": "Latin-1 strings use about 50% less memory",
+              "grade": "missing",
+              "note": "Not mentioned in the answer"
+            }
+          ],
+          "score": 0,
+          "hallucination": true,
+          "hallucinationNote": "The answer claims -Xcontext-receivers enables context parameters, but the expected fact specifies -Xcontext-parameters. These are different flags with different purposes.",
+          "declined": false,
+          "usage": {
+            "inputTokens": 1705,
+            "outputTokens": 362,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "model": "claude-haiku-4-5-20251001"
+        }
+      },
+      "rag": {
+        "answer": "Based on the documents provided:\n\n**Compiler flags for context features:**\n- Context parameters are enabled with the `-Xcontext-parameters` flag [4]\n- Context-sensitive resolution is enabled with the `-Xcontext-sensitive-resolution` flag [4]\n\n**Kotlin/Native switch for string memory reduction:**\nYes, there is a Kotlin/Native setting that reduces string memory. You can enable Latin-1 string optimization by adding the following to gradle.properties [2]:\n\n```\nkotlin.native.binary.latin1Strings=true\n```\n\nThis optimization reduces memory usage by 50% for strings containing only Latin-1 characters [2]. According to the documents, enabling this optimization (along with per-object memory allocation) reduced memory usage by approximately 30% for text-heavy operations in a production Kotlin Multiplatform project with iOS targets [2].",
+        "mode": "rag",
+        "chunks": [
+          {
+            "n": 1,
+            "score": 0.6424197628807375,
+            "source": "knowledge_database/Kotlin 2.2.0_ Game-Changing Features That Will Transform Your Development Workflow _ by praveen sharma _ Medium.html",
+            "section": "🚀 Kotlin/Native Gets Serious: LLVM 19 and Memory Improvements › Per-Object Memory Allocation",
+            "title": "Kotlin 2.2.0: Game-Changing Features That Will Transform Your Development Workflow",
+            "chunk_id": "kb/kotlin-2.2.0-game-changing-features-that-will-transform-your-development-workflow-by-praveen-sharma-medium.html:structural:11",
+            "text": "🚀 Kotlin/Native Gets Serious: LLVM 19 and Memory Improvements\n\nThe Kotlin/Native improvements in 2.2.0 are substantial, especially for production applications.\n\nPer-Object Memory Allocation\n\n// gradle.properties\nkotlin.native.binary.pagedAllocator=false\n// This enables per-object memory allocation\n// Perfect for memory-constrained environments\nclass MemoryEfficientProcessor {\n    fun processLargeDataset(data: List<ByteArray>) {\n        // Memory is allocated per object, reducing overall footprint\n        data.forEach { chunk ->\n            processChunk(chunk)\n            // Memory is freed immediately after each chunk\n        }\n    }\n}"
+          },
+          {
+            "n": 2,
+            "score": 0.6207124999898219,
+            "source": "knowledge_database/Kotlin 2.2.0_ Game-Changing Features That Will Transform Your Development Workflow _ by praveen sharma _ Medium.html",
+            "section": "🚀 Kotlin/Native Gets Serious: LLVM 19 and Memory Improvements › Latin-1 String Optimization",
+            "title": "Kotlin 2.2.0: Game-Changing Features That Will Transform Your Development Workflow",
+            "chunk_id": "kb/kotlin-2.2.0-game-changing-features-that-will-transform-your-development-workflow-by-praveen-sharma-medium.html:structural:12",
+            "text": "Latin-1 String Optimization\n\n// gradle.properties\nkotlin.native.binary.latin1Strings=true\n// Strings with Latin-1 characters now use 50% less memory\nclass TextProcessor {\n    fun processASCIIFiles(files: List<String>) {\n        files.forEach { filename ->\n            // If file contains only Latin-1 characters,\n            // memory usage is automatically halved\n            val content = readFile(filename)\n            processContent(content)\n        }\n    }\n}\n\nProduction Impact: In a recent Kotlin Multiplatform project with iOS targets, enabling these optimizations reduced memory usage by approximately 30% for text-heavy operations in the shared Kotlin/Native code."
+          },
+          {
+            "n": 3,
+            "score": 0.6025482227343152,
+            "source": "knowledge_database/Kotlin 2.2.0_ Game-Changing Features That Will Transform Your Development Workflow _ by praveen sharma _ Medium.html",
+            "section": "🔮 What This Means for Your Daily Development",
+            "title": "Kotlin 2.2.0: Game-Changing Features That Will Transform Your Development Workflow",
+            "chunk_id": "kb/kotlin-2.2.0-game-changing-features-that-will-transform-your-development-workflow-by-praveen-sharma-medium.html:structural:17",
+            "text": "🔮 What This Means for Your Daily Development\n\nAfter using these features for several weeks, here’s what I’ve noticed:\n\nCode Quality: My codebases are cleaner and more maintainable. Context parameters eliminated dependency injection boilerplate, and context-sensitive resolution made state machines much more readable.\n\nProductivity: The stable Base64 and HexFormat APIs eliminated third-party dependencies in multiple projects. No more researching and vetting encoding libraries.\n\nPerformance: The Kotlin/Native improvements provided measurable memory usage reductions in production iOS apps.\n\nTeam Collaboration: Nested type aliases improved code organization, making it easier for team members to understand complex generic code."
+          },
+          {
+            "n": 4,
+            "score": 0.6005738825132995,
+            "source": "knowledge_database/Kotlin 2.2.0_ Game-Changing Features That Will Transform Your Development Workflow _ by praveen sharma _ Medium.html",
+            "section": "🚀 Getting Started Today",
+            "title": "Kotlin 2.2.0: Game-Changing Features That Will Transform Your Development Workflow",
+            "chunk_id": "kb/kotlin-2.2.0-game-changing-features-that-will-transform-your-development-workflow-by-praveen-sharma-medium.html:structural:18",
+            "text": "🚀 Getting Started Today\n\nReady to upgrade? Here’s your migration checklist:\n\n- Update your Kotlin version to 2.2.0 in build.gradle.kts\n\n- Enable context parameters with -Xcontext-parameters\n\n- Try context-sensitive resolution with -Xcontext-sensitive-resolution\n\n- Replace custom Base64 implementations with the new standard library\n\n- Experiment with nested type aliases in new code"
+          },
+          {
+            "n": 5,
+            "score": 0.5787601625236416,
+            "source": "knowledge_database/Kotlin 2.2.0_ Game-Changing Features That Will Transform Your Development Workflow _ by praveen sharma _ Medium.html",
+            "section": "🎯 Context-Sensitive @all Annotation Target",
+            "title": "Kotlin 2.2.0: Game-Changing Features That Will Transform Your Development Workflow",
+            "chunk_id": "kb/kotlin-2.2.0-game-changing-features-that-will-transform-your-development-workflow-by-praveen-sharma-medium.html:structural:16",
+            "text": "🎯 Context-Sensitive @all Annotation Target\n\nThis small feature saves enormous amounts of time when working with annotations.\n\n// Before: Tedious and error-prone\nclass User(\n    @field:JsonProperty(\"user_name\")\n    @get:JsonProperty(\"user_name\")\n    @param:JsonProperty(\"user_name\")\n    val userName: String,\n    @field:Email\n    @get:Email\n    @param:Email\n    val email: String\n)\n// After: Simple and maintainable\nclass User(\n    @all:JsonProperty(\"user_name\")\n    val userName: String,\n    @all:Email\n    val email: String\n)"
+          }
+        ],
+        "usage": {
+          "inputTokens": 1407,
+          "outputTokens": 195,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0
+        },
+        "model": "claude-haiku-4-5-20251001",
+        "stopReason": "end_turn",
+        "timings": {
+          "retrieveMs": 78,
+          "llmMs": 2059
+        },
+        "grade": {
+          "facts": [
+            {
+              "fact": "Context parameters are enabled with -Xcontext-parameters",
+              "grade": "present",
+              "note": "Correctly stated in the answer"
+            },
+            {
+              "fact": "Context-sensitive resolution is enabled with -Xcontext-sensitive-resolution",
+              "grade": "present",
+              "note": "Correctly stated in the answer"
+            },
+            {
+              "fact": "kotlin.native.binary.latin1Strings=true enables Latin-1 strings on Kotlin/Native",
+              "grade": "present",
+              "note": "Correctly stated with proper configuration syntax"
+            },
+            {
+              "fact": "Latin-1 strings use about 50% less memory",
+              "grade": "present",
+              "note": "Explicitly stated: 'reduces memory usage by 50% for strings containing only Latin-1 characters'"
+            }
+          ],
+          "score": 1,
+          "hallucination": false,
+          "hallucinationNote": "",
+          "declined": false,
+          "usage": {
+            "inputTokens": 1541,
+            "outputTokens": 287,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "model": "claude-haiku-4-5-20251001"
+        },
+        "retrieval": {
+          "hit": true,
+          "rank": 1
+        },
+        "citations": {
+          "cited": [
+            4,
+            2
+          ],
+          "invalid": [],
+          "valid": true,
+          "citesExpected": true
+        },
+        "outcome": "pass"
+      },
+      "verdict": "RAG better (+1.00) · hallucination: plain"
+    },
+    {
+      "id": "q07",
+      "type": "corpus",
+      "question": "How is Compose for Web supposed to run on older browsers that lack newer WebAssembly features?",
+      "expected_facts": [
+        "A compatibility mode falls back to Kotlin/JS",
+        "Compose for Web defaults to Kotlin/Wasm for performance",
+        "The fallback targets browsers without Wasm garbage collection or exception handling",
+        "It comes as part of the Compose for Web Beta"
+      ],
+      "evidence": [
+        "compatibility mode using Kotlin/JS as a fallback",
+        "defaults to Kotlin/Wasm for performance",
+        "garbage collection or exception handling",
+        "As part of the Compose for Web Beta"
+      ],
+      "expected_sources": [
+        "knowledge_database/What’s Next for Kotlin Multiplatform and Compose Multiplatform – August 2025 Update - The JetBrains Blog.html"
+      ],
+      "notes": "A roadmap item from the August 2025 update. Plain mode may guess (polyfills, 'not supported') rather than name the Kotlin/JS fallback.",
+      "plain": {
+        "answer": "# Compose for Web and Older Browser Support\n\nCompose for Web (Jetpack Compose for Web) has **limited support for older browsers** because it relies on WebAssembly, which has varying levels of support across browser versions.\n\n## The Reality\n\n- **Modern browsers only**: Compose for Web is designed for browsers with solid WebAssembly support (Chrome 57+, Firefox 52+, Safari 14.1+, Edge 79+)\n- **No graceful degradation**: There's no built-in fallback mechanism for browsers lacking WebAssembly features\n- **Older browsers will fail**: If a browser doesn't support the required WebAssembly features, the application simply won't run\n\n## Why This Limitation Exists\n\n1. **Kotlin/JS compilation**: Compose for Web compiles Kotlin to WebAssembly, which is the primary target\n2. **Feature requirements**: Modern Compose features depend on WebAssembly capabilities that older browsers don't have\n3. **Development focus**: JetBrains prioritizes modern browser support rather than backward compatibility\n\n## If You Need Older Browser Support\n\nYour options are limited:\n\n- **Use a different framework**: Consider web frameworks designed for broader compatibility (React, Vue, Angular)\n- **Polyfills**: Limited effectiveness; WebAssembly itself can't be meaningfully polyfilled\n- **Browser upgrade messaging**: Inform users they need a modern browser\n- **Kotlin/JS without Compose**: Use Kotlin/JS directly for more control, though this loses Compose's benefits\n\n**Bottom line**: Compose for Web is a modern-first solution and isn't suitable if you need to support legacy browsers.",
+        "mode": "plain",
+        "chunks": [],
+        "usage": {
+          "inputTokens": 63,
+          "outputTokens": 371,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0
+        },
+        "model": "claude-haiku-4-5-20251001",
+        "stopReason": "end_turn",
+        "timings": {
+          "retrieveMs": 0,
+          "llmMs": 4159
+        },
+        "grade": {
+          "facts": [
+            {
+              "fact": "A compatibility mode falls back to Kotlin/JS",
+              "grade": "contradicted",
+              "note": "The answer explicitly states 'There's no built-in fallback mechanism' and 'No graceful degradation', directly contradicting the expected fact about a compatibility mode fallback."
+            },
+            {
+              "fact": "Compose for Web defaults to Kotlin/Wasm for performance",
+              "grade": "partial",
+              "note": "The answer mentions 'compiles Kotlin to WebAssembly' but doesn't explicitly state that Kotlin/Wasm is the default or that this is for performance reasons."
+            },
+            {
+              "fact": "The fallback targets browsers without Wasm garbage collection or exception handling",
+              "grade": "missing",
+              "note": "The answer states there is no fallback mechanism at all, so this specific detail about what the fallback targets is not mentioned."
+            },
+            {
+              "fact": "It comes as part of the Compose for Web Beta",
+              "grade": "missing",
+              "note": "The answer does not mention that this is part of a Beta release or any version information."
+            }
+          ],
+          "score": 0.125,
+          "hallucination": true,
+          "hallucinationNote": "The answer claims 'There's no built-in fallback mechanism for browsers lacking WebAssembly features' and 'No graceful degradation', which directly contradicts the expected fact that a compatibility mode falls back to Kotlin/JS. This is a specific claim that conflicts with the expected facts about how Compose for Web handles older browsers.",
+          "declined": false,
+          "usage": {
+            "inputTokens": 1700,
+            "outputTokens": 440,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "model": "claude-haiku-4-5-20251001"
+        }
+      },
+      "rag": {
+        "answer": "According to the documents, Compose for Web is supposed to run on older browsers that lack newer WebAssembly features through a **fallback to Kotlin/JS** [1].\n\nHere's how it works: Compose for Web defaults to Kotlin/Wasm for performance, but as part of the Compose for Web Beta, a compatibility mode using Kotlin/JS is being introduced as a fallback. This fallback allows apps to run on older browsers that don't support modern Wasm features like garbage collection or exception handling [1].",
+        "mode": "rag",
+        "chunks": [
+          {
+            "n": 1,
+            "score": 0.6445521885452987,
+            "source": "knowledge_database/What’s Next for Kotlin Multiplatform and Compose Multiplatform – August 2025 Update - The JetBrains Blog.html",
+            "section": "Kotlin/JS › Fallback to Kotlin/JS for Compose for Web",
+            "title": "What’s Next for Kotlin Multiplatform and Compose Multiplatform – August 2025 Update",
+            "chunk_id": "kb/what-s-next-for-kotlin-multiplatform-and-compose-multiplatform-august-2025-update-the-jetbrains-blog.html:structural:11",
+            "text": "Kotlin/JS\n\nFallback to Kotlin/JS for Compose for Web\n\nAs part of the Compose for Web Beta, we will be introducing a compatibility mode using Kotlin/JS as a fallback. This broadens browser support for Compose for Web, which defaults to Kotlin/Wasm for performance. The fallback allows apps to run on older browsers that don’t support modern Wasm features like garbage collection or exception handling."
+          },
+          {
+            "n": 2,
+            "score": 0.5175357630438742,
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "Compose Multiplatform beyond mobile",
+            "title": "Compose Multiplatform 1.8.0 Released: Compose Multiplatform for iOS Is Stable and Production-Ready",
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:6",
+            "text": "Compose Multiplatform beyond mobile\n\nCompose Multiplatform for the web is also evolving rapidly. With 1.8.0, the Navigation library now supports browser back and forward buttons, making web apps feel more native. Developers can also experiment with pointer cursor customization and resource preloading APIs, which help reduce layout shifts and improve perceived performance.\n\nThese updates bring Compose Multiplatform for the web one step closer to providing a polished, production-ready experience. You can learn more about our vision and plans for Kotlin web development in the upcoming post “The Present and Future of Kotlin for the Web.” Stay tuned."
+          },
+          {
+            "n": 3,
+            "score": 0.45389306537818136,
+            "source": "knowledge_database/What’s Next for Kotlin Multiplatform and Compose Multiplatform – August 2025 Update - The JetBrains Blog.html",
+            "section": "Compose Multiplatform › Release Compose Multiplatform for Web in Beta",
+            "title": "What’s Next for Kotlin Multiplatform and Compose Multiplatform – August 2025 Update",
+            "chunk_id": "kb/what-s-next-for-kotlin-multiplatform-and-compose-multiplatform-august-2025-update-the-jetbrains-blog.html:structural:2",
+            "text": "Compose Multiplatform\n\nRelease Compose Multiplatform for Web in Beta\n\nThis Beta version embodies our commitment to support and evolve the existing APIs of Compose Multiplatform for Web. Most essential APIs will be available, enabling early adopters to confidently move to production with the existing feature set. After this Beta release, we will keep working on the remaining Compose APIs and further performance improvements. We heavily depend on your feedback, so please reach out on the Kotlinlang slack or report any issues on YouTrack."
+          },
+          {
+            "n": 4,
+            "score": 0.4452802550806118,
+            "source": "knowledge_database/Compose Multiplatform 1.12.0 Released - The JetBrains Blog.html",
+            "section": "Automatic font fallback for web",
+            "title": "Compose Multiplatform 1.12.0 Released",
+            "chunk_id": "kb/compose-multiplatform-1.12.0-released-the-jetbrains-blog.html:structural:2",
+            "text": "Automatic font fallback for web\n\nCompose Multiplatform for web now handles characters that your application’s fonts don’t cover. When it encounters an unresolved character during rendering, it downloads the matching Noto font subset on demand and recomposes the affected text. As a result, Japanese, Arabic, Devanagari, and emoji render correctly without you having to bundle fonts for them."
+          },
+          {
+            "n": 5,
+            "score": 0.424371881259007,
+            "source": "knowledge_database/Kotlin 2.4.20 Release_ What's New & Why It Matters (2026) _ Medium.html",
+            "section": "What Actually Changed › 2. Compose Multiplatform Gets Serious",
+            "title": "Kotlin 2.3 Is Making Multiplatform Development Actually Work",
+            "chunk_id": "kb/kotlin-2.4.20-release-what-s-new-why-it-matters-2026-medium.html:structural:2",
+            "text": "2. Compose Multiplatform Gets Serious\n\nMultiplatform Jetpack Compose was also promising but also buggy. Compose for iOS is stabilized in Kotlin 2.3 with improvements performance wise that makes it usable:\n\n- 60fps animations on older iPhones\n\n- Native-feeling navigation without custom wrappers\n\n- Non-memory leaking lifecycle handling\n\n@Composable\nfun ProfileScreen(viewModel: ProfileViewModel) {\n    val state by viewModel.state.collectAsState()\n    LazyColumn(\n        modifier = Modifier.fillMaxSize()\n    ) {\n        item {\n            ProfileHeader(\n                user = state.user,\n                onEditClick = { viewModel.editProfile() }\n            )\n        }\n        items(state.posts) { post ->\n            PostCard(post = post)\n        }\n    }\n}\n\nThis will render the same on Android or iOS and without any platform check or conditional imports."
+          }
+        ],
+        "usage": {
+          "inputTokens": 1310,
+          "outputTokens": 118,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0
+        },
+        "model": "claude-haiku-4-5-20251001",
+        "stopReason": "end_turn",
+        "timings": {
+          "retrieveMs": 75,
+          "llmMs": 1700
+        },
+        "grade": {
+          "facts": [
+            {
+              "fact": "A compatibility mode falls back to Kotlin/JS",
+              "grade": "present",
+              "note": "Explicitly stated: 'a compatibility mode using Kotlin/JS is being introduced as a fallback'"
+            },
+            {
+              "fact": "Compose for Web defaults to Kotlin/Wasm for performance",
+              "grade": "present",
+              "note": "Explicitly stated: 'Compose for Web defaults to Kotlin/Wasm for performance'"
+            },
+            {
+              "fact": "The fallback targets browsers without Wasm garbage collection or exception handling",
+              "grade": "present",
+              "note": "Explicitly stated: 'older browsers that don't support modern Wasm features like garbage collection or exception handling'"
+            },
+            {
+              "fact": "It comes as part of the Compose for Web Beta",
+              "grade": "present",
+              "note": "Explicitly stated: 'as part of the Compose for Web Beta, a compatibility mode using Kotlin/JS is being introduced'"
+            }
+          ],
+          "score": 1,
+          "hallucination": false,
+          "hallucinationNote": "",
+          "declined": false,
+          "usage": {
+            "inputTokens": 1442,
+            "outputTokens": 323,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "model": "claude-haiku-4-5-20251001"
+        },
+        "retrieval": {
+          "hit": true,
+          "rank": 1
+        },
+        "citations": {
+          "cited": [
+            1
+          ],
+          "invalid": [],
+          "valid": true,
+          "citesExpected": true
+        },
+        "outcome": "pass"
+      },
+      "verdict": "RAG better (+0.88) · hallucination: plain"
+    },
+    {
+      "id": "q08",
+      "type": "general",
+      "question": "What is Kotlin Multiplatform, and which parts of an app is it usually worth sharing across platforms?",
+      "expected_facts": [
+        "It shares Kotlin code across platforms such as Android, iOS and the backend",
+        "Business logic and validation are good candidates to share",
+        "Networking / API clients are commonly shared",
+        "Platform APIs such as camera or notifications usually stay platform-specific"
+      ],
+      "evidence": [
+        "true code sharing across iOS, Android, and backend",
+        "Business logic and validation",
+        "API client implementations",
+        "Platform APIs (camera, notifications, HealthKit)"
+      ],
+      "expected_sources": [
+        "knowledge_database/Kotlin 2.4.20 Release_ What's New & Why It Matters (2026) _ Medium.html"
+      ],
+      "notes": "General knowledge a strong model answers well; one article (the Kotlin 2.3 multiplatform post, saved under a 2.4.20 file name) also has a 'share this / keep platform-specific' list. RAG should at least not hurt.",
+      "plain": {
+        "answer": "# Kotlin Multiplatform\n\nKotlin Multiplatform (KMP) is a framework that lets you write code once in Kotlin and share it across multiple platforms (Android, iOS, web, desktop, etc.). The shared code compiles to each platform's native format.\n\n## How It Works\n\n- **Shared code**: Business logic written in Kotlin that compiles to all platforms\n- **Platform-specific code**: Native implementations for UI and platform-specific features\n- **Expect/Actual**: A mechanism to define interfaces in shared code and provide platform-specific implementations\n\n## What's Usually Worth Sharing\n\n### ✅ **Highly Recommended**\n- **Business logic** - Data processing, calculations, algorithms\n- **Data models** - Classes representing your app's core entities\n- **Networking** - API calls and data serialization (using Ktor Client)\n- **Database logic** - Data persistence layer (using SQLDelight)\n- **Validation rules** - Input validation, business rules\n- **State management** - App state and logic (Redux, MVI patterns)\n\n### ⚠️ **Conditionally Worth Sharing**\n- **Utilities** - Helper functions, extensions\n- **Analytics/Logging** - Core tracking logic (with platform-specific implementations)\n- **Authentication** - Token management, login logic\n\n### ❌ **Usually Not Worth Sharing**\n- **UI/Presentation** - Use platform-native UI frameworks (SwiftUI, Jetpack Compose)\n- **Platform-specific APIs** - Camera, location, notifications (use expect/actual)\n- **Performance-critical code** - May need native optimization\n\n## Key Benefit\n\nYou typically share **30-70% of code** depending on app complexity, eliminating duplication of business logic while keeping native UI experiences.",
+        "mode": "plain",
+        "chunks": [],
+        "usage": {
+          "inputTokens": 65,
+          "outputTokens": 404,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0
+        },
+        "model": "claude-haiku-4-5-20251001",
+        "stopReason": "end_turn",
+        "timings": {
+          "retrieveMs": 0,
+          "llmMs": 4819
+        },
+        "grade": {
+          "facts": [
+            {
+              "fact": "It shares Kotlin code across platforms such as Android, iOS and the backend",
+              "grade": "present",
+              "note": "Answer explicitly states KMP lets you 'write code once in Kotlin and share it across multiple platforms (Android, iOS, web, desktop, etc.)'"
+            },
+            {
+              "fact": "Business logic and validation are good candidates to share",
+              "grade": "present",
+              "note": "Answer lists both 'Business logic' and 'Validation rules' under 'Highly Recommended' to share"
+            },
+            {
+              "fact": "Networking / API clients are commonly shared",
+              "grade": "present",
+              "note": "Answer explicitly lists 'Networking - API calls and data serialization (using Ktor Client)' as highly recommended to share"
+            },
+            {
+              "fact": "Platform APIs such as camera or notifications usually stay platform-specific",
+              "grade": "present",
+              "note": "Answer states under 'Usually Not Worth Sharing': 'Platform-specific APIs - Camera, location, notifications (use expect/actual)'"
+            }
+          ],
+          "score": 1,
+          "hallucination": false,
+          "hallucinationNote": "",
+          "declined": false,
+          "usage": {
+            "inputTokens": 1730,
+            "outputTokens": 340,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "model": "claude-haiku-4-5-20251001"
+        }
+      },
+      "rag": {
+        "answer": "# Kotlin Multiplatform (KMP)\n\nBased on the documents, Kotlin Multiplatform is an approach to code sharing across iOS, Android, and backend platforms using Kotlin. [5]\n\n## What's Worth Sharing Across Platforms\n\nAccording to the practical guidance in the documents, you should share: [2]\n\n- **Business logic and validation**\n- **API client implementations** (GraphQL clients, Ktor)\n- **Data models and serialization**\n- **Authentication flows**\n- **Analytics and logging**\n\n## What Should Stay Platform-Specific\n\nKeep these as native implementations: [1]\n\n- **UI components** (though Compose Multiplatform can be used for common UI when needed)\n- **Platform APIs** (camera, notifications, HealthKit)\n- **Deep navigation patterns**\n- **Performance-critical animations**\n\n## The Key Philosophy\n\nThe documents emphasize that Kotlin 2.3 enables a pragmatic approach: \"sharing what is really valuable and being native when it matters.\" [4] Rather than trying to share everything, the recommendation is to start gradually by exposing business logic first, then UI only when needed. [4]",
+        "mode": "rag",
+        "chunks": [
+          {
+            "n": 1,
+            "score": 0.6778673828985318,
+            "source": "knowledge_database/Kotlin 2.4.20 Release_ What's New & Why It Matters (2026) _ Medium.html",
+            "section": "What You Should Actually Share › Keep Platform-Specific:",
+            "title": "Kotlin 2.3 Is Making Multiplatform Development Actually Work",
+            "chunk_id": "kb/kotlin-2.4.20-release-what-s-new-why-it-matters-2026-medium.html:structural:6",
+            "text": "Keep Platform-Specific:\n\n- UI components (if necessary use Compose Multiplatform for common UI)\n\n- Platform APIs (camera, notifications, HealthKit)\n\n- Deep navigation patterns\n\n- Performance-critical animations"
+          },
+          {
+            "n": 2,
+            "score": 0.6754427103053904,
+            "source": "knowledge_database/Kotlin 2.4.20 Release_ What's New & Why It Matters (2026) _ Medium.html",
+            "section": "What You Should Actually Share › Share This:",
+            "title": "Kotlin 2.3 Is Making Multiplatform Development Actually Work",
+            "chunk_id": "kb/kotlin-2.4.20-release-what-s-new-why-it-matters-2026-medium.html:structural:5",
+            "text": "What You Should Actually Share\n\nNot everything should go in shared code. Here’s the practical breakdown:\n\nShare This:\n\n- Business logic and validation\n\n- API client implementations (GraphQL clients, Ktor)\n\n- Data models and serialization\n\n- Authentication flows\n\n- Analytics and logging"
+          },
+          {
+            "n": 3,
+            "score": 0.6512258290290294,
+            "source": "knowledge_database/Kotlin 2.4.20 Release_ What's New & Why It Matters (2026) _ Medium.html",
+            "section": "Getting Started Without the Hype",
+            "title": "Kotlin 2.3 Is Making Multiplatform Development Actually Work",
+            "chunk_id": "kb/kotlin-2.4.20-release-what-s-new-why-it-matters-2026-medium.html:structural:7",
+            "text": "Getting Started Without the Hype\n\nDon’t rewrite your entire app. Start small:\n\n- Move Business Logic of a Feature Into a Shared Module\n\n- Expose your network layer and API models\n\n- Integrate a Compose Multiplatform UI for one screen\n\nIncremental adoption is now possible — thanks to the Kotlin 2.3. It doesn’t take buy-in to refactor everything — just show value with a single common feature."
+          },
+          {
+            "n": 4,
+            "score": 0.6262149210260847,
+            "source": "knowledge_database/Kotlin 2.4.20 Release_ What's New & Why It Matters (2026) _ Medium.html",
+            "section": "Key Takeaways",
+            "title": "Kotlin 2.3 Is Making Multiplatform Development Actually Work",
+            "chunk_id": "kb/kotlin-2.4.20-release-what-s-new-why-it-matters-2026-medium.html:structural:8",
+            "text": "Key Takeaways\n\n- Real KMP pain points solved for Kotlin 2.3 — better iOS interop, stable Compose, better tooling\n\n- Compose Multiplatform If you need to share corner of your UI across platforms, it’s production ready for the right enrichment\n\n- Backend integration enables true full stack code sharing with Ktor and shared validation\n\n- Start Gradually — expose business logic first, UI when its needed\n\nWriting Once, Rerunning Everywhere When Multiplatform??? It’s showing up and sharing what is really valuable and being native when it matters. That’s where Kotlin 2.3 finally gives you the tools to make it work.\n\nFor the people who have been holding out for KMP to come of age, this is the release where it is worth another look."
+          },
+          {
+            "n": 5,
+            "score": 0.6099982517963357,
+            "source": "knowledge_database/Kotlin 2.4.20 Release_ What's New & Why It Matters (2026) _ Medium.html",
+            "section": "",
+            "title": "Kotlin 2.3 Is Making Multiplatform Development Actually Work",
+            "chunk_id": "kb/kotlin-2.4.20-release-what-s-new-why-it-matters-2026-medium.html:structural:0",
+            "text": "Kotlin 2.3 Is Making Multiplatform Development Actually Work\n\nAndroidLab by Andre3 min readFeb 2, 2026\n\nHow the latest Kotlin release is finally delivering on the promise of true code sharing across iOS, Android, and backend\n\nRealistically, we have heard the multiplatform dream before: write once, run everywhere. Ultimately, this culminates in platform-specific hacks, performance bottlenecks, and the wretched sting of knowing you should have just built native apps.\n\nKotlin 2.3 is different. Not because it immediately cures all things, but because it finally starts tackling the real world friction points that caused KMP (Kotlin Multiplatform) to feel like more effort than it was worth."
+          }
+        ],
+        "usage": {
+          "inputTokens": 1128,
+          "outputTokens": 262,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0
+        },
+        "model": "claude-haiku-4-5-20251001",
+        "stopReason": "end_turn",
+        "timings": {
+          "retrieveMs": 75,
+          "llmMs": 2784
+        },
+        "grade": {
+          "facts": [
+            {
+              "fact": "It shares Kotlin code across platforms such as Android, iOS and the backend",
+              "grade": "present",
+              "note": "Clearly stated: 'code sharing across iOS, Android, and backend platforms using Kotlin'"
+            },
+            {
+              "fact": "Business logic and validation are good candidates to share",
+              "grade": "present",
+              "note": "Explicitly listed under 'What's Worth Sharing': 'Business logic and validation'"
+            },
+            {
+              "fact": "Networking / API clients are commonly shared",
+              "grade": "present",
+              "note": "Covered by 'API client implementations' and 'GraphQL clients, Ktor' in the shared section"
+            },
+            {
+              "fact": "Platform APIs such as camera or notifications usually stay platform-specific",
+              "grade": "present",
+              "note": "Explicitly stated under 'What Should Stay Platform-Specific': 'Platform APIs (camera, notifications, HealthKit)'"
+            }
+          ],
+          "score": 1,
+          "hallucination": false,
+          "hallucinationNote": "",
+          "declined": false,
+          "usage": {
+            "inputTokens": 1573,
+            "outputTokens": 315,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "model": "claude-haiku-4-5-20251001"
+        },
+        "retrieval": {
+          "hit": true,
+          "rank": 1
+        },
+        "citations": {
+          "cited": [
+            5,
+            2,
+            1,
+            4
+          ],
+          "invalid": [],
+          "valid": true,
+          "citesExpected": true
+        },
+        "outcome": "pass"
+      },
+      "verdict": "same (+0.00)"
+    },
+    {
+      "id": "q09",
+      "type": "general",
+      "question": "How are Kotlin coroutines different from threads, and what does the suspend keyword actually do?",
+      "expected_facts": [
+        "Coroutines are lightweight: many of them can run on a few threads",
+        "A suspend function can pause without blocking the thread it runs on",
+        "A suspend function can only be called from a coroutine or another suspend function"
+      ],
+      "expected_sources": [],
+      "notes": "Textbook Kotlin that no article in the corpus explains. Plain mode should score well; strict RAG rules may make RAG decline, which would be RAG hurting a general question. Record which happens.",
+      "plain": {
+        "answer": "# Kotlin Coroutines vs Threads\n\n## Key Differences\n\n| Aspect | Threads | Coroutines |\n|--------|---------|-----------|\n| **Creation cost** | Expensive (OS-level resource) | Cheap (lightweight) |\n| **Memory** | ~1-2 MB per thread | Kilobytes per coroutine |\n| **Switching** | Preemptive (OS decides) | Cooperative (code decides) |\n| **Quantity** | Hundreds practical limit | Thousands/millions possible |\n| **Blocking** | Blocks entire thread | Suspends without blocking thread |\n\n## What `suspend` Actually Does\n\nThe `suspend` keyword marks a function as **suspendable**—it can pause execution and resume later *without blocking the underlying thread*.\n\n### How it works:\n\n```kotlin\n// Regular function - blocks the thread\nfun regularFunction() {\n    Thread.sleep(1000)  // Thread is stuck here\n    println(\"Done\")\n}\n\n// Suspendable function - pauses without blocking\nsuspend fun suspendFunction() {\n    delay(1000)  // Coroutine pauses, thread is FREE\n    println(\"Done\")\n}\n```\n\nWhen `delay(1000)` is called:\n- The coroutine **suspends** (pauses)\n- The thread **continues** running other coroutines\n- After 1000ms, the coroutine **resumes** where it left off\n\n### Under the hood:\n\nThe Kotlin compiler transforms `suspend` functions into state machines. Simplified:\n\n```kotlin\n// What you write:\nsuspend fun fetchData(): String {\n    val result = api.call()  // suspends here\n    return result\n}\n\n// Roughly what happens:\nfun fetchData(continuation: Continuation<String>) {\n    when (continuation.label) {\n        0 -> {\n            continuation.label = 1\n            api.call(continuation)  // suspends\n        }\n        1 -> {\n            val result = continuation.result\n            continuation.resume(result)\n        }\n    }\n}\n```\n\n## Practical Example\n\n```kotlin\n// Launch 10,000 coroutines (impossible with threads)\nrepeat(10_000) {\n    launch {\n        delay(1000)  // Suspends, doesn't block\n        println(\"Coroutine $it done\")\n    }\n}\n// All complete in ~1 second using maybe 1-2 threads\n```\n\n## Key Takeaway\n\n**`suspend` = \"pause this coroutine, free up the thread for other work\"**\n\nThis enables massive concurrency with minimal resources—the core power of coroutines.",
+        "mode": "plain",
+        "chunks": [],
+        "usage": {
+          "inputTokens": 62,
+          "outputTokens": 621,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0
+        },
+        "model": "claude-haiku-4-5-20251001",
+        "stopReason": "end_turn",
+        "timings": {
+          "retrieveMs": 0,
+          "llmMs": 6964
+        },
+        "grade": {
+          "facts": [
+            {
+              "fact": "Coroutines are lightweight: many of them can run on a few threads",
+              "grade": "present",
+              "note": "Clearly stated in the table (cheap, kilobytes per coroutine, thousands/millions possible) and demonstrated in the practical example (10,000 coroutines on 1-2 threads)"
+            },
+            {
+              "fact": "A suspend function can pause without blocking the thread it runs on",
+              "grade": "present",
+              "note": "Explicitly stated multiple times: 'pause execution and resume later without blocking the underlying thread', the delay example showing the thread continues running other coroutines, and the key takeaway"
+            },
+            {
+              "fact": "A suspend function can only be called from a coroutine or another suspend function",
+              "grade": "missing",
+              "note": "This important restriction is not mentioned anywhere in the answer"
+            }
+          ],
+          "score": 0.6666666666666666,
+          "hallucination": false,
+          "hallucinationNote": "",
+          "declined": false,
+          "usage": {
+            "inputTokens": 1941,
+            "outputTokens": 289,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "model": "claude-haiku-4-5-20251001"
+        }
+      },
+      "rag": {
+        "answer": "The provided documents do not contain information about how Kotlin coroutines differ from threads or a detailed explanation of what the suspend keyword does.\n\nThe documents mention suspend functions in a few contexts—such as overload resolution improvements in Kotlin 2.2.20 [1] and a note about suspend function behavior changes in Kotlin 2.4 [3]—but they don't explain the fundamental differences between coroutines and threads or the mechanics of the suspend keyword itself.\n\nTo get a complete answer to your question, you would need additional resources that specifically cover Kotlin coroutines architecture and the suspend mechanism.",
+        "mode": "rag",
+        "chunks": [
+          {
+            "n": 1,
+            "score": 0.5044741389030042,
+            "source": "knowledge_database/Kotlin 2.2.20 for Android Developers_ 5 Changes That Make Your Code Cleaner 🚀 _ by Jatin Gujjar _ Medium.html",
+            "section": "1. Smarter overload resolution with suspend function",
+            "title": "Kotlin 2.2.20 for Android Developers: 5 Changes That Make Your Code Cleaner 🚀",
+            "chunk_id": "kb/kotlin-2.2.20-for-android-developers-5-changes-that-make-your-code-cleaner-by-jatin-gujjar-medium.html:structural:1",
+            "text": "1. Smarter overload resolution with suspend function\n\nIf you’ve ever had both a suspend and non suspend overload of the same function, you know how confusing it is, because compiler starts to show ambiguity error if you passed plain lambda. For eg.\n\nfun log(block: () -> String) { println(\"non-suspend: ${block()}\") }\nfun log(block: suspend () -> String) { println(\"suspend: called\") }\nfun test() {\n    log { \"Hello\" }\n    // ❌ Error: ambiguous call between overloads\n}\n\nOnly fix was to use ugly type casts to solve this.\n\nlog({ \"Hello\" } as () -> String)\n\nBut new version of kotlin resolves this clearly.\n\nfun test() {\n    log { \"Hello\" }           // ✅ non-suspend version\n    log(suspend { \"Hi\" })     // ✅ suspend version\n}"
+          },
+          {
+            "n": 2,
+            "score": 0.4207454324551049,
+            "source": "knowledge_database/Kotlin 1.9.20 _ Medium.html",
+            "section": "2. Concurrent Programming Enhancements: › Task API:",
+            "title": "Exploring the Exciting Features of Kotlin 1.9.20",
+            "chunk_id": "kb/kotlin-1.9.20-medium.html:structural:2",
+            "text": "2. Concurrent Programming Enhancements:\n\nTask API:\n\nKotlin 1.9.20 brings improvements to concurrent programming through the introduction of the Task API. This API provides a structured way to express asynchronous computations and handle errors.\n\nval result: Task<String> = Task {\n    // Perform asynchronous computation\n    \"Success\"\n}\nresult.onError { error ->\n    println(\"Error: $error\")\n}.onSuccess { value ->\n    println(\"Result: $value\")\n}\n\nWith the Task API, developers can elegantly express asynchronous operations and handle outcomes in a clean and structured manner, promoting better code organization."
+          },
+          {
+            "n": 3,
+            "score": 0.4197579217090249,
+            "source": "knowledge_database/Kotlin 2.4 vs Kotlin 2.3_ What Actually Changed_ _ Medium.html",
+            "section": "Should You Upgrade Right Now?",
+            "title": "Kotlin 2.4 vs Kotlin 2.3: What Actually Changed?",
+            "chunk_id": "kb/kotlin-2.4-vs-kotlin-2.3-what-actually-changed-medium.html:structural:7",
+            "text": "Should You Upgrade Right Now?\n\n- First things first: check for Gradle compatibility and update Android Studio — 2.4 requires Gradle 9.5.0+\n\n- Rewriting all your code in full to use context parameters is not something you want to do overnight; try doing it incrementally\n\n- You have been using Kotlin Coroutines and a lot of Kotlin Flow · Test well because suspend function behaves a little differently in early patch releases of 2.4.20"
+          },
+          {
+            "n": 4,
+            "score": 0.40999093170587336,
+            "source": "knowledge_database/Kotlin 2.0.20_ Major Update Brings Performance Improvements and Bug Fixes — Tech News _ by Olena Chyrkova _ Major Digest _ Medium.html",
+            "section": "Main Features",
+            "title": "Kotlin 2.0.20: Major Update Brings Performance Improvements and Bug Fixes — Tech News",
+            "chunk_id": "kb/kotlin-2.0.20-major-update-brings-performance-improvements-and-bug-fixes-tech-news-by-olena-chyrkova-major-digest-medium.html:structural:1",
+            "text": "Main Features\n\nKotlin 2.0.20 boasts concurrent marking for the garbage collector, which allows the marking phase to run simultaneously with application threads. This should significantly shorten GC pause times and improve overall application responsiveness."
+          },
+          {
+            "n": 5,
+            "score": 0.40700069277314516,
+            "source": "knowledge_database/Exploring Kotlin 2.1.0_ New Features _ by youssef moti _ Medium.html",
+            "section": "2. Non-Local break and continue",
+            "title": "Exploring Kotlin 2.1.0: New Features",
+            "chunk_id": "kb/exploring-kotlin-2.1.0-new-features-by-youssef-moti-medium.html:structural:2",
+            "text": "2. Non-Local break and continue\n\nBefore Kotlin 2.1.0: Developers used labels to handle complex loops in lambdas, leading to verbose and less readable code.\n\nfun processList(elements: List<Int>): Boolean {\n    loop@ for (element in elements) {\n        val variable = element.takeIf { it > 0 } ?: continue@loop // Using labeled return since continue wasn't available\n        if (variable == 0) return true // Non-local return was already supported\n    }\n    return false\n}\n\nStarting from Kotlin 2.1.0: The new feature allows direct break and continue in lambdas passed to inline functions.\n\nThis feature expands the toolset you can use in the scope of inline functions and reduces boilerplate code in your project.\n\nfun processList(elements: List<Int>): Boolean {\n    elements.forEach { element ->\n        val variable = element.takeIf { it > 0 } ?: continue  // Can now use continue instead of return@forEach\n        if (variable == 0) break // Can now use break instead of return true\n    }\n    return false\n}\n\nTo enable Non-local break and continue, add -Xnon-local-break-continue in the compilerOptions {} block of your Gradle build file:\n\n// build.gradle.kts\nkotlin {\n    compilerOptions {\n        freeCompilerArgs.add(\"-Xnon-local-break-continue\")\n    }\n}"
+          }
+        ],
+        "usage": {
+          "inputTokens": 1453,
+          "outputTokens": 133,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0
+        },
+        "model": "claude-haiku-4-5-20251001",
+        "stopReason": "end_turn",
+        "timings": {
+          "retrieveMs": 88,
+          "llmMs": 1970
+        },
+        "grade": {
+          "facts": [
+            {
+              "fact": "Coroutines are lightweight: many of them can run on a few threads",
+              "grade": "missing",
+              "note": ""
+            },
+            {
+              "fact": "A suspend function can pause without blocking the thread it runs on",
+              "grade": "missing",
+              "note": ""
+            },
+            {
+              "fact": "A suspend function can only be called from a coroutine or another suspend function",
+              "grade": "missing",
+              "note": ""
+            }
+          ],
+          "score": 0,
+          "hallucination": false,
+          "hallucinationNote": "",
+          "declined": true,
+          "usage": {
+            "inputTokens": 1446,
+            "outputTokens": 178,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "model": "claude-haiku-4-5-20251001"
+        },
+        "retrieval": {
+          "hit": null,
+          "rank": null
+        },
+        "citations": {
+          "cited": [
+            1,
+            3
+          ],
+          "invalid": [],
+          "valid": true,
+          "citesExpected": null
+        },
+        "outcome": "not in corpus"
+      },
+      "verdict": "RAG worse (-0.67)"
+    },
+    {
+      "id": "q10",
+      "type": "unanswerable",
+      "question": "What were the headline features of Compose Multiplatform 1.9.0?",
+      "expected_facts": [
+        "Says the available information does not cover Compose Multiplatform 1.9.0",
+        "Does not present a list of 1.9.0 features as fact"
+      ],
+      "expected_sources": [],
+      "notes": "The corpus has release posts for 1.7.0, 1.8.0, 1.10.0 and 1.12.0 but not 1.9.0, so retrieval will bring neighbouring releases. RAG should say the documents do not cover it instead of borrowing 1.8 or 1.10 features. Plain mode will probably answer from memory; record that.",
+      "plain": {
+        "answer": "# Compose Multiplatform 1.9.0 Headline Features\n\nI don't have specific information about Compose Multiplatform 1.9.0's release notes in my training data. To get accurate details about this release, I'd recommend:\n\n1. **Official JetBrains Blog** - Check the Kotlin blog at blog.jetbrains.com\n2. **GitHub Releases** - Visit the [Compose Multiplatform GitHub repository](https://github.com/JetBrains/compose-multiplatform)\n3. **Release Notes** - Look for the official release notes on the JetBrains website\n\nIf you can share what you're trying to accomplish with Compose Multiplatform, I'd be happy to help with general questions about the framework or point you toward relevant resources.",
+        "mode": "plain",
+        "chunks": [],
+        "usage": {
+          "inputTokens": 61,
+          "outputTokens": 185,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0
+        },
+        "model": "claude-haiku-4-5-20251001",
+        "stopReason": "end_turn",
+        "timings": {
+          "retrieveMs": 0,
+          "llmMs": 2025
+        },
+        "grade": {
+          "facts": [
+            {
+              "fact": "Says the available information does not cover Compose Multiplatform 1.9.0",
+              "grade": "present",
+              "note": "Answer explicitly states 'I don't have specific information about Compose Multiplatform 1.9.0's release notes in my training data'"
+            },
+            {
+              "fact": "Does not present a list of 1.9.0 features as fact",
+              "grade": "present",
+              "note": "No features are listed as facts; instead, the answer declines and points to resources"
+            }
+          ],
+          "score": 1,
+          "hallucination": false,
+          "hallucinationNote": "",
+          "declined": true,
+          "usage": {
+            "inputTokens": 1495,
+            "outputTokens": 210,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "model": "claude-haiku-4-5-20251001"
+        }
+      },
+      "rag": {
+        "answer": "The provided documents do not contain information about Compose Multiplatform 1.9.0. The documents cover versions 1.7.0, 1.8.0, and 1.10.0, but version 1.9.0 is not mentioned in any of them.",
+        "mode": "rag",
+        "chunks": [
+          {
+            "n": 1,
+            "score": 0.6238579442680665,
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "Development tools that boost your efficiency",
+            "title": "Compose Multiplatform 1.8.0 Released: Compose Multiplatform for iOS Is Stable and Production-Ready",
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:4",
+            "text": "Development tools that boost your efficiency\n\nTo make building Compose Multiplatform apps faster, smoother, and more enjoyable, we’re actively improving the KMP tooling. A new KMP plugin is coming soon for both IntelliJ IDEA and Android Studio. Besides features for writing common logic, it will bring support for Compose Previews in common code, and tools for managing resources.\n\nEven more exciting: Compose Hot Reload is already available. It lets you make changes to your UI code and see the results instantly, without restarting the app or losing the current state. It intelligently reloads code as you work – making UI iteration faster and smoother than ever.\n\nTry Compose Hot Reload"
+          },
+          {
+            "n": 2,
+            "score": 0.6223809099989298,
+            "source": "knowledge_database/Compose Multiplatform 1.10.0_ Unified @Preview, Navigation 3, and Stable Compose Hot Reload - The JetBrains Blog.html",
+            "section": "",
+            "title": "Compose Multiplatform 1.10.0: Unified @Preview, Navigation 3, and Stable Compose Hot Reload",
+            "chunk_id": "kb/compose-multiplatform-1.10.0-unified-preview-navigation-3-and-stable-compose-hot-reload-the-jetbrains-blog.html:structural:0",
+            "text": "Multiplatform\n\nReleases\n\nCompose Multiplatform 1.10.0: Unified @Preview, Navigation 3, and Stable Compose Hot Reload\n\nCompose Multiplatform 1.10.0 has been released! We’re continually developing our multiplatform APIs and expanding support for Jetpack libraries commonly used on Android.\n\nHere are the highlights of this release:\n\n- One common @Preview annotation to rule them all\n\n- Navigation 3 is available on non-Android targets\n\n- Stable and bundled Compose Hot Reload\n\nGet Started with Compose Multiplatform\n\nFor a complete overview of the changes, check out What’s new in Compose Multiplatform 1.10.0 or the release notes on GitHub."
+          },
+          {
+            "n": 3,
+            "score": 0.6107577880991808,
+            "source": "knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html",
+            "section": "",
+            "title": "Compose Multiplatform 1.7.0 Released",
+            "chunk_id": "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:0",
+            "text": "Multiplatform\n\nReleases\n\nCompose Multiplatform 1.7.0 Released\n\nCompose Multiplatform is a declarative UI framework built by JetBrains that allows developers to share UI implementations across different platforms. The 1.7.0 release brings more components to common code, support for type-safe navigation, significant performance improvements on iOS, and changes from the latest Jetpack Compose update.\n\nHere are the highlights of this release:\n\n- Material3 adaptive and WindowSizeClass are now available in common code.\n\n- Compose Multiplatform now provides compile-time safety for your navigation graph.\n\n- Compose Multiplatform 1.7.0 paired with Kotlin 2.0.20 performs significantly faster and smoother on iOS than the combination of previous stable releases.\n\nFor the complete list of changes, refer to our What’s New page or release notes on GitHub.\n\nGet Started with Compose Multiplatform"
+          },
+          {
+            "n": 4,
+            "score": 0.6018715415473334,
+            "source": "knowledge_database/Compose Multiplatform 1.10.0_ Unified @Preview, Navigation 3, and Stable Compose Hot Reload - The JetBrains Blog.html",
+            "section": "Compose Hot Reload",
+            "title": "Compose Multiplatform 1.10.0: Unified @Preview, Navigation 3, and Stable Compose Hot Reload",
+            "chunk_id": "kb/compose-multiplatform-1.10.0-unified-preview-navigation-3-and-stable-compose-hot-reload-the-jetbrains-blog.html:structural:3",
+            "text": "Compose Hot Reload\n\nCompose Hot Reload is designed to speed up UI iteration by letting you instantly see changes without restarting the application:\n\nThe Compose Hot Reload plugin is now stable – check out this deep-dive blog post to learn more about how it works. It’s now bundled with the Compose Multiplatform Gradle plugin and enabled by default, so no additional configuration is required.\n\nTry Compose Hot Reload\n\nThese are just the highlights – this release includes numerous updates across platforms, including the introduction of more transparent dependency management for Compose Multiplatform libraries with direct library references.\n\nMake sure to check out the full version in our documentation. If you encounter any issues, please report them on our issue tracker."
+          },
+          {
+            "n": 5,
+            "score": 0.5983054435814547,
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "",
+            "title": "Compose Multiplatform 1.8.0 Released: Compose Multiplatform for iOS Is Stable and Production-Ready",
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:0",
+            "text": "Multiplatform\n\nCompose Multiplatform 1.8.0 Released: Compose Multiplatform for iOS Is Stable and Production-Ready\n\nToday marks a major milestone in the Kotlin Multiplatform journey: the release of Compose Multiplatform 1.8.0, which brings Compose for iOS to Stable. With this update, Kotlin Multiplatform becomes a complete solution for mobile development, enabling flexible code sharing across both business logic and UI without compromising app quality or losing control over platform-specific capabilities."
+          }
+        ],
+        "usage": {
+          "inputTokens": 1456,
+          "outputTokens": 67,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0
+        },
+        "model": "claude-haiku-4-5-20251001",
+        "stopReason": "end_turn",
+        "timings": {
+          "retrieveMs": 75,
+          "llmMs": 1126
+        },
+        "grade": {
+          "facts": [
+            {
+              "fact": "Says the available information does not cover Compose Multiplatform 1.9.0",
+              "grade": "present",
+              "note": "The answer explicitly states 'The provided documents do not contain information about Compose Multiplatform 1.9.0'"
+            },
+            {
+              "fact": "Does not present a list of 1.9.0 features as fact",
+              "grade": "present",
+              "note": "The answer does not provide any features for version 1.9.0; it only explains what versions are covered"
+            }
+          ],
+          "score": 1,
+          "hallucination": false,
+          "hallucinationNote": "",
+          "declined": true,
+          "usage": {
+            "inputTokens": 1377,
+            "outputTokens": 211,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "model": "claude-haiku-4-5-20251001"
+        },
+        "retrieval": {
+          "hit": null,
+          "rank": null
+        },
+        "citations": {
+          "cited": [],
+          "invalid": [],
+          "valid": true,
+          "citesExpected": null
+        },
+        "outcome": "pass"
+      },
+      "verdict": "same: both declined"
+    }
+  ]
+}

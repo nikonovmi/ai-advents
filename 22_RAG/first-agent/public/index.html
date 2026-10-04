@@ -1481,6 +1481,68 @@
   }
   dialog.run-dialog .error { color: #c0392b; font-size: 12px; margin-top: 6px; }
 
+  /* ---- knowledge agent --------------------------------------------------- */
+
+  /* Plain Q&A over the document index: no task to stage, no window, profile or
+     project — none of the memory that would leak context into a comparison of
+     With RAG and Without RAG. Its own controls show only here. */
+  .knowledge-only { display: none !important; }
+  body[data-kind="knowledge"] .knowledge-only { display: flex !important; }
+  body[data-kind="knowledge"] #stage-strip,
+  body[data-kind="knowledge"] #window-text,
+  body[data-kind="knowledge"] .topbar .chat-only { display: none !important; }
+
+  .rag-controls { flex: none; align-items: center; gap: 10px; }
+  .rag-toggle { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .rag-toggle button { border: 0; border-radius: 0; padding: 5px 10px; font-size: 12px; white-space: nowrap; }
+  .rag-toggle button + button { border-left: 1px solid var(--line); }
+  .rag-toggle button[aria-pressed="true"] { background: var(--ink); color: var(--panel); }
+  .rag-controls #rag-compare { padding: 5px 10px; font-size: 12px; }
+  .rag-controls a { color: var(--accent); font-size: 12px; text-decoration: none; white-space: nowrap; }
+  .rag-controls a:hover { text-decoration: underline; }
+
+  .mode-badge {
+    display: inline-block;
+    margin-right: 6px;
+    padding: 0 7px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-size: 10.5px;
+    line-height: 17px;
+    letter-spacing: 0.02em;
+    vertical-align: 1px;
+  }
+  .mode-badge.rag { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+
+  .sources { margin-top: 6px; max-width: 100%; font-size: 12px; color: var(--muted); }
+  .sources > summary { cursor: pointer; }
+  .sources ol { margin: 4px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 3px; }
+  .source { border: 1px solid var(--line); border-radius: 8px; padding: 3px 8px; }
+  .source > summary { cursor: pointer; overflow-wrap: anywhere; }
+  .source .n { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink); }
+  .source .score { font-variant-numeric: tabular-nums; }
+  .source pre {
+    margin: 4px 0 2px;
+    font-size: 11.5px;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    max-height: 260px;
+    overflow-y: auto;
+    color: var(--ink);
+  }
+
+  .knowledge-panel { padding: 14px; font-size: 12px; line-height: 1.55; color: var(--muted); }
+  .knowledge-panel h3 { margin: 0 0 4px; color: var(--ink); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; }
+  .knowledge-panel p { margin: 0 0 12px; }
+  .knowledge-panel dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 0 0 12px; }
+  .knowledge-panel dt { color: var(--muted); }
+  .knowledge-panel dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; }
+  .knowledge-panel a { color: var(--accent); }
+
+  dialog.compare .arm .rag-answer { font-size: 13px; line-height: 1.55; }
+  dialog.compare .arm .rag-answer.error { color: var(--accent); }
+
 </style>
 </head>
 <body>
@@ -1521,6 +1583,17 @@
         <select id="project" title="Whose invariants this conversation is subject to. The rules belong to the codebase, not to you."></select>
       </label>
       <button class="picker-delete" id="delete-project" type="button">&times;</button>
+    </div>
+    <!-- The Knowledge agent's switch: which mode the next message is answered
+         in. Stored per chat; each reply carries a badge of the mode that
+         actually produced it. -->
+    <div class="rag-controls knowledge-only">
+      <div class="rag-toggle" role="group" aria-label="Answer mode">
+        <button type="button" data-mode="rag" aria-pressed="true" title="Retrieve 5 chunks from the document index and answer only from them, with [n] citations">With RAG</button>
+        <button type="button" data-mode="plain" aria-pressed="false" title="The same model and settings, no documents">Without RAG</button>
+      </div>
+      <button type="button" id="rag-compare" title="Ask one question in both modes, side by side. Nothing is saved.">Compare</button>
+      <a href="/rag-report" target="_blank" rel="noopener">Eval results ↗</a>
     </div>
     <button id="new-conversation" type="button" title="Start a new conversation with this agent"><span class="full">New conversation</span><span class="short">New</span></button>
   </div>
@@ -1645,6 +1718,21 @@
     <p class="placeholder">Pick two or more profiles and run it.</p>
   </div>
   <p class="foot" id="compare-foot"></p>
+</dialog>
+
+<dialog class="compare" id="rag-compare-dialog">
+  <div class="head">
+    <h2>With RAG vs without</h2>
+    <span class="note">Same model, same settings; only the documents differ. Nothing here is saved to the chat.</span>
+    <button id="rag-compare-close" type="button">Close</button>
+  </div>
+  <div class="setup">
+    <textarea id="rag-compare-question" rows="2" placeholder="One question, answered both ways…"></textarea>
+    <div class="who"><span class="spacer"></span><button id="rag-compare-run" type="button">Ask both</button></div>
+  </div>
+  <div class="results" id="rag-compare-results">
+    <p class="placeholder">Type a question and press Ask both.</p>
+  </div>
 </dialog>
 
 <script type="module">
@@ -1801,6 +1889,10 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
    * and `<body data-kind>` is what hides the composer, the strip and the forks.
    */
   let chatKind = "chat";
+  /** A Knowledge chat's switch: the mode the next message is sent in. */
+  let ragMode = "rag";
+  /** `/rag/status`, fetched once per page for the Knowledge panel. */
+  let ragStatus = null;
   /** How often an open feed asks for new runs. */
   const SCHEDULE_POLL_MS = 5000;
   let schedulePoll = null;
@@ -1844,6 +1936,9 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
     const params = new URLSearchParams();
     if (profileId) params.set("profile", profileId);
     if (projectId) params.set("project", projectId);
+    // A Knowledge chat nobody has written in yet is only known as one by its
+    // agent; every other kind is decided as it always was.
+    if (kindOfAgent(agentId) === "knowledge") params.set("agent", agentId);
     const query = params.toString();
     return query ? "?" + query : "";
   }
@@ -1852,7 +1947,9 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
     messages.innerHTML =
       chatKind === "scheduled"
         ? '<p class="empty">No runs yet. Add steps, save, and press Run — every run posts one message here.</p>'
-        : '<p class="empty">No messages yet — say hello.</p>';
+        : chatKind === "knowledge"
+          ? '<p class="empty">Ask about Kotlin, Kotlin Multiplatform or Compose Multiplatform. Switch With RAG / Without RAG above to compare.</p>'
+          : '<p class="empty">No messages yet — say hello.</p>';
   }
 
   function clearEmptyState() {
@@ -1999,6 +2096,8 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
     if (who !== "user" && meta?.toolCalls?.length) row.appendChild(toolCallRows(meta.toolCalls));
     if (who !== "user" && meta?.toolsUnavailable?.length) row.appendChild(toolsUnavailableNote(meta.toolsUnavailable));
     if (who !== "user" && meta?.steps?.length && meta.run?.runId) row.appendChild(stepStrip(meta.steps, meta.run.runId));
+    // A RAG reply lists what it was given; a plain one was given nothing.
+    if (who !== "user" && meta?.rag?.mode === "rag") row.appendChild(sourcesList(meta.rag.chunks ?? []));
 
     const line = document.createElement("div");
     line.className = "meta";
@@ -2007,6 +2106,7 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
         ? userMetaLine(meta)
         : agentMetaLine(meta, turn)
       : "";
+    if (who !== "user" && !error && meta?.rag) line.prepend(modeBadge(meta.rag.mode));
     // Forking is offered on the message, not in a dialogue box: "what if I had
     // said something else here" is a question about one specific message.
     // Never on a scheduled feed: there is no conversation to continue from a run.
@@ -2046,6 +2146,50 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
       }
       box.appendChild(details);
     }
+    return box;
+  }
+
+  /** "RAG" or "no RAG": which mode produced this reply, whatever the switch says now. */
+  function modeBadge(mode) {
+    const badge = document.createElement("span");
+    badge.className = "mode-badge " + mode;
+    badge.textContent = mode === "rag" ? "RAG" : "no RAG";
+    badge.title = mode === "rag" ? "Answered with retrieved documents" : "Answered without documents";
+    return badge;
+  }
+
+  /**
+   * "Sources (5)", collapsed: `[n] score · source · section` per chunk, each
+   * opening to the chunk text exactly as the model got it. Text, never Markdown.
+   */
+  function sourcesList(chunks) {
+    const box = document.createElement("details");
+    box.className = "sources";
+    const summary = document.createElement("summary");
+    summary.textContent = chunks.length ? `Sources (${chunks.length})` : "Sources (none retrieved)";
+    box.appendChild(summary);
+    const list = document.createElement("ol");
+    for (const chunk of chunks) {
+      const item = document.createElement("li");
+      const details = document.createElement("details");
+      details.className = "source";
+      const head = document.createElement("summary");
+      const n = document.createElement("span");
+      n.className = "n";
+      n.textContent = `[${chunk.n}]`;
+      const score = document.createElement("span");
+      score.className = "score";
+      score.textContent = typeof chunk.score === "number" ? chunk.score.toFixed(3) : "—";
+      const where = String(chunk.source ?? "").replace(/^knowledge_database\//, "");
+      head.append(n, " ", score, ` · ${where}` + (chunk.section ? ` · ${chunk.section}` : ""));
+      head.title = chunk.title ? `${chunk.title}\n${chunk.chunk_id}` : chunk.chunk_id;
+      const text = document.createElement("pre");
+      text.textContent = chunk.text ?? "";
+      details.append(head, text);
+      item.appendChild(details);
+      list.appendChild(item);
+    }
+    box.appendChild(list);
     return box;
   }
 
@@ -2224,7 +2368,8 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
     if (kindOfAgent(agentId) === "scheduled") return openScheduledAgent();
 
     switchTo(crypto.randomUUID());
-    applyKind("chat");
+    ragMode = "rag";
+    applyKind(kindOfAgent(agentId));
     showEmptyState();
     resetPanel();
     renderPanel();
@@ -4228,6 +4373,7 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
       renderStageStrip();
       return;
     }
+    if (chatKind === "knowledge") return renderKnowledgePanel();
     const view = panelView();
     panelStats.innerHTML = "";
     const label = document.createElement("b");
@@ -4245,6 +4391,158 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
     }
 
     renderStageStrip();
+  }
+
+  /**
+   * A Knowledge chat's column: what each question is sent with. There is no
+   * memory to show, and saying so is the point — history is the last few
+   * messages and nothing else, so the two modes differ only in the documents.
+   */
+  async function renderKnowledgePanel() {
+    panelStats.innerHTML = "<b>Knowledge</b> Q&amp;A, short-term history only";
+    const draw = () => {
+      if (chatKind !== "knowledge") return;
+      const s = ragStatus;
+      panelBody.innerHTML = "";
+      const box = document.createElement("div");
+      box.className = "knowledge-panel";
+      const add = (tag, text, parent = box) => {
+        const el = document.createElement(tag);
+        el.textContent = text;
+        parent.appendChild(el);
+        return el;
+      };
+      add("h3", "Mode");
+      add("p", ragMode === "rag"
+        ? "With RAG: the question alone is searched in the document index; the top chunks go into the message, and the answer must cite them as [n] or say they do not cover it."
+        : "Without RAG: the same model and settings, no documents.");
+      add("h3", "Retrieval");
+      const list = add("dl", "");
+      const row = (label, value) => { add("dt", label, list); add("dd", value, list); };
+      row("strategy", s ? s.strategy : "…");
+      row("k", s ? String(s.k) : "…");
+      row("collections", s ? (s.collections.length ? s.collections.join(", ") : "all") : "…");
+      row("min score", s ? (s.minScore ?? "off") : "…");
+      row("embeddings", s ? (s.ready ? "model loaded" : "loads on the first RAG question (a few seconds)") : "…");
+      add("h3", "Answering");
+      const list2 = add("dl", "");
+      const row2 = (label, value) => { add("dt", label, list2); add("dd", value, list2); };
+      row2("model", s?.model ?? "…");
+      row2("both modes", s ? `temperature 0, max ${s.maxTokens} tokens` : "…");
+      row2("history", "last 6 messages; no digest, profile or rules");
+      const link = document.createElement("a");
+      link.href = "/rag-report";
+      link.target = "_blank";
+      link.rel = "noopener";
+      link.textContent = "Eval results: 10 questions, both modes ↗";
+      box.appendChild(link);
+      panelBody.appendChild(box);
+    };
+    draw();
+    try {
+      const res = await fetch("/rag/status");
+      if (res.ok) ragStatus = await res.json();
+    } catch (err) {
+      // The panel says "…" for what it could not read.
+    }
+    draw();
+  }
+
+  /** The switch, drawn from `ragMode`. */
+  function renderRagToggle() {
+    for (const button of document.querySelectorAll(".rag-toggle button")) {
+      button.setAttribute("aria-pressed", String(button.dataset.mode === ragMode));
+    }
+  }
+
+  for (const button of document.querySelectorAll(".rag-toggle button")) {
+    button.addEventListener("click", async () => {
+      if (pending || button.dataset.mode === ragMode) return;
+      ragMode = button.dataset.mode;
+      renderRagToggle();
+      renderPanel();
+      try {
+        // Saved on the chat if it has one; a new chat stores it with its first message.
+        await fetch(`/conversations/${sessionId}/rag`, {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ mode: ragMode }),
+        });
+      } catch (err) {
+        // The next message carries the mode anyway.
+      }
+    });
+  }
+
+  // ---- compare: one question, both modes ----------------------------------
+  const ragCompareDialog = document.getElementById("rag-compare-dialog");
+  const ragCompareQuestion = document.getElementById("rag-compare-question");
+  const ragCompareResults = document.getElementById("rag-compare-results");
+  const ragCompareRun = document.getElementById("rag-compare-run");
+  document.getElementById("rag-compare").addEventListener("click", () => {
+    if (input.value.trim()) ragCompareQuestion.value = input.value.trim();
+    ragCompareDialog.showModal();
+    ragCompareQuestion.focus();
+  });
+  document.getElementById("rag-compare-close").addEventListener("click", () => ragCompareDialog.close());
+  ragCompareDialog.addEventListener("click", (event) => {
+    if (event.target === ragCompareDialog) ragCompareDialog.close();
+  });
+  ragCompareRun.addEventListener("click", runRagCompare);
+  ragCompareQuestion.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      runRagCompare();
+    }
+  });
+
+  async function runRagCompare() {
+    const question = ragCompareQuestion.value.trim();
+    if (!question || ragCompareRun.disabled) return;
+    ragCompareRun.disabled = true;
+    ragCompareResults.innerHTML = '<p class="placeholder">Asking both… (the first RAG question also loads the embedding model)</p>';
+    try {
+      const res = await fetch("/rag/compare", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ question }),
+      });
+      const data = await res.json().catch(() => ({}));
+      ragCompareResults.innerHTML = "";
+      if (!res.ok) {
+        const p = document.createElement("p");
+        p.className = "placeholder";
+        p.textContent = data.error || "Request failed (" + res.status + ")";
+        ragCompareResults.appendChild(p);
+        return;
+      }
+      for (const mode of ["rag", "plain"]) {
+        const result = data[mode];
+        const arm = document.createElement("div");
+        arm.className = "arm";
+        const title = document.createElement("h3");
+        title.append(modeBadge(mode), mode === "rag" ? "With RAG" : "Without RAG");
+        const who = document.createElement("div");
+        who.className = "who";
+        who.textContent = [
+          formatTokens(result.usage?.inputTokens ?? 0) + " in",
+          formatTokens(result.usage?.outputTokens ?? 0) + " out",
+          result.cost != null ? formatCost(result.cost) : null,
+          ((result.timings.retrieveMs + result.timings.llmMs) / 1000).toFixed(1) + "s" + (mode === "rag" ? ` (retrieval ${(result.timings.retrieveMs / 1000).toFixed(1)}s)` : ""),
+          shortModel(result.model),
+        ].filter(Boolean).join(" · ");
+        const body = document.createElement("div");
+        body.className = "rag-answer bubble md";
+        body.innerHTML = renderMarkdown(result.answer);
+        arm.append(title, who, body);
+        if (mode === "rag") arm.appendChild(sourcesList(result.chunks ?? []));
+        ragCompareResults.appendChild(arm);
+      }
+    } catch (err) {
+      ragCompareResults.innerHTML = '<p class="placeholder">Could not reach the server.</p>';
+    } finally {
+      ragCompareRun.disabled = false;
+    }
   }
 
   /**
@@ -4679,6 +4977,7 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
           project: projectId,
           contextMessages: Number(contextInput.value),
           maxTokens: Number(maxTokensSelect.value),
+          ...(chatKind === "knowledge" ? { ragMode } : {}),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -4686,6 +4985,12 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
 
       if (!res.ok) {
         addMessage("agent", data.error || ("Request failed (" + res.status + ")"), { error: true });
+      } else if (chatKind === "knowledge") {
+        // No strategy, no panel state, no window: the reply and what it was given.
+        userRow.querySelector(".meta").appendChild(forkButton(data.meta.turn.userMessageId));
+        addMessage("agent", data.reply, { meta: data.meta, id: data.meta.turn.replyMessageId });
+        lastModel = data.meta.model ?? lastModel;
+        if (data.meta.rag?.mode === "rag" && ragStatus && !ragStatus.ready) renderPanel();
       } else {
         // The user's own message only gets its count once the server has
         // measured it — that number comes from the API, not from guessing.
@@ -4753,7 +5058,8 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
     // A new conversation is just a new id — the old one stays on the server,
     // reachable from the sidebar. Nothing is reset.
     switchTo(crypto.randomUUID());
-    applyKind("chat");
+    ragMode = "rag";
+    applyKind(kindOfAgent(agentId));
     showEmptyState();
     resetPanel();
     renderPanel();
@@ -4806,6 +5112,7 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
    * server again rather than redraw the answer to the previous question.
    */
   async function refreshPanel() {
+    if (chatKind === "knowledge") return renderPanel();
     try {
       const res = await fetch("/conversations/" + sessionId + pickerQuery());
       if (!res.ok) return;
@@ -4833,7 +5140,11 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
 
       const record = await res.json();
       forkedFrom = record.forkedFrom ?? null;
-      applyKind(record.kind === "scheduled" ? "scheduled" : "chat");
+      applyKind(record.kind === "scheduled" || record.kind === "knowledge" ? record.kind : "chat");
+      if (record.kind === "knowledge") {
+        ragMode = record.ragMode === "plain" ? "plain" : "rag";
+        renderRagToggle();
+      }
       // A conversation names its own agent, and reopening it follows that
       // rather than dragging it to whichever one the dropdown was left on.
       if (record.agentId && record.agentId !== agentId) {
@@ -5030,7 +5341,8 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
   });
 
   function kindOfAgent(id) {
-    return agents.find((agent) => agent.id === id)?.kind === "scheduled" ? "scheduled" : "chat";
+    const kind = agents.find((agent) => agent.id === id)?.kind;
+    return kind === "scheduled" || kind === "knowledge" ? kind : "chat";
   }
 
   /** Switch the page between a conversation and a feed, and start or stop watching. */
@@ -5050,6 +5362,8 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
       pipeline = null;
       scheduleRuns = [];
     }
+    if (kind !== "knowledge") ragMode = "rag";
+    renderRagToggle();
   }
 
   /** The agent's most recent pipeline, or a new one if it has none. */

@@ -13,6 +13,8 @@ npm start                                   # http://localhost:3000
 | --- | --- |
 | `npm test` | offline tests: no key, no network |
 | `npm run eval:planner [-- <goal id>]` | plans 8 goals with the real model; exit 1 on a wrong tool sequence |
+| `npm run eval:rag [-- q03]` | 10 questions × With RAG / Without RAG, judged blind → [`reports/rag_comparison.md`](reports/rag_comparison.md), `reports/rag_results.json`; needs the key and a built `../doc_index` |
+| `npm run eval:rag -- --check` / `--report` | only validate [`eval/rag/questions.json`](eval/rag/questions.json) against the index (and write `questions.md`) / only re-render the report with `reports/rag_notes.md` |
 | `npm run mcp:tools [-- omdb]` | list one MCP server's tools |
 | `npm run mcp:call -- omdb get_movie '{"title":"Inception"}'` | call one MCP tool directly |
 | `npm run lifecycle` / `scenario` / `compare` | memory and task-lifecycle demos |
@@ -26,6 +28,42 @@ Defined in `src/agents.js`; each has its own chat list.
   `planning → execution → validation → done` lifecycle.
 - **Movie buff**: chat that calls the OMDb tools.
 - **Pipeline** (`claude-sonnet-5`): each chat is one pipeline. Read-only feed of runs.
+- **Knowledge**: plain Q&A over the [`../doc_index`](../doc_index) vector index, with a
+  **With RAG / Without RAG** switch in the header (stored per chat, sent with each
+  message). It keeps short-term history only (last 6 messages): no digest, profile,
+  invariants or lifecycle, so the documents are the only difference between the modes.
+  Each reply has a mode badge; a RAG reply lists its **Sources** (`[n]` score · source ·
+  section, click for the chunk text). **Compare** asks one question both ways side by
+  side. **Eval results** opens http://localhost:3000/rag-report. Works without any MCP
+  server running.
+
+## RAG (`src/rag/`)
+
+`answerQuestion(question, { mode, history, k, strategy, provider })` in `answer.js` is used
+by the chat and the eval, and returns `{ answer, mode, chunks, usage, timings }`.
+
+- **plain**: a short neutral system prompt (`BASE_SYSTEM`) and the question.
+- **rag**: doc_index `search()` with the question alone (never the history). Chunks below
+  `RAG_MIN_SCORE` are dropped and the scores are logged. The rest go into the **latest
+  user message** as `<documents><doc n source section title>…</doc></documents>`, built by
+  `buildRagPrompt(question, chunks)` (`prompt.js`), with document rules in the system
+  prompt: answer only from the documents, cite `[n]`, say plainly when they don't cover it.
+- Both modes use the provider's default chat model, `temperature: 0`, max 1024 tokens.
+- The embedding model loads on the first RAG question (one log line when ready) and is
+  reused. A missing index or one built with another model is a readable 503, not a stack.
+
+| env | default | |
+| --- | --- | --- |
+| `RAG_K` | `5` | chunks per question |
+| `RAG_STRATEGY` | `structural` | `structural` or `fixed` |
+| `RAG_COLLECTIONS` | all | comma list of `knowledge`, `projects`, `downloads` |
+| `RAG_MIN_SCORE` | off | drop chunks scoring below it |
+| `RAG_JUDGE_MODEL` | the chat model | judge for `eval:rag` |
+| `DOC_INDEX_DIR` | `../doc_index` | |
+
+Routes: `PUT /conversations/:id/rag` `{ mode }`, `POST /rag/compare` `{ question }`,
+`GET /rag/status`, `GET /rag-report` (page) and `GET /rag-report/data` (reads
+`reports/rag_results.json` and `rag_notes.md` on every request).
 
 ## Pipelines
 

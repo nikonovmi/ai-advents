@@ -219,6 +219,9 @@ export function normaliseMessages(messages) {
       }));
     }
     if (message.toolRoundsExceeded) stored.toolRoundsExceeded = true;
+    // A Knowledge reply: which mode produced it, and the chunks it was given.
+    const rag = ragOf(message.rag);
+    if (rag) stored.rag = rag;
     // Which scheduled run posted this message, when a schedule did.
     if (message.run && typeof message.run === "object") {
       const { runId, durationMs, tokens, ok, error } = message.run;
@@ -289,7 +292,38 @@ export function normaliseRecord(data) {
     // right from the moment it exists, and deleting its parent does not
     // orphan it, because it holds its own copy of everything.
     forkedFrom: forkOriginOf(data?.forkedFrom),
+    // **A Knowledge chat's With RAG / Without RAG switch**, null for every
+    // other chat. It is the mode the next message is sent in; each reply
+    // records the mode that actually produced it.
+    ragMode: ragModeOf(data?.ragMode),
     ...flat,
+  };
+}
+
+export const RAG_MODES = ["rag", "plain"];
+
+/** `rag`, `plain`, or null. */
+export function ragModeOf(value) {
+  return RAG_MODES.includes(value) ? value : null;
+}
+
+/** A reply's RAG record: its mode, the chunks it was given, how long each half took. */
+function ragOf(value) {
+  const mode = ragModeOf(value?.mode);
+  if (!mode) return null;
+  const number = (x) => (typeof x === "number" && Number.isFinite(x) ? x : null);
+  return {
+    mode,
+    chunks: (Array.isArray(value.chunks) ? value.chunks : []).map((chunk) => ({
+      n: Number(chunk?.n),
+      score: number(chunk?.score),
+      source: String(chunk?.source ?? ""),
+      section: String(chunk?.section ?? ""),
+      title: String(chunk?.title ?? ""),
+      chunk_id: String(chunk?.chunk_id ?? ""),
+      text: String(chunk?.text ?? ""),
+    })),
+    timings: { retrieveMs: number(value.timings?.retrieveMs), llmMs: number(value.timings?.llmMs) },
   };
 }
 

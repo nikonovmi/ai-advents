@@ -1,0 +1,175 @@
+[
+  {
+    "id": "q01",
+    "type": "corpus",
+    "question": "After moving to Compose Multiplatform 1.7 with Kotlin 2.0.20, how much faster did iOS rendering get in JetBrains' benchmarks, and did GC pauses improve too?",
+    "expected_facts": [
+      "The VisualEffects benchmark runs 3.6 times faster",
+      "Average CPU time per 1000 frames dropped from 8.8 s to 2.4 s",
+      "LazyGrid scrolling is about 9% faster on average",
+      "With concurrent GC marking, the worst p25 GC pause fell from 1.7 ms to 0.4 ms"
+    ],
+    "evidence": [
+      "works 3.6 times faster",
+      "reduced from 8.8 to 2.4 seconds",
+      "performs ~9% faster on average",
+      "from 1.7 ms to 0.4 ms"
+    ],
+    "expected_sources": ["knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html"],
+    "notes": "Four exact benchmark numbers from one post. A model without the post may know iOS got faster but will guess or omit the figures; a wrong number is a hallucination."
+  },
+  {
+    "id": "q02",
+    "type": "corpus",
+    "question": "Is Compose Multiplatform for iOS production-ready yet, and how much does it add to app size compared with a pure SwiftUI app?",
+    "expected_facts": [
+      "Compose Multiplatform 1.8.0 made Compose for iOS Stable",
+      "It adds only about 9 MB to an iOS app compared with a native SwiftUI app",
+      "Over 96% of teams using it on iOS report no major performance concerns"
+    ],
+    "evidence": [
+      "brings Compose for iOS to Stable",
+      "adds only ~9 MB to the size of an iOS app",
+      "over 96% of teams using Compose Multiplatform on iOS report no major performance concerns"
+    ],
+    "expected_sources": ["knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html"],
+    "notes": "The stable version may be known to a strong model; the ~9 MB size cost and the 96% survey figure are specific to the post. A different size figure is a hallucination."
+  },
+  {
+    "id": "q03",
+    "type": "corpus",
+    "question": "I know Kotlin and want to enter this year's RevenueCat Shipaton in the JetBrains category. What can I win, and when does it run?",
+    "expected_facts": [
+      "The JetBrains (Ship Kotlin Everywhere) award has a $30,000 prize pool",
+      "It is split among three winners: $15,000, $10,000 and $5,000",
+      "Shipaton 2026 runs from August 1 to September 30",
+      "The first-place app gets a feature on a Times Square billboard"
+    ],
+    "evidence": [
+      "$30,000 prize pool",
+      "$15,000, $10,000, and $5,000",
+      "runs August 1 to September 30",
+      "a feature on a Times Square billboard"
+    ],
+    "expected_sources": ["knowledge_database/Know Kotlin_ Ship It Everywhere and Win at Shipaton 2026 - The JetBrains Blog.html"],
+    "notes": "A 2026 event, after most model training data: plain mode cannot know the amounts or dates. Day 21 found that structural chunking splits the intro and the prize section, so watch the retrieval rank."
+  },
+  {
+    "id": "q04",
+    "type": "corpus",
+    "question": "Can an AI coding agent work with my running Compose app through hot reload? What exactly can it do there?",
+    "expected_facts": [
+      "Compose Hot Reload ships an experimental MCP (Model Context Protocol) server for AI agents",
+      "The agent can trigger reloads and take screenshots",
+      "It can inspect the semantic tree and simulate clicks and text input",
+      "It can read the application logs"
+    ],
+    "evidence": [
+      "experimental Model Context Protocol (MCP) server",
+      "an agent can trigger reloads, take screenshots",
+      "inspect the semantic tree, simulate clicks and text input",
+      "read application logs"
+    ],
+    "expected_sources": ["knowledge_database/Compose Multiplatform 1.12.0 Released - The JetBrains Blog.html"],
+    "notes": "Compose Multiplatform 1.12.0 feature. Phrased without 'MCP' so retrieval has to match on meaning. A plain answer will likely describe Hot Reload in general or say it does not know of such a feature."
+  },
+  {
+    "id": "q05",
+    "type": "corpus",
+    "question": "Which well-known companies have given KotlinConf talks about running KMP in production, and how much code did the fintech one end up sharing?",
+    "expected_facts": [
+      "StoneCo (a fintech) reached 55% shared code",
+      "StoneCo trained 130 mobile engineers for the shift",
+      "Duolingo ships weekly to 40M+ daily users with KMP",
+      "McDonald's uses KMP to drive navigation state while the UI stays native"
+    ],
+    "evidence": [
+      "55% code sharing",
+      "training 130 mobile engineers",
+      "40M+ daily users",
+      "They use KMP to drive the navigation state itself"
+    ],
+    "expected_sources": ["knowledge_database/The Ultimate KMP Watchlist_ Level Up Your Skills in 10 Talks - The JetBrains Blog.html"],
+    "notes": "Names and numbers from the curated talk list. A plain answer may name other companies (Netflix, Cash App, …) that are real KMP users but not in this list; those are not wrong, but the 55% / 130 figures are needed."
+  },
+  {
+    "id": "q06",
+    "type": "corpus",
+    "question": "Which compiler flags turn on context parameters and context-sensitive resolution in Kotlin 2.2.0, and is there a Kotlin/Native switch that reduces string memory?",
+    "expected_facts": [
+      "Context parameters are enabled with -Xcontext-parameters",
+      "Context-sensitive resolution is enabled with -Xcontext-sensitive-resolution",
+      "kotlin.native.binary.latin1Strings=true enables Latin-1 strings on Kotlin/Native",
+      "Latin-1 strings use about 50% less memory"
+    ],
+    "evidence": [
+      "Enable context parameters with -Xcontext-parameters",
+      "-Xcontext-sensitive-resolution",
+      "kotlin.native.binary.latin1Strings=true",
+      "50% less memory"
+    ],
+    "expected_sources": ["knowledge_database/Kotlin 2.2.0_ Game-Changing Features That Will Transform Your Development Workflow _ by praveen sharma _ Medium.html"],
+    "notes": "Exact flag and property names. A strong model may know the two -X flags; the Latin-1 property and the 50% figure come from the article. A made-up property name is a hallucination."
+  },
+  {
+    "id": "q07",
+    "type": "corpus",
+    "question": "How is Compose for Web supposed to run on older browsers that lack newer WebAssembly features?",
+    "expected_facts": [
+      "A compatibility mode falls back to Kotlin/JS",
+      "Compose for Web defaults to Kotlin/Wasm for performance",
+      "The fallback targets browsers without Wasm garbage collection or exception handling",
+      "It comes as part of the Compose for Web Beta"
+    ],
+    "evidence": [
+      "compatibility mode using Kotlin/JS as a fallback",
+      "defaults to Kotlin/Wasm for performance",
+      "garbage collection or exception handling",
+      "As part of the Compose for Web Beta"
+    ],
+    "expected_sources": ["knowledge_database/What’s Next for Kotlin Multiplatform and Compose Multiplatform – August 2025 Update - The JetBrains Blog.html"],
+    "notes": "A roadmap item from the August 2025 update. Plain mode may guess (polyfills, 'not supported') rather than name the Kotlin/JS fallback."
+  },
+  {
+    "id": "q08",
+    "type": "general",
+    "question": "What is Kotlin Multiplatform, and which parts of an app is it usually worth sharing across platforms?",
+    "expected_facts": [
+      "It shares Kotlin code across platforms such as Android, iOS and the backend",
+      "Business logic and validation are good candidates to share",
+      "Networking / API clients are commonly shared",
+      "Platform APIs such as camera or notifications usually stay platform-specific"
+    ],
+    "evidence": [
+      "true code sharing across iOS, Android, and backend",
+      "Business logic and validation",
+      "API client implementations",
+      "Platform APIs (camera, notifications, HealthKit)"
+    ],
+    "expected_sources": ["knowledge_database/Kotlin 2.4.20 Release_ What's New & Why It Matters (2026) _ Medium.html"],
+    "notes": "General knowledge a strong model answers well; one article (the Kotlin 2.3 multiplatform post, saved under a 2.4.20 file name) also has a 'share this / keep platform-specific' list. RAG should at least not hurt."
+  },
+  {
+    "id": "q09",
+    "type": "general",
+    "question": "How are Kotlin coroutines different from threads, and what does the suspend keyword actually do?",
+    "expected_facts": [
+      "Coroutines are lightweight: many of them can run on a few threads",
+      "A suspend function can pause without blocking the thread it runs on",
+      "A suspend function can only be called from a coroutine or another suspend function"
+    ],
+    "expected_sources": [],
+    "notes": "Textbook Kotlin that no article in the corpus explains. Plain mode should score well; strict RAG rules may make RAG decline, which would be RAG hurting a general question. Record which happens."
+  },
+  {
+    "id": "q10",
+    "type": "unanswerable",
+    "question": "What were the headline features of Compose Multiplatform 1.9.0?",
+    "expected_facts": [
+      "Says the available information does not cover Compose Multiplatform 1.9.0",
+      "Does not present a list of 1.9.0 features as fact"
+    ],
+    "expected_sources": [],
+    "notes": "The corpus has release posts for 1.7.0, 1.8.0, 1.10.0 and 1.12.0 but not 1.9.0, so retrieval will bring neighbouring releases. RAG should say the documents do not cover it instead of borrowing 1.8 or 1.10 features. Plain mode will probably answer from memory; record that."
+  }
+]
