@@ -12,6 +12,7 @@ proposal that nothing applies until you accept it.
 | [`imdb_mcp_server`](imdb_mcp_server) | 3001 | OMDb tools |
 | [`scheduler_mcp_server`](scheduler_mcp_server) | 3002 | pipelines, runs and records in SQLite |
 | [`first-agent`](first-agent) | 3000 | chat app with the Pipeline agent and its planner |
+| [`doc_index`](doc_index) | — | Day 21: local vector index (EmbeddingGemma + SQLite), fixed vs structural chunking, [comparison](doc_index/reports/comparison.md) |
 
 ## Run it
 
