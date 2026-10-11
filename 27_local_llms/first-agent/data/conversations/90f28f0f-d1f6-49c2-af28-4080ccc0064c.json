@@ -1,0 +1,54 @@
+{
+  "id": "90f28f0f-d1f6-49c2-af28-4080ccc0064c",
+  "title": "What has changed in Kotlin 2.4.20?",
+  "createdAt": "2026-10-04T01:58:15.384Z",
+  "updatedAt": "2026-10-04T01:58:15.384Z",
+  "usage": {
+    "totalInputTokens": 55,
+    "totalOutputTokens": 220,
+    "totalCostUsd": 0.001155,
+    "turnCount": 1,
+    "overheadInputTokens": 0,
+    "overheadOutputTokens": 0,
+    "overheadCostUsd": 0,
+    "overheadCalls": 0
+  },
+  "project": "default",
+  "agentId": "knowledge",
+  "forkedFrom": null,
+  "ragMode": "plain",
+  "memory": {},
+  "messages": [
+    {
+      "role": "user",
+      "content": "What has changed in Kotlin 2.4.20?",
+      "id": "m1"
+    },
+    {
+      "role": "assistant",
+      "content": "# Kotlin 2.4.20 Changes\n\nI don't have specific information about Kotlin 2.4.20 in my training data. However, I can suggest ways to find this information:\n\n1. **Official Release Notes**: Check the [Kotlin Blog](https://blog.jetbrains.com/kotlin/) or [GitHub Releases](https://github.com/JetBrains/kotlin/releases) for the official announcement\n\n2. **Changelog**: Visit the [Kotlin Changelog](https://github.com/JetBrains/kotlin/blob/master/ChangeLog.md) on GitHub\n\n3. **JetBrains Announcements**: Look at [JetBrains news](https://www.jetbrains.com/company/newsroom/) for official statements\n\nIf you're looking for information about a specific feature or change in Kotlin 2.4.20, feel free to ask and I can try to help with that specific topic!",
+      "id": "m2",
+      "tokens": {
+        "input": 55,
+        "output": 220,
+        "total": 275
+      },
+      "cost": {
+        "input": 0.000055,
+        "output": 0.0011,
+        "total": 0.001155
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 2657,
+      "stopReason": "end_turn",
+      "rag": {
+        "mode": "plain",
+        "chunks": [],
+        "timings": {
+          "retrieveMs": 0,
+          "llmMs": 2656
+        }
+      }
+    }
+  ]
+}

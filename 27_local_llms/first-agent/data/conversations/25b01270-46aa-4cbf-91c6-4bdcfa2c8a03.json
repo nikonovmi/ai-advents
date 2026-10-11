@@ -1,0 +1,252 @@
+{
+  "id": "25b01270-46aa-4cbf-91c6-4bdcfa2c8a03",
+  "title": "search_movies → prompt → notion-create-…",
+  "createdAt": "2026-09-27T16:31:13.836Z",
+  "updatedAt": "2026-09-27T16:42:54.034Z",
+  "usage": {
+    "totalInputTokens": 1961,
+    "totalOutputTokens": 608,
+    "totalCostUsd": 0.005001,
+    "turnCount": 5,
+    "overheadInputTokens": 0,
+    "overheadOutputTokens": 0,
+    "overheadCostUsd": 0,
+    "overheadCalls": 0
+  },
+  "project": "default",
+  "agentId": "pipeline",
+  "forkedFrom": null,
+  "memory": {},
+  "messages": [
+    {
+      "role": "assistant",
+      "content": "```json\n{\n  \"pages\": [\n    {\n      \"id\": \"3e88aeb6-ccf7-817f-b782-e12700c20ae1\",\n      \"url\": \"https://app.notion.com/p/3e88aeb6ccf7817fb782e12700c20ae1?pvs=204\",\n      \"properties\": {\n        \"title\": \"Batman summary 2026-09-27T16:31:16.549Z\"\n      }\n    }\n  ]\n}\n```",
+      "id": "m1",
+      "tokens": {
+        "input": 389,
+        "output": 114,
+        "total": 503
+      },
+      "cost": {
+        "input": 0.000389,
+        "output": 0.00057,
+        "total": 0.000959
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 3909,
+      "run": {
+        "runId": 31,
+        "durationMs": 3909,
+        "tokens": 503,
+        "ok": true
+      },
+      "steps": [
+        {
+          "index": 1,
+          "kind": "tool",
+          "label": "search_movies",
+          "status": "ok",
+          "ms": 314
+        },
+        {
+          "index": 2,
+          "kind": "prompt",
+          "label": "prompt",
+          "status": "ok",
+          "ms": 2302
+        },
+        {
+          "index": 3,
+          "kind": "tool",
+          "label": "notion-create-pages",
+          "status": "ok",
+          "ms": 1293
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": "```json\n{\n  \"pages\": [\n    {\n      \"id\": \"3e88aeb6-ccf7-8151-b8c6-fa26ec2783ce\",\n      \"url\": \"https://app.notion.com/p/3e88aeb6ccf78151b8c6fa26ec2783ce?pvs=204\",\n      \"properties\": {\n        \"title\": \"Batman summary 2026-09-27T16:31:49.196Z\"\n      }\n    }\n  ]\n}\n```",
+      "id": "m2",
+      "tokens": {
+        "input": 389,
+        "output": 117,
+        "total": 506
+      },
+      "cost": {
+        "input": 0.000389,
+        "output": 0.000585,
+        "total": 0.000974
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 2735,
+      "run": {
+        "runId": 32,
+        "durationMs": 2735,
+        "tokens": 506,
+        "ok": true
+      },
+      "steps": [
+        {
+          "index": 1,
+          "kind": "tool",
+          "label": "search_movies",
+          "status": "ok",
+          "ms": 270
+        },
+        {
+          "index": 2,
+          "kind": "prompt",
+          "label": "prompt",
+          "status": "ok",
+          "ms": 1893
+        },
+        {
+          "index": 3,
+          "kind": "tool",
+          "label": "notion-create-pages",
+          "status": "ok",
+          "ms": 571
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": "```json\n{\n  \"pages\": [\n    {\n      \"id\": \"3e88aeb6-ccf7-8191-8658-cbdd570065be\",\n      \"url\": \"https://app.notion.com/p/3e88aeb6ccf781918658cbdd570065be?pvs=204\",\n      \"properties\": {\n        \"title\": \"Batman summary 2026-09-27T16:32:04.310Z\"\n      }\n    }\n  ]\n}\n```",
+      "id": "m3",
+      "tokens": {
+        "input": 389,
+        "output": 116,
+        "total": 505
+      },
+      "cost": {
+        "input": 0.000389,
+        "output": 0.00058,
+        "total": 0.000969
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 2882,
+      "run": {
+        "runId": 33,
+        "durationMs": 2882,
+        "tokens": 505,
+        "ok": true
+      },
+      "steps": [
+        {
+          "index": 1,
+          "kind": "tool",
+          "label": "search_movies",
+          "status": "ok",
+          "ms": 238
+        },
+        {
+          "index": 2,
+          "kind": "prompt",
+          "label": "prompt",
+          "status": "ok",
+          "ms": 2043
+        },
+        {
+          "index": 3,
+          "kind": "tool",
+          "label": "notion-create-pages",
+          "status": "ok",
+          "ms": 600
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": "```json\n{\n  \"pages\": [\n    {\n      \"id\": \"3e88aeb6-ccf7-81fb-8530-cdcb9ec0a185\",\n      \"url\": \"https://app.notion.com/p/3e88aeb6ccf781fb8530cdcb9ec0a185?pvs=204\",\n      \"properties\": {\n        \"title\": \"Batman summary 2026-09-27T16:32:19.141Z\"\n      }\n    }\n  ]\n}\n```",
+      "id": "m4",
+      "tokens": {
+        "input": 389,
+        "output": 119,
+        "total": 508
+      },
+      "cost": {
+        "input": 0.000389,
+        "output": 0.000595,
+        "total": 0.000984
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 2975,
+      "run": {
+        "runId": 34,
+        "durationMs": 2975,
+        "tokens": 508,
+        "ok": true
+      },
+      "steps": [
+        {
+          "index": 1,
+          "kind": "tool",
+          "label": "search_movies",
+          "status": "ok",
+          "ms": 283
+        },
+        {
+          "index": 2,
+          "kind": "prompt",
+          "label": "prompt",
+          "status": "ok",
+          "ms": 1826
+        },
+        {
+          "index": 3,
+          "kind": "tool",
+          "label": "notion-create-pages",
+          "status": "ok",
+          "ms": 866
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": "```json\n{\n  \"pages\": [\n    {\n      \"id\": \"3e88aeb6-ccf7-81de-9878-d491550c2c56\",\n      \"url\": \"https://app.notion.com/p/3e88aeb6ccf781de9878d491550c2c56?pvs=204\",\n      \"properties\": {\n        \"title\": \"007 summary 2026-09-27T16:42:53.250Z\"\n      }\n    }\n  ]\n}\n```",
+      "id": "m5",
+      "tokens": {
+        "input": 405,
+        "output": 142,
+        "total": 547
+      },
+      "cost": {
+        "input": 0.000405,
+        "output": 0.00071,
+        "total": 0.001115
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 3722,
+      "run": {
+        "runId": 36,
+        "durationMs": 3722,
+        "tokens": 547,
+        "ok": true
+      },
+      "steps": [
+        {
+          "index": 1,
+          "kind": "tool",
+          "label": "search_movies",
+          "status": "ok",
+          "ms": 254
+        },
+        {
+          "index": 2,
+          "kind": "prompt",
+          "label": "prompt",
+          "status": "ok",
+          "ms": 2685
+        },
+        {
+          "index": 3,
+          "kind": "tool",
+          "label": "notion-create-pages",
+          "status": "ok",
+          "ms": 783
+        }
+      ]
+    }
+  ]
+}

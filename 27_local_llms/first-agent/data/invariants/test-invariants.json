@@ -1,0 +1,30 @@
+{
+  "project": "test-invariants",
+  "updatedAt": "2026-09-20T21:43:42.370Z",
+  "nextId": 3,
+  "entries": {
+    "invariant.language": {
+      "id": "i1",
+      "key": "invariant.language",
+      "subject": "language",
+      "text": "Code is written only in Kotlin.",
+      "check": "any proposal to write code in a language other than Kotlin",
+      "supersedes": null,
+      "updatedAt": "2026-09-20T21:41:32.088Z",
+      "turn": 0,
+      "previous": []
+    },
+    "invariant.recursion": {
+      "id": "i2",
+      "key": "invariant.recursion",
+      "subject": "recursion",
+      "text": "Never uses recursion.",
+      "check": "any function or method that calls itself, directly or indirectly through a call chain",
+      "supersedes": null,
+      "updatedAt": "2026-09-20T21:43:42.370Z",
+      "turn": 0,
+      "previous": []
+    }
+  },
+  "retired": []
+}

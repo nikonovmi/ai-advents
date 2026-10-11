@@ -1,0 +1,212 @@
+{
+  "passages": {
+    "cmp-1.8-performance": {
+      "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:3",
+      "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+      "section": "Performance that’s ready for production",
+      "text": "Performance that’s ready for production\n\nA great user experience comes down to more than just UI behavior; it’s about performance, too. Smooth, responsive interactions are key to user satisfaction. That’s why performance was a core focus throughout this stabilization effort. With 1.8.0:\n\n- Startup time is comparable to native apps, so your first frame arrives just as fast.\n\n- Scrolling performance is on par with SwiftUI, even on high-refresh-rate devices.\n\n- Compose Multiplatform adds only ~9 MB to the size of an iOS app compared to a fully native SwiftUI app with the same UI logic and assets.\n\nYou can find the benchmark project on GitHub. A detailed description of the methodology will be published soon at KMP Development portal.\n\nAnd most importantly, this matches what developers are seeing in practice. According to our latest survey, over 96% of teams using Compose Multiplatform on iOS report no major performance concerns."
+    }
+  },
+  "requests": [
+    {
+      "id": "simple",
+      "type": "simple",
+      "title": "Short factual question",
+      "messages": [
+        {
+          "role": "user",
+          "content": "What is the capital of Australia? Answer with the city name only."
+        }
+      ],
+      "options": {
+        "num_predict": 32
+      },
+      "check": {
+        "type": "contains",
+        "expected": "Canberra"
+      }
+    },
+    {
+      "id": "reasoning",
+      "type": "reasoning",
+      "title": "Multi-step word problem",
+      "messages": [
+        {
+          "role": "user",
+          "content": "A bakery bakes 240 cookies. In the morning it sells 3/8 of them. In the afternoon it sells 40% of the cookies that are left. In the evening it packs the remaining cookies into boxes of 12. How many boxes can it fill completely?\n\nWork it out step by step, then finish with a last line of the form \"Answer: <number>\"."
+        }
+      ],
+      "options": {
+        "num_predict": 768
+      },
+      "check": {
+        "type": "number",
+        "expected": 7
+      }
+    },
+    {
+      "id": "structured",
+      "type": "structured",
+      "title": "Extract fields into JSON (format = JSON schema)",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Extract the order from this message as JSON. Use ISO dates (YYYY-MM-DD) and an ISO currency code.\n\n\"Hi! This is Maria Lopez. On 14 March 2026 I placed order #A-1043 for three USB-C docks at €89.50 each. Please ship them to my office in Lisbon, and yes, I'd like express delivery.\""
+        }
+      ],
+      "options": {
+        "num_predict": 256
+      },
+      "format": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string"
+          },
+          "customer": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "product": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "integer"
+          },
+          "unit_price": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "EUR",
+              "USD",
+              "GBP"
+            ]
+          },
+          "city": {
+            "type": "string"
+          },
+          "express": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "order_id",
+          "customer",
+          "date",
+          "product",
+          "quantity",
+          "unit_price",
+          "currency",
+          "city",
+          "express"
+        ],
+        "additionalProperties": false
+      },
+      "check": {
+        "type": "json",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "order_id": {
+              "type": "string"
+            },
+            "customer": {
+              "type": "string"
+            },
+            "date": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "product": {
+              "type": "string"
+            },
+            "quantity": {
+              "type": "integer"
+            },
+            "unit_price": {
+              "type": "number"
+            },
+            "currency": {
+              "type": "string",
+              "enum": [
+                "EUR",
+                "USD",
+                "GBP"
+              ]
+            },
+            "city": {
+              "type": "string"
+            },
+            "express": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "order_id",
+            "customer",
+            "date",
+            "product",
+            "quantity",
+            "unit_price",
+            "currency",
+            "city",
+            "express"
+          ],
+          "additionalProperties": false
+        },
+        "expected": {
+          "order_id": "A-1043",
+          "customer": "Maria Lopez",
+          "date": "2026-03-14",
+          "quantity": 3,
+          "unit_price": 89.5,
+          "currency": "EUR",
+          "city": "Lisbon",
+          "express": true
+        }
+      }
+    },
+    {
+      "id": "grounded-answerable",
+      "type": "grounded",
+      "title": "Grounded: the passage has the answer",
+      "passage": "cmp-1.8-performance",
+      "system": "Answer the question using only the passage below. If the passage does not contain the answer, reply exactly \"I don't know\" and nothing else. Answer in one or two sentences.",
+      "question": "How much does Compose Multiplatform add to the size of an iOS app?",
+      "options": {
+        "num_predict": 128
+      },
+      "check": {
+        "type": "grounded",
+        "expect": "answer",
+        "expected": [
+          [
+            "9 mb",
+            "9mb",
+            "9 megabytes"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "grounded-unanswerable",
+      "type": "grounded",
+      "title": "Grounded: the passage doesn't have the answer",
+      "passage": "cmp-1.8-performance",
+      "system": "Answer the question using only the passage below. If the passage does not contain the answer, reply exactly \"I don't know\" and nothing else. Answer in one or two sentences.",
+      "question": "What is the minimum iOS version that Compose Multiplatform 1.8.0 supports?",
+      "options": {
+        "num_predict": 128
+      },
+      "check": {
+        "type": "grounded",
+        "expect": "decline"
+      }
+    }
+  ]
+}
