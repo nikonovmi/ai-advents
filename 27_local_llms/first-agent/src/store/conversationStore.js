@@ -15,6 +15,7 @@
  */
 
 import { agentOf } from "../agents.js";
+import { llmOf } from "../llm/choice.js";
 import { taskMemoryOf } from "../rag/taskMemory.js";
 import { projectOf } from "./invariantStore.js";
 
@@ -198,6 +199,9 @@ export function normaliseMessages(messages) {
     if (message.tokens) stored.tokens = { ...message.tokens };
     if (message.cost) stored.cost = { ...message.cost };
     if (message.model) stored.model = message.model;
+    // Day 27: who answered (`local`, `claude`, `fake`) and, for a local reply, Ollama's timings.
+    if (typeof message.provider === "string" && message.provider) stored.provider = message.provider;
+    if (message.localMetrics && typeof message.localMetrics === "object") stored.localMetrics = { ...message.localMetrics };
     if (typeof message.ms === "number") stored.ms = message.ms;
     if (message.stopReason) stored.stopReason = message.stopReason;
     if (message.truncated) stored.truncated = true;
@@ -302,6 +306,8 @@ export function normaliseRecord(data) {
     ragMode: ragModeOf(data?.ragMode),
     // Its Rerank / Rewrite switches (Day 23), null for every other chat.
     ragOptions: ragOptionsOf(data?.ragOptions),
+    // Day 27: which model answers this chat (`claude` or `local:<tag>`), null for one that never chose.
+    llm: llmOf(data?.llm),
     // Day 25: a Knowledge chat's task memory (goal, clarified, constraints, open questions), null elsewhere.
     ...(data?.taskMemory ? { taskMemory: taskMemoryOf(data.taskMemory) } : {}),
     ...flat,

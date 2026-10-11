@@ -53,6 +53,9 @@ const AGENT_PATTERN = /^[a-z0-9][a-z0-9_-]{0,63}$/;
  *   message is answered With RAG or Without RAG, with short-term history only
  *   — no digest, profile, invariants or task lifecycle, which would leak
  *   context into the comparison.
+ * @property {boolean} [local] - Day 27: whether a chat of this agent may be
+ *   answered by a local model (the Model switch). Omitted means Claude only,
+ *   and the switch is hidden.
  * @property {Record<string, string[]>} [tools] - For a scheduled agent, the
  *   only tools a prompt step's model is offered, per server. Everything else a
  *   server has — the scheduler's app-only tools above all — never reaches it.
@@ -69,6 +72,7 @@ const AGENTS = [
     id: "first-agent",
     name: "first-agent",
     tagline: "a small chat agent",
+    local: true,
     systemPrompt: [
       "You are a friendly, concise assistant.",
       "Answer directly, prefer plain language over jargon, and say so when you are unsure.",
@@ -110,6 +114,8 @@ const AGENTS = [
     name: "Knowledge",
     tagline: "Kotlin & KMP articles, with or without RAG",
     kind: "knowledge",
+    // Without RAG only: local + RAG is Day 28.
+    local: true,
     // The plain-mode prompt; RAG mode adds the document rules to it. Both live
     // in src/rag/prompt.js, next to the function that builds the documents.
     systemPrompt: BASE_SYSTEM,
@@ -208,10 +214,15 @@ export function isScheduledAgent(id) {
   return isValidAgent(id) && kindOf(id) === "scheduled";
 }
 
+/** Whether this agent's chats may use a local model. Unknown ids may not. */
+export function supportsLocal(id) {
+  return isValidAgent(id) && agentFor(id).local === true;
+}
+
 /**
  * Every agent, for the dropdown. Without the system prompt: the browser has no
  * use for it, and a persona is not something to ship to the client.
  */
 export function agentCatalog() {
-  return AGENTS.map(({ id, name, tagline, mcpServers = [] }) => ({ id, name, tagline, mcpServers, kind: kindOf(id) }));
+  return AGENTS.map(({ id, name, tagline, mcpServers = [], local = false }) => ({ id, name, tagline, mcpServers, kind: kindOf(id), local }));
 }

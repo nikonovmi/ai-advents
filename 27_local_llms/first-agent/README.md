@@ -6,7 +6,7 @@ Node + Express, vanilla front end, no build step.
 
 ```bash
 npm install
-echo 'ANTHROPIC_API_KEY=sk-ant-…' > .env    # omit for the offline FakeProvider
+echo 'ANTHROPIC_API_KEY=sk-ant-…' > .env    # omit to run without the cloud (local models, Day 27)
 npm start                                   # http://localhost:3000
 ```
 
@@ -14,7 +14,9 @@ The Knowledge agent also needs a built index: `cd ../doc_index && npm install &&
 
 | script | does |
 | --- | --- |
-| `npm test` | offline tests: no key, no network |
+| `npm test` | offline tests: no key, no network (Ollama is a fake `fetch`) |
+| `npm run start:offline` | Day 27: `OFFLINE=1 HOST=127.0.0.1`: loopback only, Claude off, no remote MCP servers |
+| `npm run verify:local [-- --model qwen3.5:9b]` | Day 27: the real routes in-process, no key, a fetch guard on every non-localhost host; a 3-message conversation per agent and local model → [`reports/day27_verify.md`](reports/day27_verify.md), `reports/day27_verify.json`; needs Ollama running |
 | `npm run eval:planner [-- <goal id>]` | plans 8 goals with the real model; exit 1 on a wrong tool sequence |
 | `npm run eval:rag [-- q03] [-- --modes rag,rag+rerank]` | 17 questions × 4 modes (`plain`, `rag`, `rag+rerank`, `rag+rewrite+rerank`), judged blind → [`reports/rag_comparison.md`](reports/rag_comparison.md), `reports/rag_results.json`; needs the key and a built `../doc_index` |
 | `npm run eval:citations [-- --mode rag] [-- q17]` | the 10 `citations` questions in one mode (default `rag+rerank`): sources, citations, fabricated quotes, faithfulness judge, "I don't know" → [`reports/citations_report.md`](reports/citations_report.md), `reports/citations_results.json`; `--report` re-renders with `reports/citations_notes.md` |
@@ -46,6 +48,119 @@ Defined in `src/agents.js`; each has its own chat list.
   (greyed, collapsed). A reply declined by the cutoff shows the best rejected chunks. **Compare** asks one question both ways side by
   side. **Eval results** opens http://localhost:3000/rag-report. Works without any MCP
   server running.
+
+## Local models (Day 27)
+
+first-agent and Knowledge chats can be answered by a model running on this machine under
+Ollama, with nothing sent to the cloud. The Ollama side is Day 26's client,
+[`../local_llm/src/ollama.js`](../local_llm/src/ollama.js), imported from the directory next
+to first-agent the way `../doc_index` is (override with `LOCAL_LLM_DIR`).
+
+**Provider.** `OllamaProvider` (`src/llm/ollama.js`) implements the same `LlmProvider`
+interface as `AnthropicProvider` and `FakeProvider`: `complete({ system, messages, temperature,
+maxTokens, tools, toolChoice })` → `{ text, content, model, stopReason, usage }`. The system
+prompt becomes a `system` message; content blocks are flattened to text. Every call sends
+`think: false`, an explicit `num_ctx` and `num_predict` (the smaller of the caller's
+`maxTokens` and `LOCAL_NUM_PREDICT`). A completion also carries `provider: "local"` and
+`metrics` (time to first token, generation tok/s, total latency, prompt and output tokens,
+from Ollama's own timings). Every local reply stores them as `provider` and `localMetrics`.
+A call that forces a tool (`toolChoice`) is sent with the tool's input schema as Ollama's
+JSON-schema `format`. The reply is parsed and validated with ajv, and an invalid one is
+retried once with the validation errors; the caller still gets a `tool_use` block. Free tool
+use (Movie buff) is refused. `countTokens` returns unknown, since Ollama has no count
+endpoint, so "tokens sent" shows "?" on a local chat. Usage comes from Ollama's counts, and
+the cost is unpriced.
+
+Failures come back as one readable sentence, never a stack trace: Ollama down → "isn't
+reachable … Start it with `ollama serve`", model not pulled → "Pull it with `ollama pull
+qwen3.5:9b`", timeout → which setting to raise. **There is no cloud fallback anywhere**: a
+failed local call is an error reply.
+
+**Model switch.** The header has a **Model** select: `Claude` or `Local · <model>`. It is
+stored per chat (`llm: "claude" | "local:<tag>"` on the record, `PUT /conversations/:id/llm`),
+like the RAG switch, and sent with each message. New chats start on Claude when there is a
+key and `LOCAL_DEFAULT_MODEL` is unset; otherwise on the default local model. Without
+`ANTHROPIC_API_KEY` the Claude option is disabled. `GET /local/status` returns whether Ollama
+is reachable, its version, the installed and loaded models, and what the switch offers. The
+page polls it every 20 s. It shows a red **local model down** (or **model not pulled**) chip
+next to the switch, and a **Local · Ollama** row in the sidebar like the MCP servers' "server
+down".
+
+**Replies.** A local reply has a green `local · qwen3.5:9b` badge; hovering it shows the time
+to first token, tok/s, model and turn latency, and token counts. Replies are **not streamed**.
+While one is generating, the bubble says "generating locally with qwen3.5:9b" with a running
+seconds counter. Why not streaming: `POST /chat` answers once, after the memory strategy has
+post-processed the reply (it strips the `<memory-close>` lines and updates memory), and the
+memory extractor runs *before* the reply on every turn. Streaming would mean a streaming
+provider method, a token callback through `Agent.run`, an SSE response on both chat routes,
+and a reader in the page — a rewrite of the turn, not an addition. The Day 26 client is also
+non-streaming, so TTFT is Ollama's load + prompt-eval time.
+
+**Which agents and features work locally:**
+
+| agent | local? | notes |
+| --- | --- | --- |
+| first-agent (memory chat) | fully | every model call goes to the chat's provider (list below); nothing disabled |
+| Knowledge, Without RAG | fully | short-term history only, as before |
+| Knowledge, With RAG | no | with a local model the RAG switch shows off and is disabled, with the note "local + RAG: Day 28"; **Compare** (which runs both modes on Claude) is disabled too. The server answers a local `ragMode: "rag"` with a 400 |
+| pirate support, Movie buff, Pipeline | no | Claude only; the Model switch is hidden and the server refuses a local choice |
+
+Every model call the first-agent chat makes, all on the chat's provider:
+
+| call | when | where |
+| --- | --- | --- |
+| the reply | every turn | `Agent.#answer` |
+| token counts (request, sent, without the memory block) | every turn | `Agent.#count` (local: unknown, no request) |
+| memory extractor (JSON ops) | every turn, before the reply | `MemoryExtractor` in `context/memory.js` |
+| digest fold | when the history passes the window mark | `Summarizer` |
+| handoff brief | planning → execution | `Briefer`, via `POST …/memory/transition` |
+| promotion proposals | → done | `Promoter`, via `POST …/memory/transition` |
+| invariant proposals | the panel's Propose button | `InvariantProposer`, via `POST …/memory/invariants/propose` |
+| profile comparison | the panel's Compare | `compareProfiles`, via `POST …/memory/compare` |
+
+None of these uses forced tool use: the extractor, promoter and proposer ask for JSON as text
+and parse it, so they run on a local model unchanged. The memory routes get the provider from
+the chat's record (`providerFor`), so the lifecycle buttons stay local too. The forced-tool →
+JSON-schema path in `OllamaProvider` is what Knowledge With RAG (router, contract, clarify,
+rewrite) will use locally on Day 28. It is covered by the offline tests.
+
+| env | default | |
+| --- | --- | --- |
+| `OLLAMA_URL` | `http://localhost:11434` | where Ollama listens |
+| `LOCAL_MODELS` | installed `gemma4:*` tags + `qwen3.5:9b` | the models the switch offers (comma list) |
+| `LOCAL_DEFAULT_MODEL` | the first of them | the local model new chats start on; setting it makes local the default even with a key |
+| `LOCAL_NUM_CTX` | 8192 | context window, sent on every call (not Ollama's default) |
+| `LOCAL_NUM_PREDICT` | 1024 | ceiling on generated tokens per call |
+| `LOCAL_TIMEOUT_MS` | 180000 | per call, model load included |
+| `LOCAL_LLM_DIR` | `../local_llm` | where the Day 26 client lives |
+
+**`npm run verify:local`** starts the app's routes in-process (`createApp` in `src/app.js`,
+which `server.js` now just listens on) with an in-memory store, no `ANTHROPIC_API_KEY`, and
+a `fetch` guard that blocks and counts any request to a host other than localhost. For each
+local model (warmed up first, unloaded after) and each supported agent, it sends three
+messages through the real `POST /chat`. The second only makes sense after the first ("there",
+"in it"); the third asks for facts from the first. It checks that every reply is
+`provider: local` with the right model and non-empty, that the last uses the earlier context,
+and that the record stores the choice. The report
+([`reports/day27_verify.md`](reports/day27_verify.md)) has each conversation, the replies with
+their metrics, and per model: mean TTFT, tok/s, model and turn latency, and outbound
+non-localhost requests (expected 0). Exit code 1 on any failure.
+
+**Manual check, no network at all:**
+
+1. `ollama serve` (or the Ollama app) running, with a model pulled: `ollama list`.
+2. Turn Wi-Fi off.
+3. `npm run start:offline` (or plain `npm start`) and open http://localhost:3000.
+   `start:offline` sets `OFFLINE=1 HOST=127.0.0.1`: the app listens on loopback only,
+   ignores `ANTHROPIC_API_KEY` (Claude off, local the default), and registers only the
+   MCP servers on this machine, so the page never quietly reconnects Notion. Pick **first-agent**, start a new
+   conversation, and pick **Local · qwen3.5:9b** in the Model switch (without a key it is
+   the default).
+4. Chat: "I'm Mira, planning a trip to Lisbon." → "Two neighbourhoods to stay in there?" →
+   "What's my name and where am I going?". Each reply gets a `local · qwen3.5:9b` badge;
+   hover it for the numbers. The memory panel fills in as usual.
+5. Optional: quit Ollama and send another message. The reply is the "isn't reachable … `ollama
+   serve`" error, and the header shows **local model down**.
 
 ## Chat with task memory (Day 25)
 

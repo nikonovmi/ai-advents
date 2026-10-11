@@ -277,6 +277,9 @@ export async function answerQuestion(question, options = {}) {
     usage: addUsage(addUsage(usageByStage.rewrite, usageByStage.clarify), usageByStage.llm),
     usageByStage,
     model: completion?.model ?? contract?.model ?? provider.model ?? null,
+    // Day 27: who answered, and a local model's timings for the badge.
+    provider: completion?.provider ?? contract?.provider ?? provider.provider ?? null,
+    localMetrics: completion?.metrics ?? null,
     stopReason: completion?.stopReason ?? contract?.stopReason ?? "declined",
     timings,
   };

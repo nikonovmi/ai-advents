@@ -62,6 +62,9 @@ export class Agent {
    * @param {{ toolsFor: Function, call: Function } | null} [params.toolbox] -
    *   The MCP tools, for an agent whose definition lists `mcpServers`. Any
    *   other agent never touches it.
+   * @param {string | null} [params.llm] - Day 27: the chat's Model switch
+   *   (`claude` or `local:<tag>`), recorded with the conversation. Which
+   *   provider it means is the route's business: see `useLlm`.
    */
   constructor({
     provider,
@@ -76,6 +79,7 @@ export class Agent {
     strategy = DEFAULT_STRATEGY,
     strategyOptions = {},
     toolbox = null,
+    llm = null,
   } = {}) {
     if (!provider || typeof provider.complete !== "function") {
       throw new Error("Agent requires a provider with a complete() method");
@@ -123,7 +127,27 @@ export class Agent {
      * @type {{ conversationId: string, messageId: string } | null}
      */
     this.forkedFrom = null;
+    /** Day 27: which model the chat answers with, as stored; null until one is chosen. */
+    this.llm = llm;
     this.strategy = strategy;
+  }
+
+  /**
+   * **Day 27: answer with this provider from now on.** Every model call of a
+   * turn — the reply, the token counts, and everything the strategy does
+   * (extraction, the digest fold) — goes to `#provider`, so swapping it here
+   * is what makes a local chat local all the way down. The strategy rebuilds
+   * its helpers when it sees a different provider.
+   *
+   * @param {string} choice
+   * @param {import("./llm/provider.js").LlmProvider} provider
+   */
+  useLlm(choice, provider) {
+    if (!provider || typeof provider.complete !== "function") {
+      throw new Error("Agent.useLlm requires a provider with a complete() method");
+    }
+    this.llm = choice;
+    this.#provider = provider;
   }
 
   /**
@@ -229,6 +253,7 @@ export class Agent {
     // transcript below was written by one persona, and letting a dropdown
     // repoint an existing conversation would make its two halves disagree.
     if (conversation?.agentId) agent.agentId = conversation.agentId;
+    if (conversation?.llm) agent.llm = conversation.llm;
     return agent;
   }
 
@@ -344,6 +369,8 @@ export class Agent {
       tokens,
       cost: { input: cost.inputCost, output: cost.outputCost, total: cost.totalCost },
       model: result.model,
+      ...(result.provider ? { provider: result.provider } : {}),
+      ...(result.metrics ? { localMetrics: result.metrics } : {}),
       ms,
       stopReason: result.stopReason,
       strategy: strategyMeta,
@@ -378,6 +405,9 @@ export class Agent {
       meta: {
         agent: this.name,
         model: result.model,
+        llm: this.llm,
+        ...(result.provider ? { provider: result.provider } : {}),
+        ...(result.metrics ? { localMetrics: result.metrics } : {}),
         ms,
         stopReason: result.stopReason,
         truncated,
@@ -537,6 +567,7 @@ export class Agent {
         memory: this.#record.memory,
         project: this.project,
         agentId: this.agentId,
+        ...(this.llm ? { llm: this.llm } : {}),
       });
     } catch (err) {
       // A store that is down is a degraded agent, not a lost reply.

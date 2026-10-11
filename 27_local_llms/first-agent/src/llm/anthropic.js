@@ -71,6 +71,7 @@ export class AnthropicProvider extends LlmProvider {
       // line nobody knows Anthropic uses snake_case.
       stopReason: data.stop_reason ?? null,
       usage: neutralUsage(data.usage),
+      provider: "claude",
     };
   }
 
@@ -338,6 +339,7 @@ export class FakeProvider extends LlmProvider {
       text,
       content: [{ type: "text", text }],
       model: "fake-provider",
+      provider: "fake",
       stopReason: hitCeiling ? "max_tokens" : "end_turn",
       usage: {
         inputTokens: (await this.countTokens({ system, messages })).inputTokens,
@@ -359,6 +361,7 @@ export class FakeProvider extends LlmProvider {
       text,
       content,
       model: "fake-provider",
+      provider: "fake",
       stopReason: uses.length ? "tool_use" : "end_turn",
       usage: step?.usage ?? {
         inputTokens: (await this.countTokens({ system, messages })).inputTokens,

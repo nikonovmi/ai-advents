@@ -9,6 +9,7 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
+    "start:offline": "OFFLINE=1 HOST=127.0.0.1 node src/server.js",
     "test": "node --test src/",
     "scenario": "node scripts/scenario.js",
     "compare": "node scripts/compare.js",
@@ -18,7 +19,8 @@
     "eval:planner": "node scripts/eval-planner.js",
     "eval:rag": "node scripts/eval-rag.js",
     "eval:citations": "node scripts/eval-citations.js",
-    "eval:chat": "node scripts/eval-chat.js"
+    "eval:chat": "node scripts/eval-chat.js",
+    "verify:local": "node scripts/verify-local.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.1",

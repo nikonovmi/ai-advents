@@ -4,6 +4,7 @@ import path from "node:path";
 import express from "express";
 
 import { agentOf, isKnowledgeAgent } from "./agents.js";
+import { CLAUDE, isLlmChoice, isLocalChoice } from "./llm/choice.js";
 import { estimateCost } from "./llm/pricing.js";
 import { answerQuestion } from "./rag/answer.js";
 import { RAG_MAX_TOKENS, REPORTS_DIR, chatSettings, ragSettings } from "./rag/config.js";
@@ -30,8 +31,12 @@ import { RAG_MODES, isValidSessionId, nextMessageId, normaliseUsage } from "./st
  * the main server owns are answered here first for a Knowledge chat and passed
  * on for any other:
  *
- *   - `POST /chat` with `ragMode` (`rag` | `plain`) and the `rerank` / `rewrite` switches;
- *   - `GET /conversations/:id` → messages, `kind: "knowledge"`, `ragMode`, `rerank`, `rewrite`, `taskMemory`.
+ *   - `POST /chat` with `ragMode` (`rag` | `plain`), the `rerank` / `rewrite` switches and (Day 27) `llm`;
+ *   - `GET /conversations/:id` → messages, `kind: "knowledge"`, `ragMode`, `rerank`, `rewrite`, `taskMemory`, `llm`.
+ *
+ * Day 27: a chat whose Model switch is a local model is answered Without RAG
+ * by that model (local + RAG is Day 28). Asking for RAG on one is a 400, never
+ * a quiet hand-off to Claude.
  *
  * And its own:
  *
@@ -84,11 +89,12 @@ export function ragRoutes({
   routeTurn = routeMessage,
   chat = chatSettings(),
   log = console.log,
+  llms = { providerFor: () => provider, defaultChoice: async () => CLAUDE, claudeAvailable: true },
 }) {
   const router = express.Router();
   const fakes = { ...(search ? { search } : {}), ...(rerankScores ? { rerankScores } : {}), ...(rewriter ? { rewriter } : {}), log };
-  const ask = (question, { mode, rerank = false, rewrite = false }, history = []) =>
-    answer(question, { mode, rerank, rewrite, history, provider, ...settings, ...fakes });
+  const ask = (question, { mode, rerank = false, rewrite = false }, history = [], using = provider) =>
+    answer(question, { mode, rerank, rewrite, history, provider: using, ...settings, ...fakes });
   /** A switch from a request body: true, false, or undefined when absent. Anything else is an error. */
   const switchOf = (body, name) => {
     const value = body?.[name];
@@ -138,7 +144,13 @@ export function ragRoutes({
       if (typeof message !== "string" || !message.trim()) return res.status(400).json({ error: "A non-empty 'message' is required." });
       if (message.length > MAX_QUESTION_CHARS) return res.status(400).json({ error: `A question is at most ${MAX_QUESTION_CHARS} characters.` });
       if (ragMode !== undefined && !RAG_MODES.includes(ragMode)) return res.status(400).json({ error: "'ragMode' must be \"rag\" or \"plain\"." });
-      const mode = ragMode ?? record?.ragMode ?? "rag";
+      const wantedLlm = req.body?.llm;
+      if (wantedLlm !== undefined && !isLlmChoice(wantedLlm)) return res.status(400).json({ error: "'llm' must be \"claude\" or \"local:<model>\"." });
+      const llm = wantedLlm ?? record?.llm ?? (await llms.defaultChoice());
+      const local = isLocalChoice(llm);
+      if (!local && !llms.claudeAvailable) return res.status(400).json({ error: "Claude isn't available: ANTHROPIC_API_KEY is not set. Pick a local model in the Model switch." });
+      if (local && ragMode === "rag") return res.status(400).json({ error: "local + RAG: Day 28. Turn RAG off for a local model, or pick Claude." });
+      const mode = local ? "plain" : (ragMode ?? record?.ragMode ?? "rag");
       const ragOptions = { rerank: rerank ?? record?.ragOptions?.rerank ?? DEFAULT_RAG_OPTIONS.rerank, rewrite: rewrite ?? record?.ragOptions?.rewrite ?? DEFAULT_RAG_OPTIONS.rewrite };
 
       const messages = record?.messages ?? [];
@@ -164,7 +176,7 @@ export function ragRoutes({
           });
           result = turn.result;
         } else {
-          result = await ask(message.trim(), { mode, ...ragOptions }, history);
+          result = await ask(message.trim(), { mode, ...ragOptions }, history, llms.providerFor(llm));
         }
       } catch (err) {
         return failure(res, err);
@@ -198,7 +210,7 @@ export function ragRoutes({
         usage.totalOutputTokens += outputTokens;
         usage.totalCostUsd += cost.totalCost ?? 0;
         usage.turnCount += 1;
-        await store.save(sessionId, [...messages, userMessage, reply], usage, { agentId: agentOf(record?.agentId ?? req.body.agent), ragMode: mode, ragOptions, taskMemory: turn.memory });
+        await store.save(sessionId, [...messages, userMessage, reply], usage, { agentId: agentOf(record?.agentId ?? req.body.agent), ragMode: mode, ragOptions, taskMemory: turn.memory, llm });
         return res.json({ reply: reply.content, meta: { ...reply, route: turn.route, taskMemory: turn.memory, turn: { userMessageId: userMessage.id, replyMessageId: reply.id } } });
       }
       const reply = {
@@ -208,6 +220,8 @@ export function ragRoutes({
         tokens,
         cost: { input: cost.inputCost, output: cost.outputCost, total: cost.totalCost },
         model: result.model,
+        ...(result.provider ? { provider: result.provider } : {}),
+        ...(result.localMetrics ? { localMetrics: result.localMetrics } : {}),
         ms: Date.now() - startedAt,
         stopReason: result.stopReason,
         ...(result.stopReason === "max_tokens" ? { truncated: true } : {}),
@@ -241,8 +255,10 @@ export function ragRoutes({
       usage.turnCount += 1;
       await store.save(sessionId, [...messages, userMessage, reply], usage, {
         agentId: agentOf(record?.agentId ?? req.body.agent),
-        ragMode: mode,
+        // A local turn leaves the stored RAG switch alone: switching back to Claude finds it where it was.
+        ragMode: local ? (record?.ragMode ?? "rag") : mode,
         ragOptions,
+        llm,
         ...(turn ? { taskMemory: turn.memory } : {}),
       });
 
@@ -266,6 +282,7 @@ export function ragRoutes({
         rerank: record?.ragOptions?.rerank ?? DEFAULT_RAG_OPTIONS.rerank,
         rewrite: record?.ragOptions?.rewrite ?? DEFAULT_RAG_OPTIONS.rewrite,
         taskMemory: taskMemoryOf(record?.taskMemory),
+        llm: record?.llm ?? null,
         forkedFrom: record?.forkedFrom ?? null,
         panel: { kind: "knowledge" },
       });

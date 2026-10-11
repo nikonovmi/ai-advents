@@ -13,6 +13,7 @@ import {
   titleFrom,
   UNTITLED,
 } from "./conversationStore.js";
+import { llmOf } from "../llm/choice.js";
 import { taskMemoryOf } from "../rag/taskMemory.js";
 import { projectOf } from "./invariantStore.js";
 
@@ -60,6 +61,8 @@ export class MemoryStore extends ConversationStore {
       // Only a Knowledge chat has one; nothing else grows the field.
       ...(ragModeOf(extra?.ragMode ?? existing?.ragMode) ? { ragMode: ragModeOf(extra?.ragMode ?? existing?.ragMode) } : {}),
       ...(ragOptionsOf(extra?.ragOptions ?? existing?.ragOptions) ? { ragOptions: ragOptionsOf(extra?.ragOptions ?? existing?.ragOptions) } : {}),
+      // Day 27: the Model switch, stored per chat like the RAG switch.
+      ...(llmOf(extra?.llm ?? existing?.llm) ? { llm: llmOf(extra?.llm ?? existing?.llm) } : {}),
       memory: memoryOf(extra?.memory ?? existing?.memory),
       // Day 25: only a Knowledge chat with RAG has one.
       ...((extra?.taskMemory ?? existing?.taskMemory) ? { taskMemory: taskMemoryOf(extra?.taskMemory ?? existing?.taskMemory) } : {}),

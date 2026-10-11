@@ -1618,6 +1618,21 @@
      Citations sit under the answer with the verification badge. */
   .rag-idk-note { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
   .rag-idk-note[hidden] { display: none; }
+
+  /* Day 27: the Model switch, only for agents that may run locally. */
+  .local-only { display: none !important; }
+  body[data-local="1"]:not([data-kind="scheduled"]) .local-only { display: flex !important; }
+  .model-controls { flex: none; align-items: center; gap: 8px; }
+  .local-down {
+    font-size: 11.5px; line-height: 18px; padding: 0 8px; white-space: nowrap; cursor: help;
+    color: #c0392b; border: 1px solid color-mix(in srgb, #c0392b 55%, transparent); border-radius: 999px;
+  }
+  .local-down[hidden] { display: none; }
+  .rag-local-note { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+  .rag-local-note[hidden] { display: none; }
+  .rag-toggle button:disabled, .rag-controls #rag-compare:disabled { opacity: 0.45; cursor: not-allowed; }
+  .mode-badge.local { color: #3a9a5b; border-color: color-mix(in srgb, #3a9a5b 55%, transparent); cursor: help; }
+  .bubble .elapsed { margin-left: 8px; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 0.9em; }
   .cite-chip {
     display: inline-block;
     margin: 0 1px;
@@ -1704,6 +1719,15 @@
       </label>
       <button class="picker-delete" id="delete-project" type="button">&times;</button>
     </div>
+    <!-- Day 27: the Model switch. Which model answers this chat, stored per
+         chat like the RAG switch. Only for agents that may run locally
+         (first-agent, Knowledge); hidden for the Claude-only ones. -->
+    <div class="model-controls local-only">
+      <label class="picker" for="llm-select">Model
+        <select id="llm-select" title="Which model answers this chat. Local models run under Ollama on this machine; nothing goes to the cloud."></select>
+      </label>
+      <span class="local-down" id="local-down" hidden>local model down</span>
+    </div>
     <!-- The Knowledge agent's switch: which mode the next message is answered
          in. Stored per chat; each reply carries a badge of the mode that
          actually produced it. -->
@@ -1717,6 +1741,7 @@
         <button type="button" data-stage="rewrite" aria-pressed="false" title="One model call turns the question into 1–3 short search queries (one per part); each is searched and the results merged. The answer still uses your original question.">Rewrite</button>
       </div>
       <span class="rag-idk-note" id="rag-idk-note" hidden title="The low-relevance rule needs the rerank score. With Rerank off, only the model's own dont_know produces &quot;I don't know&quot;.">IDK: model only (Rerank off)</span>
+      <span class="rag-local-note" id="rag-local-note" hidden title="A local model answers Without RAG only. Retrieval with a local model is the next step.">local + RAG: Day 28</span>
       <button type="button" id="rag-compare" title="Ask one question in both modes, side by side. Nothing is saved.">Compare</button>
       <a href="/rag-report" target="_blank" rel="noopener">Eval results ↗</a>
     </div>
@@ -1804,7 +1829,16 @@
   <!-- MCP: one section per registered server, built from /mcp/servers. An
        OAuth server's Connect opens the authorization page in a popup and
        polls the status; the tool list is plain text, never rendered Markdown. -->
-  <div class="mcp-servers" id="mcp-servers"></div>
+  <div class="mcp-servers" id="mcp-servers">
+    <!-- Day 27: Ollama, drawn like an MCP server: up, or down and why. -->
+    <section class="mcp" id="local-llm" aria-label="Local models · Ollama">
+      <div class="row">
+        <span class="dot" id="local-llm-dot" data-state="off"></span>
+        <span class="title">Local · Ollama</span>
+        <span class="state" id="local-llm-state">…</span>
+      </div>
+    </section>
+  </div>
 </aside>
 </div>
 </div>
@@ -2018,6 +2052,9 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
   let ragMode = "rag";
   /** Its two RAG stages, stored per chat like the mode. */
   let ragStages = { rerank: true, rewrite: false };
+  /** Day 27: `/local/status`, and this chat's Model switch (null: the server's default). */
+  let localStatus = null;
+  let llmChoice = null;
   /** Day 25: the chat's task memory, and what the latest turn changed in it (for the panel's highlight). */
   let taskMemory = null;
   let memoryChange = null;
@@ -2242,6 +2279,7 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
         : agentMetaLine(meta, turn)
       : "";
     if (who !== "user" && !error && meta?.rag) line.prepend(modeBadge(meta.rag.label ?? meta.rag.mode));
+    if (who !== "user" && !error && meta?.provider === "local") line.prepend(localBadge(meta));
     if (who === "user" && meta?.route) line.prepend(intentBadge(meta.route));
     // Forking is offered on the message, not in a dialogue box: "what if I had
     // said something else here" is a question about one specific message.
@@ -2283,6 +2321,23 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
       box.appendChild(details);
     }
     return box;
+  }
+
+  /** Day 27: "local · qwen3.5:9b" on a local reply; hovering shows Ollama's numbers for it. */
+  function localBadge(meta) {
+    const badge = document.createElement("span");
+    badge.className = "mode-badge local";
+    badge.textContent = "local · " + (meta.model ?? "?");
+    const m = meta.localMetrics ?? {};
+    const sec = (ms) => (typeof ms === "number" ? (ms / 1000).toFixed(2) + " s" : "?");
+    badge.title = [
+      `${meta.model} via Ollama, on this machine`,
+      `time to first token: ${sec(m.ttftMs)}`,
+      `generation: ${m.genTps ?? "?"} tok/s`,
+      `model latency: ${sec(m.totalMs)} (whole turn: ${sec(meta.ms)})`,
+      `tokens: ${m.promptTokens ?? "?"} prompt · ${m.outputTokens ?? "?"} output`,
+    ].join("\n");
+    return badge;
   }
 
   /** `rag`, `rag+rerank`, `rag+rewrite+rerank`, or `no RAG`: what produced this reply, whatever the switches say now. */
@@ -2640,13 +2695,29 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
     return box;
   }
 
+  /**
+   * The placeholder while a reply is on its way, with a running clock. Day 27:
+   * a local reply is not streamed (the chat route answers once, after the
+   * memory strategy has read the reply), and on this machine it takes tens of
+   * seconds, so the page says which model is working and for how long.
+   */
   function addThinking() {
     clearEmptyState();
     const row = document.createElement("div");
     row.className = "row agent";
     row.innerHTML =
-      '<div class="bubble">thinking<span class="dots">' +
-      "<span>.</span><span>.</span><span>.</span></span></div>";
+      '<div class="bubble"><span class="what"></span><span class="dots">' +
+      '<span>.</span><span>.</span><span>.</span></span><span class="elapsed"></span></div>';
+    row.querySelector(".what").textContent = chatIsLocal() ? "generating locally with " + currentLlm().slice("local:".length) : "thinking";
+    const startedAt = Date.now();
+    const elapsed = row.querySelector(".elapsed");
+    const tick = () => { elapsed.textContent = Math.floor((Date.now() - startedAt) / 1000) + " s"; };
+    tick();
+    const timer = setInterval(tick, 1000);
+    row.remove = () => {
+      clearInterval(timer);
+      Element.prototype.remove.call(row);
+    };
     messages.appendChild(row);
     messages.scrollTop = messages.scrollHeight;
     return row;
@@ -2656,6 +2727,7 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
     pending = value;
     sendButton.disabled = value;
     newButton.disabled = value;
+    llmSelect.disabled = value;
     // Deleting a profile or a rule set mid-turn would pull the ground out from
     // under the turn that is being answered against it.
     deleteProfileButton.disabled = value;
@@ -2751,7 +2823,98 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
     }
     if (agentId) agentSelect.value = agentId;
     agentTagline.textContent = agents.find((agent) => agent.id === agentSelect.value)?.tagline ?? "";
+    renderLlmSwitch();
   }
+
+  // ---- Day 27: the Model switch ---------------------------------------------
+
+  const llmSelect = document.getElementById("llm-select");
+  const localDown = document.getElementById("local-down");
+  const isLocalLlm = (choice) => typeof choice === "string" && choice.startsWith("local:");
+  function agentIsLocal(id = agentId) {
+    return agents.find((agent) => agent.id === id)?.local === true;
+  }
+  /** This chat's choice, or the server's default for a chat that has not made one. */
+  function currentLlm() {
+    return llmChoice ?? localStatus?.defaultChoice ?? null;
+  }
+  function chatIsLocal() {
+    return agentIsLocal() && isLocalLlm(currentLlm());
+  }
+
+  /** The switch, the "local model down" chip, and the sidebar's Ollama row. */
+  function renderLlmSwitch() {
+    document.body.dataset.local = agentIsLocal() ? "1" : "0";
+    const choice = currentLlm();
+    const models = [...(localStatus?.models ?? [])];
+    if (isLocalLlm(choice) && !models.some((m) => "local:" + m.name === choice)) models.push({ name: choice.slice(6), installed: false });
+
+    llmSelect.innerHTML = "";
+    const claude = new Option(localStatus && !localStatus.claudeAvailable ? "Claude (no API key)" : "Claude", "claude");
+    claude.disabled = Boolean(localStatus && !localStatus.claudeAvailable);
+    llmSelect.add(claude);
+    for (const model of models) {
+      const option = new Option("Local · " + model.name, "local:" + model.name);
+      if (localStatus?.reachable && !model.installed) option.textContent += " (not pulled)";
+      llmSelect.add(option);
+    }
+    if (choice) llmSelect.value = choice;
+    llmSelect.disabled = pending;
+
+    const chosen = models.find((m) => "local:" + m.name === choice);
+    const down = Boolean(localStatus) && isLocalLlm(choice) && (!localStatus.reachable || chosen?.installed === false);
+    localDown.hidden = !down;
+    localDown.textContent = localStatus?.reachable ? "model not pulled" : "local model down";
+    localDown.title = !down ? "" : localStatus.reachable ? `Pull it with: ollama pull ${choice.slice(6)}` : localStatus.error ?? "Ollama is not reachable.";
+
+    const dot = document.getElementById("local-llm-dot");
+    const state = document.getElementById("local-llm-state");
+    if (!localStatus) {
+      dot.dataset.state = "off";
+      state.textContent = "…";
+    } else if (localStatus.reachable) {
+      dot.dataset.state = "connected";
+      state.textContent = `Ollama ${localStatus.version} · ` + (localStatus.loaded.length ? localStatus.loaded.join(", ") + " loaded" : "no model loaded");
+    } else {
+      dot.dataset.state = "error";
+      state.textContent = "server down";
+    }
+    state.title = localStatus?.reachable
+      ? `${localStatus.url} · installed: ${localStatus.installed.join(", ") || "none"} · num_ctx ${localStatus.numCtx}`
+      : localStatus?.error ?? "";
+    renderRagToggle();
+  }
+
+  async function refreshLocalStatus() {
+    try {
+      const res = await fetch("/local/status");
+      if (res.ok) localStatus = await res.json();
+    } catch (err) {
+      // Keep the last status; the next poll tries again.
+    }
+    renderLlmSwitch();
+  }
+
+  llmSelect.addEventListener("change", async () => {
+    if (pending) return renderLlmSwitch();
+    llmChoice = llmSelect.value;
+    renderLlmSwitch();
+    renderPanel();
+    try {
+      // Saved on the chat if it has messages; a new chat stores it with its first message.
+      const res = await fetch(`/conversations/${sessionId}/llm`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ llm: llmChoice, agent: agentId }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        addMessage("agent", data.error || "Could not change the model.", { error: true });
+      }
+    } catch (err) {
+      // The next message carries the choice anyway.
+    }
+  });
 
   /**
    * Switching agent switches which chats you are looking at, and starts a new
@@ -2785,6 +2948,7 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
     ragStages = { rerank: true, rewrite: false };
     taskMemory = null;
     memoryChange = null;
+    llmChoice = null;
     applyKind(kindOfAgent(agentId));
     showEmptyState();
     resetPanel();
@@ -4907,14 +5071,16 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
   }
 
   async function renderKnowledgePanel() {
-    panelStats.innerHTML = ragMode === "rag" ? "<b>Knowledge</b> chat · task memory" : "<b>Knowledge</b> Q&amp;A, short-term history only";
+    // Day 27: a local chat is Without RAG whatever the stored switch says.
+    const mode = chatIsLocal() ? "plain" : ragMode;
+    panelStats.innerHTML = mode === "rag" ? "<b>Knowledge</b> chat · task memory" : "<b>Knowledge</b> Q&amp;A, short-term history only";
     const draw = () => {
       if (chatKind !== "knowledge") return;
       const s = ragStatus;
       panelBody.innerHTML = "";
       const box = document.createElement("div");
       box.className = "knowledge-panel";
-      if (ragMode === "rag") box.appendChild(taskMemoryBlock());
+      if (mode === "rag") box.appendChild(taskMemoryBlock());
       const add = (tag, text, parent = box) => {
         const el = document.createElement(tag);
         el.textContent = text;
@@ -4922,10 +5088,12 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
         return el;
       };
       add("h3", "Mode");
-      add("p", ragMode === "rag"
+      add("p", mode === "rag"
         ? `With RAG: each message first goes to the router (${s?.routerModel ?? "Haiku"}, one forced call): search, memory or chat, a standalone question with references resolved, 1–3 search queries, and a patch to the task memory. A search turn retrieves with those queries, reranks against the standalone question, and answers through a forced submit_answer call: a [cN] marker after every claim, each a verbatim quote from a chunk that was sent, checked in code. If nothing relevant is found it is \"I don't know\" with a clarifying question, which goes into the open questions so your next message can answer it.`
-        : "Without RAG: the same model and settings, no documents, no router or task memory.");
-      if (ragMode === "rag") {
+        : chatIsLocal()
+          ? `Without RAG, on ${currentLlm().slice(6)} under Ollama: no documents, no router or task memory, nothing sent to the cloud. (Local + RAG is Day 28.)`
+          : "Without RAG: the same model and settings, no documents, no router or task memory.");
+      if (mode === "rag") {
         add("p", [
           "Queries: written by the router (the Rewrite stage is not used).",
           ragStages.rerank
@@ -4947,10 +5115,10 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
       add("h3", "Answering");
       const list2 = add("dl", "");
       const row2 = (label, value) => { add("dt", label, list2); add("dd", value, list2); };
-      row2("model", s?.model ?? "…");
+      row2("model", chatIsLocal() ? `${currentLlm().slice(6)} (local, Ollama)` : s?.model ?? "…");
       row2("both modes", s ? `temperature 0, max ${s.maxTokens} tokens` : "…");
-      row2("history", ragMode === "rag" ? `last ${s?.historyTurns ?? 6} messages (router: earlier answers cut to ~300 chars) + task memory` : "last 6 messages; no digest, profile or rules");
-      if (ragMode === "rag") row2("router", s?.routerModel ?? "…");
+      row2("history", mode === "rag" ? `last ${s?.historyTurns ?? 6} messages (router: earlier answers cut to ~300 chars) + task memory` : "last 6 messages; no digest, profile or rules");
+      if (mode === "rag") row2("router", s?.routerModel ?? "…");
       const link = document.createElement("a");
       link.href = "/rag-report";
       link.target = "_blank";
@@ -4971,12 +5139,21 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
 
   /** The switches, drawn from `ragMode` and `ragStages`. The stages show only while RAG is on. */
   function renderRagToggle() {
+    // Day 27: a local model answers Without RAG only, so the switch shows off and is disabled.
+    const local = chatIsLocal();
+    const shown = local ? "plain" : ragMode;
     for (const button of document.querySelectorAll(".rag-toggle button")) {
-      button.setAttribute("aria-pressed", String(button.dataset.mode === ragMode));
+      button.setAttribute("aria-pressed", String(button.dataset.mode === shown));
+      button.disabled = local;
     }
-    document.getElementById("rag-stages").hidden = ragMode !== "rag";
+    document.getElementById("rag-local-note").hidden = !local;
+    document.getElementById("rag-compare").disabled = local;
+    document.getElementById("rag-compare").title = local
+      ? "Compare runs both modes with Claude, so it is off for a local chat."
+      : "Ask one question in both modes, side by side. Nothing is saved.";
+    document.getElementById("rag-stages").hidden = shown !== "rag";
     // The low-relevance "I don't know" needs the rerank score; say so when it is off.
-    document.getElementById("rag-idk-note").hidden = ragMode !== "rag" || ragStages.rerank;
+    document.getElementById("rag-idk-note").hidden = shown !== "rag" || ragStages.rerank;
     for (const button of document.querySelectorAll(".rag-stages button")) {
       button.setAttribute("aria-pressed", String(Boolean(ragStages[button.dataset.stage])));
     }
@@ -5003,7 +5180,7 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
 
   for (const button of document.querySelectorAll(".rag-toggle button")) {
     button.addEventListener("click", async () => {
-      if (pending || button.dataset.mode === ragMode) return;
+      if (pending || chatIsLocal() || button.dataset.mode === ragMode) return;
       ragMode = button.dataset.mode;
       renderRagToggle();
       renderPanel();
@@ -5530,7 +5707,9 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
           project: projectId,
           contextMessages: Number(contextInput.value),
           maxTokens: Number(maxTokensSelect.value),
-          ...(chatKind === "knowledge" ? { ragMode, ...ragStages } : {}),
+          ...(chatKind === "knowledge" ? { ragMode: chatIsLocal() ? "plain" : ragMode, ...ragStages } : {}),
+          // Day 27: the Model switch, for the agents that have one.
+          ...(agentIsLocal() && currentLlm() ? { llm: currentLlm() } : {}),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -5622,6 +5801,7 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
     ragStages = { rerank: true, rewrite: false };
     taskMemory = null;
     memoryChange = null;
+    llmChoice = null;
     applyKind(kindOfAgent(agentId));
     showEmptyState();
     resetPanel();
@@ -5695,6 +5875,7 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
     try {
       const res = await fetch("/conversations/" + id + pickerQuery());
       if (!res.ok) {
+        llmChoice = null;
         applyKind("chat");
         resetPanel();
         renderPanel();
@@ -5703,6 +5884,7 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
 
       const record = await res.json();
       forkedFrom = record.forkedFrom ?? null;
+      llmChoice = record.llm ?? null;
       applyKind(record.kind === "scheduled" || record.kind === "knowledge" ? record.kind : "chat");
       if (record.kind === "knowledge") {
         ragMode = record.ragMode === "plain" ? "plain" : "rag";
@@ -5935,7 +6117,7 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
     taskMemory = null;
     memoryChange = null;
     }
-    renderRagToggle();
+    renderLlmSwitch();
   }
 
   /** The agent's most recent pipeline, or a new one if it has none. */
@@ -6692,6 +6874,9 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
     .catch((err) => console.warn("Could not list MCP servers:", err));
 
   await loadAgents();
+  await refreshLocalStatus();
+  // Ollama can come and go while the page is open; the switch and the sidebar follow.
+  setInterval(refreshLocalStatus, 20000);
   await loadProfiles();
   await loadProjects();
   renderPanel();

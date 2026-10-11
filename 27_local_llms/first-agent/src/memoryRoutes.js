@@ -31,13 +31,18 @@ import { DEFAULT_USER, isValidUser } from "./store/profileStore.js";
  *
  * @param {object} params
  * @param {import("./store/conversationStore.js").ConversationStore} params.store
- * @param {import("./llm/provider.js").LlmProvider} params.provider
+ * @param {import("./llm/provider.js").LlmProvider} [params.provider] - Every
+ *   chat's provider, when there is only one (the tests).
+ * @param {(record: object | null, agent?: string) => Promise<import("./llm/provider.js").LlmProvider>} [params.providerFor]
+ *   Day 27: the provider for *this* chat — its Model switch. The briefer, the
+ *   promoter, the invariant proposer and the comparison all run on it, so a
+ *   local chat's lifecycle calls stay local.
  * @param {import("./store/profileStore.js").ProfileStore} params.profileStore
  * @param {import("./store/invariantStore.js").InvariantStore} params.invariantStore
  * @param {(sessionId: string) => void} [params.invalidate] - Drop this session's
  *   cached Agent, so it reloads instead of overwriting.
  */
-export function memoryRoutes({ store, provider, profileStore, invariantStore, invalidate = () => {} }) {
+export function memoryRoutes({ store, provider, providerFor = async () => provider, profileStore, invariantStore, invalidate = () => {} }) {
   const router = express.Router();
 
   /**
@@ -100,7 +105,8 @@ export function memoryRoutes({ store, provider, profileStore, invariantStore, in
 
     let result;
     try {
-      result = await work({ strategy, state, history, turns });
+      const chatProvider = await providerFor(record, req.body?.agent);
+      result = await work({ strategy, state, history, turns, provider: chatProvider });
     } catch (err) {
       // These are user mistakes — an id that is not there, an answer that is
       // neither yes nor no — far more often than they are server faults.
@@ -165,7 +171,7 @@ export function memoryRoutes({ store, provider, profileStore, invariantStore, in
    * flag is one forgotten `WHERE` clause away from being read as fact.
    */
   router.post("/conversations/:id/memory/transition", (req, res) =>
-    onConversation(req, res, async ({ strategy, state, history }) => {
+    onConversation(req, res, async ({ strategy, state, history, provider }) => {
       const to = text(req.body?.to);
       if (!to) throw new Error("A 'to' stage is required.");
       const moved = await strategy.transition({
@@ -260,7 +266,7 @@ export function memoryRoutes({ store, provider, profileStore, invariantStore, in
    * write**, and there is no other door into it.
    */
   router.post("/conversations/:id/memory/invariants/propose", (req, res) =>
-    onConversation(req, res, async ({ strategy, state, turns }) => {
+    onConversation(req, res, async ({ strategy, state, turns, provider }) => {
       const typed = typeof req.body?.text === "string" ? req.body.text : "";
       const proposed = await strategy.proposeInvariants({ state, text: typed, turns, provider });
       return {
@@ -373,7 +379,7 @@ export function memoryRoutes({ store, provider, profileStore, invariantStore, in
         // profiles under a persona the conversation has never used would vary
         // two things and call the difference one of them.
         systemPrompt: agentFor(record?.agentId ?? req.body?.agent).systemPrompt,
-        provider,
+        provider: await providerFor(record, req.body?.agent),
         profileStore,
         profiles,
         invariantStore,

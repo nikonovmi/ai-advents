@@ -1,3 +1,29 @@
+# Day 27 — Integrating a local LLM into an application
+
+**Day 27:** [`first-agent`](first-agent) can now answer with a model running under Ollama on
+this machine. A new `OllamaProvider` uses Day 26's [`local_llm`](local_llm) client, and a
+per-chat **Model** switch picks `Claude` or a local model. A local badge on each reply shows
+time to first token, tok/s and latency on hover. The memory chat (reply, memory extractor,
+digest, lifecycle calls) and Knowledge Without RAG run fully locally; Knowledge With RAG is
+disabled for local chats ("local + RAG: Day 28"). There is no silent fallback to the cloud.
+`npm run verify:local` runs the real chat routes with no API key and a guard that blocks
+every non-localhost request. Each local model gets a 3-message conversation per agent, and
+the last message checks recall of the first
+([report](first-agent/reports/day27_verify.md), [docs](first-agent/README.md#local-models-day-27)):
+
+| | gemma4:12b | qwen3.5:9b |
+| --- | ---: | ---: |
+| checks passed (incl. context recall) | 20/20 | 20/20 |
+| mean TTFT (load + prompt eval) | 4.37 s | 3.16 s |
+| mean generation | 11.4 tok/s | 15.4 tok/s |
+| mean reply latency (model) | 17.6 s | 9.2 s |
+| mean turn latency (whole `POST /chat`) | 38.2 s | 21.4 s |
+| outbound non-localhost requests | 0 | 0 |
+
+A memory-chat turn costs two local calls (the extractor, then the reply), which is why a turn
+takes about twice as long as the reply alone. `npm run start:offline` serves the app on
+127.0.0.1 with Claude and remote MCP servers off.
+
 # Day 26 — Launching a local LLM
 
 **Day 26:** two models run locally under Ollama 0.40.2 on a MacBook Air M2 (16 GB):

@@ -24,10 +24,12 @@
  * @typedef {{ role: "user" | "assistant", content: string | ContentBlock[] }} Message
  * @typedef {{ name: string, description?: string, inputSchema: object }} ToolDefinition
  * @typedef {{ inputTokens: number, outputTokens: number, cacheReadInputTokens?: number, cacheCreationInputTokens?: number }} Usage
- * @typedef {{ text: string, content: ContentBlock[], model: string, stopReason: string | null, usage: Usage }} Completion
+ * @typedef {{ text: string, content: ContentBlock[], model: string, stopReason: string | null, usage: Usage, provider?: string, metrics?: object }} Completion
  *   `content` is every block the model produced; `text` is its text blocks
  *   joined. `stopReason` is `"tool_use"` when the model is waiting on the
- *   `tool_use` blocks in `content`.
+ *   `tool_use` blocks in `content`. `provider` says who answered (`claude`,
+ *   `local`, `fake`); `metrics` is a local model's timings (Day 27,
+ *   `ollama.js`), absent for Claude.
  */
 
 export class LlmProvider {
