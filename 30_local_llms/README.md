@@ -1,5 +1,7 @@
 # Day 30 — Local LLM as a private service
 
+https://github.com/user-attachments/assets/9b5a9b85-b952-4e7e-914b-32aede297973
+
 **Day 30:** [`first-agent`](first-agent)'s Knowledge chat runs as a private service on the
 MacBook Air. qwen3.5:9b under Ollama answers with Day 29's settings, and the service is reachable
 only over Tailscale. `npm run serve:local` starts a **separate server** (`src/hosted.js`, under
