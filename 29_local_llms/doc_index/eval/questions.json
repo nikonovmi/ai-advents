@@ -1,0 +1,122 @@
+[
+  {
+    "id": "kb-cmp-ios-stable",
+    "question": "Which Compose Multiplatform release made Compose for iOS stable?",
+    "expected_source": "knowledge_database/Compose Multiplatform 1.8.0 Released",
+    "expected_text": "brings Compose for iOS to Stable"
+  },
+  {
+    "id": "kb-cmp-ios-size",
+    "question": "How much bigger does an iOS app get if the UI is written with Compose instead of SwiftUI?",
+    "expected_source": "knowledge_database/Compose Multiplatform 1.8.0 Released",
+    "expected_text": "adds only ~9 MB to the size"
+  },
+  {
+    "id": "kb-when-guards-flag",
+    "question": "Which compiler flag do I need to try guard conditions in when expressions?",
+    "expected_source": "knowledge_database/Exploring Kotlin 2.1.0",
+    "expected_text": "add -Xwhen-guard in the compilerOptions"
+  },
+  {
+    "id": "kb-shipaton-prize",
+    "question": "How much money is up for grabs for cross-platform Kotlin apps at the RevenueCat hackathon?",
+    "expected_source": "knowledge_database/Know Kotlin_ Ship It Everywhere",
+    "expected_text": "$30,000 prize pool split among three winners"
+  },
+  {
+    "id": "kb-cmp17-visual-effects",
+    "question": "How much faster did the VisualEffects benchmark run on iOS with Compose Multiplatform 1.7.0?",
+    "expected_source": "knowledge_database/Compose Multiplatform 1.7.0 Released",
+    "expected_text": "works 3.6 times faster"
+  },
+  {
+    "id": "kb-common-preview",
+    "question": "What happened to the three different preview annotations in Compose?",
+    "expected_source": "knowledge_database/Compose Multiplatform 1.10.0",
+    "expected_text": "unified previews under a single @Preview annotation"
+  },
+  {
+    "id": "kb-hot-reload-mcp",
+    "question": "What can an AI coding agent do with my running Compose app through Hot Reload?",
+    "expected_source": "knowledge_database/Compose Multiplatform 1.12.0 Released",
+    "expected_text": "trigger reloads, take screenshots, inspect the semantic tree"
+  },
+  {
+    "id": "kb-web-font-fallback",
+    "question": "How are Japanese, Arabic or emoji characters rendered on the web when my fonts lack them?",
+    "expected_source": "knowledge_database/Compose Multiplatform 1.12.0 Released",
+    "expected_text": "downloads the matching Noto font subset"
+  },
+  {
+    "id": "kb-karma-replacement",
+    "question": "What replaces Karma for running Kotlin/JS tests in a browser?",
+    "expected_source": "knowledge_database/Kotlin 2.4.20 Release_ What's New & Why It Matters (2026) _ Medium.htm",
+    "expected_text": "Playwright fulfilling the role of browser driver"
+  },
+  {
+    "id": "kb-native-cachekind",
+    "question": "Which Kotlin/Native setting is being replaced because people misuse it and slow their builds down?",
+    "expected_source": "knowledge_database/What’s Next for Kotlin Multiplatform",
+    "expected_text": "replace the frequently misused kotlin.native.cacheKind property"
+  },
+  {
+    "id": "kb-return-expression-body",
+    "question": "Can a single-expression function contain an early return now?",
+    "expected_source": "knowledge_database/Kotlin 2.2.20 for Android Developers",
+    "expected_text": "use return inside expression bodies"
+  },
+  {
+    "id": "pdf-encoder-layers",
+    "question": "How many identical layers does the Transformer encoder stack have?",
+    "expected_source": "https://arxiv.org/pdf/1706.03762",
+    "expected_text": "encoder is composed of a stack of N = 6"
+  },
+  {
+    "id": "pdf-scaling",
+    "question": "Why is attention divided by the square root of the key size?",
+    "expected_source": "https://arxiv.org/pdf/1706.03762",
+    "expected_text": "softmax function into regions where it has extremely small gradients"
+  },
+  {
+    "id": "readme-notion-connect",
+    "question": "How do I log in to Notion from the chat app?",
+    "expected_source": "first-agent/README.md",
+    "expected_text": "OAuth: press Connect in the panel"
+  },
+  {
+    "id": "readme-unclaimed-schedule",
+    "question": "Which schedules does the scheduler never claim for a run?",
+    "expected_source": "scheduler_mcp_server/README.md",
+    "expected_text": "A schedule without a plan is never claimed"
+  },
+  {
+    "id": "readme-repair",
+    "question": "What happens after a pipeline run fails?",
+    "expected_source": "first-agent/README.md",
+    "expected_text": "After a failed run the planner proposes a fix once"
+  },
+  {
+    "id": "code-validate-plan",
+    "question": "How does the planner validate a plan?",
+    "expected_source": "first-agent/src/pipeline/validatePlan.js",
+    "expected_text": "its args validate against that tool's inputSchema"
+  },
+  {
+    "id": "code-planner-max-tokens",
+    "question": "What is the output token limit of the planner model call?",
+    "expected_source": "first-agent/src/pipeline/planner.js",
+    "expected_text": "PLANNER_MAX_TOKENS = 4096"
+  },
+  {
+    "id": "code-random-movie-pool",
+    "question": "Where does the random movie tool pick its films from?",
+    "expected_source": "imdb_mcp_server/src/top500.js",
+    "expected_text": "The pool `random_movie` draws from"
+  },
+  {
+    "id": "code-stale-run",
+    "question": "When can a run that got stuck in the running state be picked up again?",
+    "expected_source": "scheduler_mcp_server/src/db.js",
+    "expected_text": "after this long lost its runner"
+  }
+]

@@ -1,0 +1,1316 @@
+{
+  "generatedAt": "2026-10-11T15:19:03.629Z",
+  "settings": {
+    "kFinal": 5,
+    "kRetrieve": 20,
+    "rerankThreshold": 0.02,
+    "strategy": "structural",
+    "collections": [],
+    "minScore": null,
+    "mode": "rag+rerank",
+    "judgeModel": "claude-haiku-4-5-20251001",
+    "claudeModel": "claude-haiku-4-5-20251001",
+    "localRagNumCtx": 16384,
+    "localRagNumPredict": 2048
+  },
+  "environment": {
+    "machine": "Apple M2, 16 GB RAM",
+    "ollamaVersion": "0.40.2",
+    "node": "v26.8.1"
+  },
+  "calls": {
+    "cloud": [
+      "generation: claude-haiku-4-5-20251001",
+      "judging: claude-haiku-4-5-20251001"
+    ],
+    "local": [
+      "retrieval: EmbeddingGemma (doc_index)",
+      "rerank: bge-reranker-v2-m3",
+      "generation: gemma4:12b (Ollama)"
+    ]
+  },
+  "retrieval": {
+    "questions": 3,
+    "meanRetrieveMs": 1075,
+    "meanRerankMs": 3524,
+    "maxRerankMs": 4331,
+    "meanChunks": 4,
+    "declined": []
+  },
+  "questions": [
+    {
+      "id": "q02",
+      "type": "corpus",
+      "question": "Is Compose Multiplatform for iOS production-ready yet, and how much does it add to app size compared with a pure SwiftUI app?"
+    },
+    {
+      "id": "q10",
+      "type": "unanswerable",
+      "question": "What were the headline features of Compose Multiplatform 1.9.0?",
+      "expect_decline": true
+    },
+    {
+      "id": "q14",
+      "type": "paraphrased",
+      "question": "In JetBrains' cross-platform UI toolkit, can people using my app on a Windows or Mac computer grab an element with the mouse, carry it across and let go of it over another element? Which version brought that, and what do I attach to the two elements?"
+    }
+  ],
+  "generators": [
+    {
+      "id": "claude",
+      "label": "Claude Haiku 4.5",
+      "where": "cloud",
+      "model": "claude-haiku-4-5-20251001",
+      "rows": [
+        {
+          "id": "q02",
+          "type": "corpus",
+          "question": "Is Compose Multiplatform for iOS production-ready yet, and how much does it add to app size compared with a pure SwiftUI app?",
+          "expected_facts": [
+            "Compose Multiplatform 1.8.0 made Compose for iOS Stable",
+            "It adds only about 9 MB to an iOS app compared with a native SwiftUI app",
+            "Over 96% of teams using it on iOS report no major performance concerns"
+          ],
+          "generator": "claude",
+          "order": 1,
+          "startedAt": "2026-10-11T15:16:25.484Z",
+          "wallMs": 3731,
+          "error": null,
+          "run": {
+            "answer": "Yes, Compose Multiplatform for iOS is production-ready. [c1] Compose Multiplatform adds only ~9 MB to the size of an iOS app compared to a fully native SwiftUI app with the same UI logic and assets. [c2]",
+            "mode": "rag",
+            "label": "rag+rerank",
+            "rerank": true,
+            "rewrite": false,
+            "queries": [
+              "Is Compose Multiplatform for iOS production-ready yet, and how much does it add to app size compared with a pure SwiftUI app?"
+            ],
+            "declined": false,
+            "status": "answered",
+            "citations": [
+              {
+                "id": "c1",
+                "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:0",
+                "quote": "the release of Compose Multiplatform 1.8.0, which brings Compose for iOS to Stable",
+                "n": 2,
+                "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+                "section": "",
+                "start": 182,
+                "end": 264
+              },
+              {
+                "id": "c2",
+                "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:3",
+                "quote": "Compose Multiplatform adds only ~9 MB to the size of an iOS app compared to a fully native SwiftUI app with the same UI logic and assets.",
+                "n": 1,
+                "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+                "section": "Performance that’s ready for production",
+                "start": 463,
+                "end": 600
+              }
+            ],
+            "sources": [
+              {
+                "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:0",
+                "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+                "section": "",
+                "title": "Compose Multiplatform 1.8.0 Released: Compose Multiplatform for iOS Is Stable and Production-Ready",
+                "n": 2,
+                "label": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html · kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:0",
+                "citations": [
+                  "c1"
+                ]
+              },
+              {
+                "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:3",
+                "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+                "section": "Performance that’s ready for production",
+                "title": "Compose Multiplatform 1.8.0 Released: Compose Multiplatform for iOS Is Stable and Production-Ready",
+                "n": 1,
+                "label": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html › Performance that’s ready for production · kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:3",
+                "citations": [
+                  "c2"
+                ]
+              }
+            ],
+            "clarifyingQuestion": "",
+            "dontKnow": null,
+            "verification": {
+              "firstAttemptValid": true,
+              "retried": false,
+              "droppedCitations": [],
+              "droppedClaims": [],
+              "downgraded": false,
+              "firstAttemptCitations": 2,
+              "firstAttemptErrors": [],
+              "fabricatedFirstAttempt": [],
+              "finalErrors": []
+            },
+            "usage": {
+              "inputTokens": 3174,
+              "outputTokens": 347
+            },
+            "model": "claude-haiku-4-5-20251001",
+            "provider": "claude",
+            "localMetrics": null,
+            "generation": {
+              "calls": [
+                {
+                  "attempt": 1,
+                  "provider": "claude",
+                  "metrics": {
+                    "ttftMs": 978,
+                    "evalMs": 2747,
+                    "totalMs": 3725,
+                    "wallMs": 3725,
+                    "genTps": 126.3,
+                    "promptTokens": 3174,
+                    "outputTokens": 347
+                  }
+                }
+              ],
+              "metrics": {
+                "ttftMs": 978,
+                "evalMs": 2747,
+                "totalMs": 3725,
+                "wallMs": 3725,
+                "genTps": 126.3,
+                "promptTokens": 3174,
+                "outputTokens": 347
+              },
+              "invalidJson": 0,
+              "schemaFailures": 0,
+              "possible_truncation": false
+            },
+            "retrievalShared": true,
+            "stopReason": "tool_use",
+            "timings": {
+              "rewriteMs": 0,
+              "retrieveMs": 1394,
+              "rerankMs": 4098,
+              "clarifyMs": 0,
+              "llmMs": 3731
+            },
+            "chunkIds": [
+              "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:3",
+              "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:0",
+              "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:5",
+              "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:1",
+              "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:2"
+            ]
+          },
+          "faithfulness": {
+            "claims": [
+              {
+                "claim": "Yes, Compose Multiplatform for iOS is production-ready.",
+                "markers": [
+                  "c1"
+                ],
+                "quotes": [
+                  {
+                    "id": "c1",
+                    "quote": "the release of Compose Multiplatform 1.8.0, which brings Compose for iOS to Stable",
+                    "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+                    "section": ""
+                  }
+                ],
+                "verdict": "supported",
+                "note": "The quote states Compose for iOS reached Stable status with version 1.8.0, confirming production-readiness."
+              },
+              {
+                "claim": "Compose Multiplatform adds only ~9 MB to the size of an iOS app compared to a fully native SwiftUI app with the same UI logic and assets.",
+                "markers": [
+                  "c2"
+                ],
+                "quotes": [
+                  {
+                    "id": "c2",
+                    "quote": "Compose Multiplatform adds only ~9 MB to the size of an iOS app compared to a fully native SwiftUI app with the same UI logic and assets.",
+                    "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+                    "section": "Performance that’s ready for production"
+                  }
+                ],
+                "verdict": "supported",
+                "note": "The quote directly states the exact claim about the ~9 MB size addition."
+              }
+            ],
+            "uncitedClaims": [],
+            "supported": 2,
+            "partial": 0,
+            "unsupported": 0,
+            "faithfulness": 1,
+            "usage": {
+              "inputTokens": 1203,
+              "outputTokens": 154,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "model": "claude-haiku-4-5-20251001"
+          },
+          "grade": {
+            "facts": [
+              {
+                "fact": "Compose Multiplatform 1.8.0 made Compose for iOS Stable",
+                "grade": "missing",
+                "note": "The answer confirms iOS is production-ready but does not mention version 1.8.0 or that this was when it became Stable."
+              },
+              {
+                "fact": "It adds only about 9 MB to an iOS app compared with a native SwiftUI app",
+                "grade": "present",
+                "note": "The answer explicitly states '~9 MB' compared to SwiftUI."
+              },
+              {
+                "fact": "Over 96% of teams using it on iOS report no major performance concerns",
+                "grade": "missing",
+                "note": "The answer does not mention any statistics about team performance concerns."
+              }
+            ],
+            "score": 0.3333333333333333,
+            "hallucination": false,
+            "hallucinationNote": "",
+            "declined": false,
+            "usage": {
+              "inputTokens": 1494,
+              "outputTokens": 265,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "model": "claude-haiku-4-5-20251001"
+          },
+          "checks": {
+            "sources": true,
+            "citations": true,
+            "quotes": true,
+            "faithful": true,
+            "idk": true
+          }
+        },
+        {
+          "id": "q10",
+          "type": "unanswerable",
+          "question": "What were the headline features of Compose Multiplatform 1.9.0?",
+          "expect_decline": true,
+          "expected_facts": [
+            "Says the available information does not cover Compose Multiplatform 1.9.0",
+            "Does not present a list of 1.9.0 features as fact"
+          ],
+          "generator": "claude",
+          "order": 3,
+          "startedAt": "2026-10-11T15:16:30.690Z",
+          "wallMs": 1861,
+          "error": null,
+          "run": {
+            "answer": "I don't know. The documents cover Compose Multiplatform versions 1.7.0 and 1.8.0, but do not contain information about version 1.9.0. Do you have documents about Compose Multiplatform 1.9.0?",
+            "mode": "rag",
+            "label": "rag+rerank",
+            "rerank": true,
+            "rewrite": false,
+            "queries": [
+              "What were the headline features of Compose Multiplatform 1.9.0?"
+            ],
+            "declined": false,
+            "status": "dont_know",
+            "citations": [],
+            "sources": [],
+            "clarifyingQuestion": "The documents cover Compose Multiplatform versions 1.7.0 and 1.8.0, but do not contain information about version 1.9.0. Do you have documents about Compose Multiplatform 1.9.0?",
+            "dontKnow": {
+              "reason": "model"
+            },
+            "verification": {
+              "firstAttemptValid": true,
+              "retried": false,
+              "droppedCitations": [],
+              "droppedClaims": [],
+              "downgraded": false,
+              "firstAttemptCitations": 0,
+              "firstAttemptErrors": [],
+              "fabricatedFirstAttempt": [],
+              "finalErrors": []
+            },
+            "usage": {
+              "inputTokens": 3135,
+              "outputTokens": 141
+            },
+            "model": "claude-haiku-4-5-20251001",
+            "provider": "claude",
+            "localMetrics": null,
+            "generation": {
+              "calls": [
+                {
+                  "attempt": 1,
+                  "provider": "claude",
+                  "metrics": {
+                    "ttftMs": 810,
+                    "evalMs": 1050,
+                    "totalMs": 1860,
+                    "wallMs": 1860,
+                    "genTps": 134.3,
+                    "promptTokens": 3135,
+                    "outputTokens": 141
+                  }
+                }
+              ],
+              "metrics": {
+                "ttftMs": 810,
+                "evalMs": 1050,
+                "totalMs": 1860,
+                "wallMs": 1860,
+                "genTps": 134.3,
+                "promptTokens": 3135,
+                "outputTokens": 141
+              },
+              "invalidJson": 0,
+              "schemaFailures": 0,
+              "possible_truncation": false
+            },
+            "retrievalShared": true,
+            "stopReason": "tool_use",
+            "timings": {
+              "rewriteMs": 0,
+              "retrieveMs": 90,
+              "rerankMs": 2143,
+              "clarifyMs": 0,
+              "llmMs": 1861
+            },
+            "chunkIds": [
+              "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:1",
+              "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:2",
+              "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:5",
+              "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:6",
+              "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:0"
+            ]
+          },
+          "faithfulness": null,
+          "grade": null,
+          "checks": {
+            "sources": null,
+            "citations": null,
+            "quotes": null,
+            "faithful": null,
+            "idk": true
+          }
+        },
+        {
+          "id": "q14",
+          "type": "paraphrased",
+          "question": "In JetBrains' cross-platform UI toolkit, can people using my app on a Windows or Mac computer grab an element with the mouse, carry it across and let go of it over another element? Which version brought that, and what do I attach to the two elements?",
+          "expected_facts": [
+            "Compose Multiplatform 1.7.0 added drag and drop on desktop",
+            "The dragAndDropSource modifier marks the composable where a drag starts",
+            "The dragAndDropTarget modifier marks the composable that accepts the dropped data"
+          ],
+          "generator": "claude",
+          "order": 2,
+          "startedAt": "2026-10-11T15:16:29.216Z",
+          "wallMs": 1474,
+          "error": null,
+          "run": {
+            "answer": "I don't know. Do the documents discuss drag-and-drop functionality in Compose Multiplatform, or what specific features were added in different versions?",
+            "mode": "rag",
+            "label": "rag+rerank",
+            "rerank": true,
+            "rewrite": false,
+            "queries": [
+              "In JetBrains' cross-platform UI toolkit, can people using my app on a Windows or Mac computer grab an element with the mouse, carry it across and let go of it over another element? Which version brought that, and what do I attach to the two elements?"
+            ],
+            "declined": false,
+            "status": "dont_know",
+            "citations": [],
+            "sources": [],
+            "clarifyingQuestion": "Do the documents discuss drag-and-drop functionality in Compose Multiplatform, or what specific features were added in different versions?",
+            "dontKnow": {
+              "reason": "model"
+            },
+            "verification": {
+              "firstAttemptValid": true,
+              "retried": false,
+              "droppedCitations": [],
+              "droppedClaims": [],
+              "downgraded": false,
+              "firstAttemptCitations": 0,
+              "firstAttemptErrors": [],
+              "fabricatedFirstAttempt": [],
+              "finalErrors": []
+            },
+            "usage": {
+              "inputTokens": 1923,
+              "outputTokens": 112
+            },
+            "model": "claude-haiku-4-5-20251001",
+            "provider": "claude",
+            "localMetrics": null,
+            "generation": {
+              "calls": [
+                {
+                  "attempt": 1,
+                  "provider": "claude",
+                  "metrics": {
+                    "ttftMs": 649,
+                    "evalMs": 824,
+                    "totalMs": 1473,
+                    "wallMs": 1473,
+                    "genTps": 135.9,
+                    "promptTokens": 1923,
+                    "outputTokens": 112
+                  }
+                }
+              ],
+              "metrics": {
+                "ttftMs": 649,
+                "evalMs": 824,
+                "totalMs": 1473,
+                "wallMs": 1473,
+                "genTps": 135.9,
+                "promptTokens": 1923,
+                "outputTokens": 112
+              },
+              "invalidJson": 0,
+              "schemaFailures": 0,
+              "possible_truncation": false
+            },
+            "retrievalShared": true,
+            "stopReason": "tool_use",
+            "timings": {
+              "rewriteMs": 0,
+              "retrieveMs": 1741,
+              "rerankMs": 4331,
+              "clarifyMs": 0,
+              "llmMs": 1474
+            },
+            "chunkIds": [
+              "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:0",
+              "kb/know-kotlin-ship-it-everywhere-and-win-at-shipaton-2026-the-jetbrains-blog.html:structural:1"
+            ]
+          },
+          "faithfulness": null,
+          "grade": {
+            "facts": [
+              {
+                "fact": "Compose Multiplatform 1.7.0 added drag and drop on desktop",
+                "grade": "missing",
+                "note": ""
+              },
+              {
+                "fact": "The dragAndDropSource modifier marks the composable where a drag starts",
+                "grade": "missing",
+                "note": ""
+              },
+              {
+                "fact": "The dragAndDropTarget modifier marks the composable that accepts the dropped data",
+                "grade": "missing",
+                "note": ""
+              }
+            ],
+            "score": 0,
+            "hallucination": false,
+            "hallucinationNote": "",
+            "declined": true,
+            "usage": {
+              "inputTokens": 1498,
+              "outputTokens": 182,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "model": "claude-haiku-4-5-20251001"
+          },
+          "checks": {
+            "sources": false,
+            "citations": false,
+            "quotes": null,
+            "faithful": null,
+            "idk": false
+          }
+        }
+      ],
+      "summary": {
+        "count": 3,
+        "answerable": 2,
+        "toDecline": 1,
+        "answered": 1,
+        "answeredWithSources": 1,
+        "answeredWithCitations": 1,
+        "answerableWithSources": 1,
+        "firstAttemptCitations": 2,
+        "fabricatedFirstAttempt": 0,
+        "fabricated": [],
+        "firstAttemptValid": 3,
+        "contractCalls": 3,
+        "retries": 0,
+        "retriesFixed": 0,
+        "droppedCitations": 0,
+        "downgrades": 0,
+        "meanFaithfulness": 1,
+        "claims": 2,
+        "claimVerdicts": {
+          "supported": 2,
+          "partial": 0,
+          "unsupported": 0
+        },
+        "uncitedClaims": 0,
+        "correctIdk": 1,
+        "missedIdk": [],
+        "falseIdk": [
+          {
+            "id": "q14",
+            "type": "paraphrased",
+            "reason": "model"
+          }
+        ],
+        "dontKnowReasons": {
+          "model": 2
+        },
+        "meanFactScore": 0.16666666666666666,
+        "checks": {
+          "sources": {
+            "passed": 1,
+            "applied": 2
+          },
+          "citations": {
+            "passed": 1,
+            "applied": 2
+          },
+          "quotes": {
+            "passed": 1,
+            "applied": 1
+          },
+          "faithful": {
+            "passed": 1,
+            "applied": 1
+          },
+          "idk": {
+            "passed": 2,
+            "applied": 3
+          }
+        },
+        "meanLatencyMs": 6954.333333333333,
+        "meanInputTokens": 2744,
+        "meanOutputTokens": 200,
+        "errors": [],
+        "invalidJson": 0,
+        "schemaFailures": 0,
+        "structuredCalls": 0,
+        "possibleTruncations": [],
+        "meanTtftMs": 812.3333333333334,
+        "meanGenTps": 132.16666666666666,
+        "meanAnswerLatencyMs": 2355.3333333333335,
+        "maxAnswerLatencyMs": 3731,
+        "meanPromptTokens": 2744,
+        "meanPromptEvalMs": null,
+        "meanEvalMs": 1540.3333333333333,
+        "loadMs": null,
+        "memory": null,
+        "halves": [
+          {
+            "questions": [
+              "q02",
+              "q14"
+            ],
+            "meanGenTps": 131.1,
+            "meanTtftMs": 813.5,
+            "meanLatencyMs": 2602.5
+          },
+          {
+            "questions": [
+              "q10"
+            ],
+            "meanGenTps": 134.3,
+            "meanTtftMs": 810,
+            "meanLatencyMs": 1861
+          }
+        ]
+      },
+      "extra": {}
+    },
+    {
+      "id": "gemma4:12b",
+      "label": "gemma4:12b",
+      "where": "local",
+      "model": "gemma4:12b",
+      "rows": [
+        {
+          "id": "q02",
+          "type": "corpus",
+          "question": "Is Compose Multiplatform for iOS production-ready yet, and how much does it add to app size compared with a pure SwiftUI app?",
+          "expected_facts": [
+            "Compose Multiplatform 1.8.0 made Compose for iOS Stable",
+            "It adds only about 9 MB to an iOS app compared with a native SwiftUI app",
+            "Over 96% of teams using it on iOS report no major performance concerns"
+          ],
+          "generator": "gemma4:12b",
+          "order": 4,
+          "startedAt": "2026-10-11T15:16:45.974Z",
+          "wallMs": 69237,
+          "error": null,
+          "run": {
+            "answer": "Compose Multiplatform for iOS is now stable and production-ready [c2]. It adds only about 9 MB to the size of an iOS app compared to a fully native SwiftUI app with the same UI logic and assets [c1].",
+            "mode": "rag",
+            "label": "rag+rerank",
+            "rerank": true,
+            "rewrite": false,
+            "queries": [
+              "Is Compose Multiplatform for iOS production-ready yet, and how much does it add to app size compared with a pure SwiftUI app?"
+            ],
+            "declined": false,
+            "status": "answered",
+            "citations": [
+              {
+                "id": "c1",
+                "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:3",
+                "quote": "Compose Multiplatform adds only ~9 MB to the size of an iOS app compared to a fully native SwiftUI app with the same UI logic and assets.",
+                "n": 1,
+                "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+                "section": "Performance that’s ready for production",
+                "start": 463,
+                "end": 600
+              },
+              {
+                "id": "c2",
+                "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:0",
+                "quote": "Today marks a major milestone in the Kotlin Multiplatform journey: the release of Compose Multiplatform 1.8.0, which brings Compose for iOS to Stable.",
+                "n": 2,
+                "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+                "section": "",
+                "start": 115,
+                "end": 265
+              }
+            ],
+            "sources": [
+              {
+                "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:0",
+                "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+                "section": "",
+                "title": "Compose Multiplatform 1.8.0 Released: Compose Multiplatform for iOS Is Stable and Production-Ready",
+                "n": 2,
+                "label": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html · kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:0",
+                "citations": [
+                  "c2"
+                ]
+              },
+              {
+                "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:3",
+                "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+                "section": "Performance that’s ready for production",
+                "title": "Compose Multiplatform 1.8.0 Released: Compose Multiplatform for iOS Is Stable and Production-Ready",
+                "n": 1,
+                "label": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html › Performance that’s ready for production · kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:3",
+                "citations": [
+                  "c1"
+                ]
+              }
+            ],
+            "clarifyingQuestion": "",
+            "dontKnow": null,
+            "verification": {
+              "firstAttemptValid": false,
+              "retried": true,
+              "droppedCitations": [],
+              "droppedClaims": [],
+              "downgraded": false,
+              "firstAttemptCitations": 1,
+              "firstAttemptErrors": [
+                "Rule 2: the answer uses [c2], but there is no citation with id c2."
+              ],
+              "fabricatedFirstAttempt": [],
+              "finalErrors": []
+            },
+            "usage": {
+              "inputTokens": 4340,
+              "outputTokens": 411
+            },
+            "model": "gemma4:12b",
+            "provider": "local",
+            "localMetrics": {
+              "ttftMs": 33407.6,
+              "genTps": 13,
+              "totalMs": 69144.6,
+              "wallMs": 69168.1,
+              "loadMs": 31.1,
+              "promptTokens": 4340,
+              "cachedPromptTokens": 2050,
+              "outputTokens": 411,
+              "promptTps": 61.4,
+              "promptEvalMs": 37526.9,
+              "evalMs": 31553.800000000003,
+              "numCtx": 16384,
+              "calls": 2
+            },
+            "generation": {
+              "calls": [
+                {
+                  "attempt": 1,
+                  "provider": "local",
+                  "metrics": {
+                    "ttftMs": 33407.6,
+                    "genTps": 12.5,
+                    "totalMs": 46660.1,
+                    "wallMs": 46674.8,
+                    "loadMs": 10.6,
+                    "promptTokens": 2052,
+                    "cachedPromptTokens": 2,
+                    "outputTokens": 166,
+                    "promptTps": 61.4,
+                    "promptEvalMs": 33396.9,
+                    "evalMs": 13230.1,
+                    "numCtx": 16384
+                  },
+                  "structured": {
+                    "tool": "submit_answer",
+                    "attempts": 1,
+                    "invalid": 0,
+                    "errors": []
+                  }
+                },
+                {
+                  "attempt": 2,
+                  "provider": "local",
+                  "metrics": {
+                    "ttftMs": 4150.5,
+                    "genTps": 13.4,
+                    "totalMs": 22484.5,
+                    "wallMs": 22493.3,
+                    "loadMs": 20.5,
+                    "promptTokens": 2288,
+                    "cachedPromptTokens": 2048,
+                    "outputTokens": 245,
+                    "promptTps": 58.1,
+                    "promptEvalMs": 4130,
+                    "evalMs": 18323.7,
+                    "numCtx": 16384
+                  },
+                  "structured": {
+                    "tool": "submit_answer",
+                    "attempts": 1,
+                    "invalid": 0,
+                    "errors": []
+                  }
+                }
+              ],
+              "metrics": {
+                "ttftMs": 33407.6,
+                "genTps": 13,
+                "totalMs": 69144.6,
+                "wallMs": 69168.1,
+                "loadMs": 31.1,
+                "promptTokens": 4340,
+                "cachedPromptTokens": 2050,
+                "outputTokens": 411,
+                "promptTps": 61.4,
+                "promptEvalMs": 37526.9,
+                "evalMs": 31553.800000000003,
+                "numCtx": 16384,
+                "calls": 2
+              },
+              "invalidJson": 0,
+              "schemaFailures": 0,
+              "possible_truncation": false
+            },
+            "retrievalShared": true,
+            "stopReason": "tool_use",
+            "timings": {
+              "rewriteMs": 0,
+              "retrieveMs": 1394,
+              "rerankMs": 4098,
+              "clarifyMs": 0,
+              "llmMs": 69236
+            },
+            "chunkIds": [
+              "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:3",
+              "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:0",
+              "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:5",
+              "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:1",
+              "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:2"
+            ]
+          },
+          "faithfulness": {
+            "claims": [
+              {
+                "claim": "Compose Multiplatform for iOS is now stable and production-ready.",
+                "markers": [
+                  "c2"
+                ],
+                "quotes": [
+                  {
+                    "id": "c2",
+                    "quote": "Today marks a major milestone in the Kotlin Multiplatform journey: the release of Compose Multiplatform 1.8.0, which brings Compose for iOS to Stable.",
+                    "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+                    "section": ""
+                  }
+                ],
+                "verdict": "supported",
+                "note": ""
+              },
+              {
+                "claim": "It adds only about 9 MB to the size of an iOS app compared to a fully native SwiftUI app with the same UI logic and assets.",
+                "markers": [
+                  "c1"
+                ],
+                "quotes": [
+                  {
+                    "id": "c1",
+                    "quote": "Compose Multiplatform adds only ~9 MB to the size of an iOS app compared to a fully native SwiftUI app with the same UI logic and assets.",
+                    "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+                    "section": "Performance that’s ready for production"
+                  }
+                ],
+                "verdict": "supported",
+                "note": ""
+              }
+            ],
+            "uncitedClaims": [],
+            "supported": 2,
+            "partial": 0,
+            "unsupported": 0,
+            "faithfulness": 1,
+            "usage": {
+              "inputTokens": 1215,
+              "outputTokens": 99,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "model": "claude-haiku-4-5-20251001"
+          },
+          "grade": {
+            "facts": [
+              {
+                "fact": "Compose Multiplatform 1.8.0 made Compose for iOS Stable",
+                "grade": "partial",
+                "note": "Answer states iOS is now stable/production-ready but doesn't mention version 1.8.0 specifically"
+              },
+              {
+                "fact": "It adds only about 9 MB to an iOS app compared with a native SwiftUI app",
+                "grade": "present",
+                "note": "Directly stated: 'adds only about 9 MB to the size of an iOS app compared to a fully native SwiftUI app'"
+              },
+              {
+                "fact": "Over 96% of teams using it on iOS report no major performance concerns",
+                "grade": "missing",
+                "note": "Not mentioned in the answer"
+              }
+            ],
+            "score": 0.5,
+            "hallucination": false,
+            "hallucinationNote": "",
+            "declined": false,
+            "usage": {
+              "inputTokens": 1491,
+              "outputTokens": 267,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "model": "claude-haiku-4-5-20251001"
+          },
+          "checks": {
+            "sources": true,
+            "citations": true,
+            "quotes": true,
+            "faithful": true,
+            "idk": true
+          }
+        },
+        {
+          "id": "q10",
+          "type": "unanswerable",
+          "question": "What were the headline features of Compose Multiplatform 1.9.0?",
+          "expect_decline": true,
+          "expected_facts": [
+            "Says the available information does not cover Compose Multiplatform 1.9.0",
+            "Does not present a list of 1.9.0 features as fact"
+          ],
+          "generator": "gemma4:12b",
+          "order": 6,
+          "startedAt": "2026-10-11T15:18:18.604Z",
+          "wallMs": 32804,
+          "error": null,
+          "run": {
+            "answer": "I don't know. The provided documents only contain information regarding versions 1.7.0 and 1.8.0 of Compose Multiplatform. Could you provide information regarding version 1.9.0?",
+            "mode": "rag",
+            "label": "rag+rerank",
+            "rerank": true,
+            "rewrite": false,
+            "queries": [
+              "What were the headline features of Compose Multiplatform 1.9.0?"
+            ],
+            "declined": false,
+            "status": "dont_know",
+            "citations": [],
+            "sources": [],
+            "clarifyingQuestion": "The provided documents only contain information regarding versions 1.7.0 and 1.8.0 of Compose Multiplatform. Could you provide information regarding version 1.9.0?",
+            "dontKnow": {
+              "reason": "model"
+            },
+            "verification": {
+              "firstAttemptValid": true,
+              "retried": false,
+              "droppedCitations": [],
+              "droppedClaims": [],
+              "downgraded": false,
+              "firstAttemptCitations": 0,
+              "firstAttemptErrors": [],
+              "fabricatedFirstAttempt": [],
+              "finalErrors": []
+            },
+            "usage": {
+              "inputTokens": 2008,
+              "outputTokens": 73
+            },
+            "model": "gemma4:12b",
+            "provider": "local",
+            "localMetrics": {
+              "ttftMs": 25934.2,
+              "genTps": 10.7,
+              "totalMs": 32791.2,
+              "wallMs": 32803.1,
+              "loadMs": 78.6,
+              "promptTokens": 2008,
+              "cachedPromptTokens": 435,
+              "outputTokens": 73,
+              "promptTps": 60.8,
+              "promptEvalMs": 25855.6,
+              "evalMs": 6830.3,
+              "numCtx": 16384
+            },
+            "generation": {
+              "calls": [
+                {
+                  "attempt": 1,
+                  "provider": "local",
+                  "metrics": {
+                    "ttftMs": 25934.2,
+                    "genTps": 10.7,
+                    "totalMs": 32791.2,
+                    "wallMs": 32803.1,
+                    "loadMs": 78.6,
+                    "promptTokens": 2008,
+                    "cachedPromptTokens": 435,
+                    "outputTokens": 73,
+                    "promptTps": 60.8,
+                    "promptEvalMs": 25855.6,
+                    "evalMs": 6830.3,
+                    "numCtx": 16384
+                  },
+                  "structured": {
+                    "tool": "submit_answer",
+                    "attempts": 1,
+                    "invalid": 0,
+                    "errors": []
+                  }
+                }
+              ],
+              "metrics": {
+                "ttftMs": 25934.2,
+                "genTps": 10.7,
+                "totalMs": 32791.2,
+                "wallMs": 32803.1,
+                "loadMs": 78.6,
+                "promptTokens": 2008,
+                "cachedPromptTokens": 435,
+                "outputTokens": 73,
+                "promptTps": 60.8,
+                "promptEvalMs": 25855.6,
+                "evalMs": 6830.3,
+                "numCtx": 16384
+              },
+              "invalidJson": 0,
+              "schemaFailures": 0,
+              "possible_truncation": false
+            },
+            "retrievalShared": true,
+            "stopReason": "tool_use",
+            "timings": {
+              "rewriteMs": 0,
+              "retrieveMs": 90,
+              "rerankMs": 2143,
+              "clarifyMs": 0,
+              "llmMs": 32804
+            },
+            "chunkIds": [
+              "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:1",
+              "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:2",
+              "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:5",
+              "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:6",
+              "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:0"
+            ]
+          },
+          "faithfulness": null,
+          "grade": null,
+          "checks": {
+            "sources": null,
+            "citations": null,
+            "quotes": null,
+            "faithful": null,
+            "idk": true
+          }
+        },
+        {
+          "id": "q14",
+          "type": "paraphrased",
+          "question": "In JetBrains' cross-platform UI toolkit, can people using my app on a Windows or Mac computer grab an element with the mouse, carry it across and let go of it over another element? Which version brought that, and what do I attach to the two elements?",
+          "expected_facts": [
+            "Compose Multiplatform 1.7.0 added drag and drop on desktop",
+            "The dragAndDropSource modifier marks the composable where a drag starts",
+            "The dragAndDropTarget modifier marks the composable that accepts the dropped data"
+          ],
+          "generator": "gemma4:12b",
+          "order": 5,
+          "startedAt": "2026-10-11T15:17:55.211Z",
+          "wallMs": 23392,
+          "error": null,
+          "run": {
+            "answer": "I don't know. The provided documents discuss the release of Compose Multiplatform 1.7.0 and the Ship Kotlin Everywhere Award, but they do not contain information regarding drag-and-drop functionality, specific UI element interactions, or the technical implementation of attaching items to elements.",
+            "mode": "rag",
+            "label": "rag+rerank",
+            "rerank": true,
+            "rewrite": false,
+            "queries": [
+              "In JetBrains' cross-platform UI toolkit, can people using my app on a Windows or Mac computer grab an element with the mouse, carry it across and let go of it over another element? Which version brought that, and what do I attach to the two elements?"
+            ],
+            "declined": false,
+            "status": "dont_know",
+            "citations": [],
+            "sources": [],
+            "clarifyingQuestion": "The provided documents discuss the release of Compose Multiplatform 1.7.0 and the Ship Kotlin Everywhere Award, but they do not contain information regarding drag-and-drop functionality, specific UI element interactions, or the technical implementation of attaching items to elements.",
+            "dontKnow": {
+              "reason": "model"
+            },
+            "verification": {
+              "firstAttemptValid": true,
+              "retried": false,
+              "droppedCitations": [],
+              "droppedClaims": [],
+              "downgraded": false,
+              "firstAttemptCitations": 0,
+              "firstAttemptErrors": [],
+              "fabricatedFirstAttempt": [],
+              "finalErrors": []
+            },
+            "usage": {
+              "inputTokens": 956,
+              "outputTokens": 76
+            },
+            "model": "gemma4:12b",
+            "provider": "local",
+            "localMetrics": {
+              "ttftMs": 15076.3,
+              "genTps": 9.2,
+              "totalMs": 23372.7,
+              "wallMs": 23390.6,
+              "loadMs": 18.9,
+              "promptTokens": 956,
+              "cachedPromptTokens": 0,
+              "outputTokens": 76,
+              "promptTps": 63.5,
+              "promptEvalMs": 15057.4,
+              "evalMs": 8291.2,
+              "numCtx": 16384
+            },
+            "generation": {
+              "calls": [
+                {
+                  "attempt": 1,
+                  "provider": "local",
+                  "metrics": {
+                    "ttftMs": 15076.3,
+                    "genTps": 9.2,
+                    "totalMs": 23372.7,
+                    "wallMs": 23390.6,
+                    "loadMs": 18.9,
+                    "promptTokens": 956,
+                    "cachedPromptTokens": 0,
+                    "outputTokens": 76,
+                    "promptTps": 63.5,
+                    "promptEvalMs": 15057.4,
+                    "evalMs": 8291.2,
+                    "numCtx": 16384
+                  },
+                  "structured": {
+                    "tool": "submit_answer",
+                    "attempts": 1,
+                    "invalid": 0,
+                    "errors": []
+                  }
+                }
+              ],
+              "metrics": {
+                "ttftMs": 15076.3,
+                "genTps": 9.2,
+                "totalMs": 23372.7,
+                "wallMs": 23390.6,
+                "loadMs": 18.9,
+                "promptTokens": 956,
+                "cachedPromptTokens": 0,
+                "outputTokens": 76,
+                "promptTps": 63.5,
+                "promptEvalMs": 15057.4,
+                "evalMs": 8291.2,
+                "numCtx": 16384
+              },
+              "invalidJson": 0,
+              "schemaFailures": 0,
+              "possible_truncation": false
+            },
+            "retrievalShared": true,
+            "stopReason": "tool_use",
+            "timings": {
+              "rewriteMs": 0,
+              "retrieveMs": 1741,
+              "rerankMs": 4331,
+              "clarifyMs": 0,
+              "llmMs": 23392
+            },
+            "chunkIds": [
+              "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:0",
+              "kb/know-kotlin-ship-it-everywhere-and-win-at-shipaton-2026-the-jetbrains-blog.html:structural:1"
+            ]
+          },
+          "faithfulness": null,
+          "grade": {
+            "facts": [
+              {
+                "fact": "Compose Multiplatform 1.7.0 added drag and drop on desktop",
+                "grade": "missing",
+                "note": ""
+              },
+              {
+                "fact": "The dragAndDropSource modifier marks the composable where a drag starts",
+                "grade": "missing",
+                "note": ""
+              },
+              {
+                "fact": "The dragAndDropTarget modifier marks the composable that accepts the dropped data",
+                "grade": "missing",
+                "note": ""
+              }
+            ],
+            "score": 0,
+            "hallucination": false,
+            "hallucinationNote": "",
+            "declined": true,
+            "usage": {
+              "inputTokens": 1529,
+              "outputTokens": 182,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "model": "claude-haiku-4-5-20251001"
+          },
+          "checks": {
+            "sources": false,
+            "citations": false,
+            "quotes": null,
+            "faithful": null,
+            "idk": false
+          }
+        }
+      ],
+      "summary": {
+        "count": 3,
+        "answerable": 2,
+        "toDecline": 1,
+        "answered": 1,
+        "answeredWithSources": 1,
+        "answeredWithCitations": 1,
+        "answerableWithSources": 1,
+        "firstAttemptCitations": 1,
+        "fabricatedFirstAttempt": 0,
+        "fabricated": [],
+        "firstAttemptValid": 2,
+        "contractCalls": 3,
+        "retries": 1,
+        "retriesFixed": 1,
+        "droppedCitations": 0,
+        "downgrades": 0,
+        "meanFaithfulness": 1,
+        "claims": 2,
+        "claimVerdicts": {
+          "supported": 2,
+          "partial": 0,
+          "unsupported": 0
+        },
+        "uncitedClaims": 0,
+        "correctIdk": 1,
+        "missedIdk": [],
+        "falseIdk": [
+          {
+            "id": "q14",
+            "type": "paraphrased",
+            "reason": "model"
+          }
+        ],
+        "dontKnowReasons": {
+          "model": 2
+        },
+        "meanFactScore": 0.25,
+        "checks": {
+          "sources": {
+            "passed": 1,
+            "applied": 2
+          },
+          "citations": {
+            "passed": 1,
+            "applied": 2
+          },
+          "quotes": {
+            "passed": 1,
+            "applied": 1
+          },
+          "faithful": {
+            "passed": 1,
+            "applied": 1
+          },
+          "idk": {
+            "passed": 2,
+            "applied": 3
+          }
+        },
+        "meanLatencyMs": 46409.666666666664,
+        "meanInputTokens": 2434.6666666666665,
+        "meanOutputTokens": 186.66666666666666,
+        "errors": [],
+        "invalidJson": 0,
+        "schemaFailures": 0,
+        "structuredCalls": 4,
+        "possibleTruncations": [],
+        "meanTtftMs": 24806.033333333336,
+        "meanGenTps": 10.966666666666667,
+        "meanAnswerLatencyMs": 41810.666666666664,
+        "maxAnswerLatencyMs": 69236,
+        "meanPromptTokens": 2434.6666666666665,
+        "meanPromptEvalMs": 26146.63333333333,
+        "meanEvalMs": 15558.433333333334,
+        "loadMs": 10038,
+        "memory": {
+          "size": 9959309252,
+          "sizeVram": 9959309252,
+          "contextLength": 16384
+        },
+        "halves": [
+          {
+            "questions": [
+              "q02",
+              "q14"
+            ],
+            "meanGenTps": 11.1,
+            "meanTtftMs": 24241.949999999997,
+            "meanLatencyMs": 46314
+          },
+          {
+            "questions": [
+              "q10"
+            ],
+            "meanGenTps": 10.7,
+            "meanTtftMs": 25934.2,
+            "meanLatencyMs": 32804
+          }
+        ]
+      },
+      "extra": {
+        "loadMs": 10038,
+        "memory": {
+          "size": 9959309252,
+          "sizeVram": 9959309252,
+          "contextLength": 16384
+        }
+      }
+    }
+  ]
+}

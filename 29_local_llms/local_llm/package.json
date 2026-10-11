@@ -1,0 +1,16 @@
+{
+  "name": "local-llm",
+  "version": "1.0.0",
+  "description": "Checks that local LLMs run under Ollama, reaches them over the HTTP API, and benchmarks them on a small set of auto-checked requests.",
+  "type": "module",
+  "engines": {
+    "node": ">=20.12"
+  },
+  "main": "src/ollama.js",
+  "scripts": {
+    "check": "node scripts/check.js",
+    "bench": "node scripts/bench.js",
+    "report": "node scripts/report.js",
+    "test": "node --test src/"
+  }
+}

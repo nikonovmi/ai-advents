@@ -1,0 +1,157 @@
+{
+  "id": "f2f68259-767d-4a44-9d03-2bf2b2b936cc",
+  "title": "get me a random movie from omdb",
+  "createdAt": "2026-09-27T02:16:51.666Z",
+  "updatedAt": "2026-09-27T02:16:51.666Z",
+  "usage": {
+    "totalInputTokens": 1023,
+    "totalOutputTokens": 130,
+    "totalCostUsd": 0.001673,
+    "turnCount": 1,
+    "overheadInputTokens": 3231,
+    "overheadOutputTokens": 81,
+    "overheadCostUsd": 0.003636,
+    "overheadCalls": 1
+  },
+  "project": "chicken-soup",
+  "agentId": "first-agent",
+  "forkedFrom": null,
+  "memory": {
+    "working": {
+      "goal": {
+        "value": "Get a random movie from OMDB",
+        "updatedAt": "2026-09-27T02:16:49.067Z",
+        "turn": 1,
+        "previous": []
+      },
+      "open.api_key": {
+        "value": "Does the user have an OMDB API key?",
+        "updatedAt": "2026-09-27T02:16:49.067Z",
+        "turn": 1,
+        "previous": []
+      },
+      "open.randomization": {
+        "value": "Should the random selection be from a specific genre, year range, or any movie?",
+        "updatedAt": "2026-09-27T02:16:49.067Z",
+        "turn": 1,
+        "previous": []
+      }
+    },
+    "task": {
+      "id": "t6rs9ro",
+      "previous": null,
+      "startedAt": "2026-09-27T02:16:47.307Z",
+      "updatedAt": "2026-09-27T02:16:47.307Z",
+      "transitions": [],
+      "step": "working out what the task is",
+      "stepTurn": 0,
+      "suggestion": null,
+      "refused": [],
+      "refusals": []
+    },
+    "brief": null,
+    "briefThrough": 0,
+    "digest": null,
+    "digestThrough": 0,
+    "digestUpdatedAt": null,
+    "pastTasks": [],
+    "proposals": [],
+    "discarded": [],
+    "promotedAt": {},
+    "profileSeen": {},
+    "profileUser": "cook",
+    "invariantsSeen": {
+      "invariant.ingredients": {
+        "id": "i1",
+        "key": "invariant.ingredients",
+        "subject": "ingredients",
+        "text": "All ingredients must be readily available in German supermarkets.",
+        "check": "any recipe suggesting an ingredient not commonly stocked in standard German grocery stores",
+        "supersedes": null,
+        "updatedAt": "2026-09-26T19:38:46.345Z",
+        "turn": 0,
+        "previous": []
+      }
+    },
+    "invariantProject": "chicken-soup",
+    "attribution": [
+      {
+        "turn": 1,
+        "invariants": 1599,
+        "profile": 0,
+        "working": 2347,
+        "brief": 0,
+        "digest": 0
+      }
+    ],
+    "usage": {
+      "overheadWorking": {
+        "calls": 1,
+        "inputTokens": 3231,
+        "outputTokens": 81,
+        "costUsd": 0.003636
+      },
+      "overheadSummary": {
+        "calls": 0,
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "costUsd": 0
+      },
+      "overheadProfile": {
+        "calls": 0,
+        "turns": 1,
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "costUsd": 0,
+        "estimated": true
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "get me a random movie from omdb",
+      "id": "m1",
+      "tokens": {
+        "request": 15
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "I need to clarify two things before we can build this:\n\n**Do you have an OMDB API key?** You'll need one to query the API. You can get a free key at [omdbapi.com](https://www.omdbapi.com/apikey.aspx) — it takes a minute.\n\n**What counts as \"random\"?** Should it pick from:\n- Any movie in OMDB (truly random)\n- A specific genre, year range, or rating threshold\n- Something else\n\nOnce I know these, I can set up the solution.",
+      "id": "m2",
+      "tokens": {
+        "request": 15,
+        "sent": 1023,
+        "input": 1023,
+        "output": 130,
+        "total": 1153
+      },
+      "cost": {
+        "input": 0.001023,
+        "output": 0.00065,
+        "total": 0.001673
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 4359,
+      "stopReason": "end_turn",
+      "strategy": {
+        "id": "memory",
+        "label": "Layered memory",
+        "overheadTokens": 3312,
+        "overheadCost": 0.003636,
+        "overheadMs": 1758,
+        "overheadCalls": 1,
+        "blockTokens": 926,
+        "note": "3 keys set",
+        "droppedMessages": 0,
+        "changedKeys": [
+          "goal",
+          "open.api_key",
+          "open.randomization"
+        ],
+        "degraded": false
+      }
+    }
+  ]
+}

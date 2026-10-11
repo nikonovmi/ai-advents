@@ -1,0 +1,241 @@
+{
+  "id": "f1bcd70c-1c16-4170-b9cc-1677831ee9b6",
+  "title": "give me a random movie from omdb",
+  "createdAt": "2026-09-27T02:20:09.451Z",
+  "updatedAt": "2026-09-27T02:20:57.734Z",
+  "usage": {
+    "totalInputTokens": 13742,
+    "totalOutputTokens": 536,
+    "totalCostUsd": 0.016422,
+    "turnCount": 2,
+    "overheadInputTokens": 6699,
+    "overheadOutputTokens": 141,
+    "overheadCostUsd": 0.007404,
+    "overheadCalls": 2
+  },
+  "project": "chicken-soup",
+  "agentId": "movie-buff",
+  "forkedFrom": null,
+  "memory": {
+    "working": {
+      "goal": {
+        "value": "Retrieve a random movie from OMDB",
+        "updatedAt": "2026-09-27T02:20:05.413Z",
+        "turn": 1,
+        "previous": []
+      },
+      "finding.interstellar_rating": {
+        "value": "8.7/10 on IMDb",
+        "updatedAt": "2026-09-27T02:20:52.411Z",
+        "turn": 2,
+        "previous": []
+      },
+      "decision.six_string_samurai_rating": {
+        "value": "6.4/10 on IMDb",
+        "updatedAt": "2026-09-27T02:20:57.734Z",
+        "turn": 2,
+        "previous": []
+      }
+    },
+    "task": {
+      "id": "ti0q3l9",
+      "previous": null,
+      "startedAt": "2026-09-27T02:20:03.917Z",
+      "updatedAt": "2026-09-27T02:20:03.917Z",
+      "transitions": [],
+      "step": "working out what the task is",
+      "stepTurn": 0,
+      "suggestion": null,
+      "refused": [],
+      "refusals": []
+    },
+    "brief": null,
+    "briefThrough": 0,
+    "digest": null,
+    "digestThrough": 0,
+    "digestUpdatedAt": null,
+    "pastTasks": [],
+    "proposals": [],
+    "discarded": [],
+    "promotedAt": {},
+    "profileSeen": {},
+    "profileUser": "cook",
+    "invariantsSeen": {
+      "invariant.ingredients": {
+        "id": "i1",
+        "key": "invariant.ingredients",
+        "subject": "ingredients",
+        "text": "All ingredients must be readily available in German supermarkets.",
+        "check": "any recipe suggesting an ingredient not commonly stocked in standard German grocery stores",
+        "supersedes": null,
+        "updatedAt": "2026-09-26T19:38:46.345Z",
+        "turn": 0,
+        "previous": []
+      }
+    },
+    "invariantProject": "chicken-soup",
+    "attribution": [
+      {
+        "turn": 1,
+        "invariants": 1599,
+        "profile": 0,
+        "working": 2258,
+        "brief": 0,
+        "digest": 0
+      },
+      {
+        "turn": 2,
+        "invariants": 1599,
+        "profile": 0,
+        "working": 2329,
+        "brief": 0,
+        "digest": 0
+      }
+    ],
+    "usage": {
+      "overheadWorking": {
+        "calls": 2,
+        "inputTokens": 6699,
+        "outputTokens": 141,
+        "costUsd": 0.007404
+      },
+      "overheadSummary": {
+        "calls": 0,
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "costUsd": 0
+      },
+      "overheadProfile": {
+        "calls": 0,
+        "turns": 2,
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "costUsd": 0,
+        "estimated": true
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "give me a random movie from omdb",
+      "id": "m1",
+      "tokens": {
+        "request": 15
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Nice pick! You got **Interstellar** (2014), Christopher Nolan's epic sci-fi adventure. \n\n**The goods:**\n- **Runtime:** 169 minutes (nearly 3 hours—bring snacks!)\n- **Cast:** Matthew McConaughey, Anne Hathaway, Jessica Chastain\n- **Plot:** A former NASA pilot turned farmer leads a team on a desperate mission to find humanity a new home as Earth becomes uninhabitable\n- **Ratings:** 8.7/10 on IMDb, 73% on Rotten Tomatoes, 74/100 on Metacritic\n\nIt's a visually stunning, mind-bending journey through wormholes and black holes. Definitely worth the runtime if you haven't seen it! Want another spin, or details on something else?",
+      "id": "m2",
+      "tokens": {
+        "request": 15,
+        "sent": 1045,
+        "input": 5116,
+        "output": 229,
+        "total": 5345
+      },
+      "cost": {
+        "input": 0.005116,
+        "output": 0.001145,
+        "total": 0.006261
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 5534,
+      "stopReason": "end_turn",
+      "strategy": {
+        "id": "memory",
+        "label": "Layered memory",
+        "overheadTokens": 3285,
+        "overheadCost": 0.0035009999999999998,
+        "overheadMs": 1494,
+        "overheadCalls": 1,
+        "blockTokens": 903,
+        "note": "2 keys set",
+        "droppedMessages": 0,
+        "changedKeys": [
+          "goal",
+          "open.api_access"
+        ],
+        "degraded": false
+      },
+      "toolCalls": [
+        {
+          "server": "omdb",
+          "tool": "random_movie",
+          "input": {},
+          "ok": true,
+          "resultPreview": "{\n  \"title\": \"Interstellar\",\n  \"year\": \"2014\",\n  \"runtimeMinutes\": 169,\n  \"genres\": [\n    \"Adventure\",\n    \"Drama\",\n    \"Sci-Fi\"\n  ],\n  \"director\": \"Christopher Nolan\",\n  \"actors\": [\n    \"Matthew McConaughey\",\n    \"Anne Hathaway\",\n    \"Jessica Chastain\"\n  ],\n  \"plot\": \"When Earth becomes uninhabitable in the future, a farmer and ex-NASA pilot, Joseph Cooper, is tasked to pilot a spacecraft, along with a team of researchers, to find a new planet for humans.\",\n  \"imdbRating\": 8.7,\n  \"ratings\": [\n    {\n      \"source\": \"Internet Movie Database\",\n      \"value\": \"8.7/10\"\n    },\n    {\n      \"source\": \"Rotten Tomatoes\",\n      \"value\": \"73%\"\n    },\n    {\n      \"source\": \"Metacritic\",\n      \"value\": \"74/100\"\n    }\n  ],\n  \"imdbId\": \"tt0816692\"\n}",
+          "ms": 213
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": "does it have higher rating than six string samurai? if yes, how much higher?",
+      "id": "m3",
+      "tokens": {
+        "request": 25
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Yes! **Interstellar** has a significantly higher rating.\n\n**The breakdown:**\n- **Interstellar:** 8.7/10 on IMDb\n- **Six-String Samurai:** 6.4/10 on IMDb\n- **Difference:** 2.3 points higher\n\nInterstellar's the clear winner here—it's a modern blockbuster masterpiece, while Six-String Samurai is a quirky cult classic from 1998 with a post-apocalyptic rock-and-roll vibe. Both fun in their own ways, but very different beasts!",
+      "id": "m4",
+      "tokens": {
+        "request": 25,
+        "sent": 1281,
+        "input": 8626,
+        "output": 307,
+        "total": 8933
+      },
+      "cost": {
+        "input": 0.008626,
+        "output": 0.001535,
+        "total": 0.010161
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 6857,
+      "stopReason": "end_turn",
+      "strategy": {
+        "id": "memory",
+        "label": "Layered memory",
+        "overheadTokens": 3555,
+        "overheadCost": 0.0039030000000000002,
+        "overheadMs": 1533,
+        "overheadCalls": 1,
+        "blockTokens": 929,
+        "note": "2 keys set, 1 forgotten",
+        "droppedMessages": 0,
+        "changedKeys": [
+          "finding.interstellar_rating",
+          "open.six_string_samurai_rating",
+          "open.api_access"
+        ],
+        "degraded": false
+      },
+      "toolCalls": [
+        {
+          "server": "omdb",
+          "tool": "search_movies",
+          "input": {
+            "query": "six string samurai"
+          },
+          "ok": true,
+          "resultPreview": "{\n  \"results\": [\n    {\n      \"title\": \"Six-String Samurai\",\n      \"year\": \"1998\",\n      \"imdbId\": \"tt0118736\",\n      \"type\": \"movie\"\n    },\n    {\n      \"title\": \"Vegas Needs a New King: The Making of 'Six-String Samurai'\",\n      \"year\": \"2021\",\n      \"imdbId\": \"tt14724072\",\n      \"type\": \"movie\"\n    }\n  ],\n  \"totalResults\": 2\n}",
+          "ms": 203
+        },
+        {
+          "server": "omdb",
+          "tool": "get_movie",
+          "input": {
+            "imdbId": "tt0118736"
+          },
+          "ok": true,
+          "resultPreview": "{\n  \"title\": \"Six-String Samurai\",\n  \"year\": \"1998\",\n  \"runtimeMinutes\": 91,\n  \"genres\": [\n    \"Action\",\n    \"Adventure\",\n    \"Comedy\"\n  ],\n  \"director\": \"Lance Mungia\",\n  \"actors\": [\n    \"Jeffrey Falcon\",\n    \"Justin McGuire\",\n    \"Kim De Angelo\"\n  ],\n  \"plot\": \"In the post-apocalyptic world of 1990s Nevada, a rock 'n' roll samurai on his way to Lost Vegas takes a young orphan boy under his protection as Death and his metalhead Horsemen chase after them.\",\n  \"imdbRating\": 6.4,\n  \"ratings\": [\n    {\n      \"source\": \"Internet Movie Database\",\n      \"value\": \"6.4/10\"\n    },\n    {\n      \"source\": \"Rotten Tomatoes\",\n      \"value\": \"57%\"\n    }\n  ],\n  \"imdbId\": \"tt0118736\"\n}",
+          "ms": 162
+        }
+      ]
+    }
+  ]
+}
