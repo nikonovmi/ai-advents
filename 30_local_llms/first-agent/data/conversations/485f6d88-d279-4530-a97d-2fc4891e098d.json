@@ -1,0 +1,128 @@
+{
+  "id": "485f6d88-d279-4530-a97d-2fc4891e098d",
+  "title": "where do I live?",
+  "createdAt": "2026-09-19T23:08:41.801Z",
+  "updatedAt": "2026-09-19T23:08:41.801Z",
+  "usage": {
+    "totalInputTokens": 136,
+    "totalOutputTokens": 5,
+    "totalCostUsd": 0.000161,
+    "turnCount": 1,
+    "overheadInputTokens": 1550,
+    "overheadOutputTokens": 4,
+    "overheadCostUsd": 0.00157,
+    "overheadCalls": 1
+  },
+  "branches": {
+    "main": {
+      "id": "main",
+      "name": "main",
+      "headId": "m2",
+      "forkedFromMessageId": null,
+      "parentBranchId": null,
+      "strategy": "memory",
+      "strategyState": {
+        "memory": {
+          "working": {},
+          "digest": null,
+          "digestThrough": 0,
+          "digestUpdatedAt": null,
+          "pastTasks": [],
+          "proposals": [],
+          "discarded": [],
+          "promotedAt": {},
+          "profileSeen": {
+            "profile.location": {
+              "id": "e3",
+              "key": "profile.location",
+              "value": "Berlin",
+              "updatedAt": "2026-09-19T22:53:25.356Z",
+              "source": "extracted"
+            },
+            "profile.role": {
+              "id": "e4",
+              "key": "profile.role",
+              "value": "Hiring manager or interviewer for Senior Android Developer role",
+              "updatedAt": "2026-09-19T22:56:22.918Z",
+              "source": "extracted"
+            },
+            "profile.hiring": {
+              "id": "e6",
+              "key": "profile.hiring",
+              "value": "Willing to move forward with candidates who demonstrate strong conceptual understanding but need support on implementation details, particularly when other screening sections are solid.",
+              "updatedAt": "2026-09-19T23:07:15.092Z",
+              "source": "promoted"
+            }
+          },
+          "attribution": [
+            {
+              "turn": 1,
+              "profile": 429,
+              "working": 0,
+              "digest": 0
+            }
+          ],
+          "usage": {
+            "overheadWorking": {
+              "calls": 1,
+              "inputTokens": 1550,
+              "outputTokens": 4,
+              "costUsd": 0.00157
+            },
+            "overheadSummary": {
+              "calls": 0,
+              "inputTokens": 0,
+              "outputTokens": 0,
+              "costUsd": 0
+            }
+          }
+        }
+      }
+    }
+  },
+  "activeBranchId": "main",
+  "messages": [
+    {
+      "role": "user",
+      "content": "where do I live?",
+      "id": "m1",
+      "tokens": {
+        "request": 12
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Berlin.",
+      "id": "m2",
+      "parentId": "m1",
+      "tokens": {
+        "request": 12,
+        "sent": 136,
+        "input": 136,
+        "output": 5,
+        "total": 141
+      },
+      "cost": {
+        "input": 0.000136,
+        "output": 0.000025,
+        "total": 0.000161
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 1645,
+      "stopReason": "end_turn",
+      "strategy": {
+        "id": "memory",
+        "label": "Layered memory",
+        "overheadTokens": 1554,
+        "overheadCost": 0.00157,
+        "overheadMs": 707,
+        "overheadCalls": 1,
+        "blockTokens": 85,
+        "note": "nothing new established",
+        "droppedMessages": 0,
+        "changedKeys": [],
+        "degraded": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,134 @@
+
+> first-agent@1.0.0 opt:local
+> node scripts/opt-local.js --force
+
+
+=== 19:49:22 eval-local.js --variant baseline ===
+Retrieval (local, shared): 10 question(s), rag+rerank, k_retrieve 20, cutoff 0.02
+  reused 10 from local_rag_retrieval.json, retrieved 0
+
+qwen3.5:9b: loading (num_ctx 16384, prompts v1)… load 6.13 s
+  # 1 19:49:29 q02  answered  · verified · 35.9 s · 17 tok/s
+  # 2 19:50:05 q04  answered  · verified · 42.2 s · 18 tok/s
+  # 3 19:50:47 q06  answered  · retried, still invalid · 1 citation dropped · 52.4 s · 17.6 tok/s
+  # 4 19:51:40 q10  dont_know (model) · verified · 20.9 s · 13.9 tok/s
+  # 5 19:52:00 q12  dont_know (model) · verified · 23.0 s · 15 tok/s
+  # 6 19:52:24 q13  dont_know (low_relevance) · low relevance (no answer call) · 8.1 s · 14.5 tok/s
+  # 7 19:52:32 q14  dont_know (model) · verified · 11.4 s · 15.4 tok/s
+  # 8 19:52:43 q15  answered  · verified · 25.0 s · 16.7 tok/s
+  # 9 19:53:08 q16  answered  · verified · 35.9 s · 17.5 tok/s
+  #10 19:53:44 q17  dont_know (model) · verified · 40.2 s · 11.5 tok/s
+
+Judging with claude-haiku-4-5-20251001 (cloud)…
+
+baseline · qwen3.5:9b: answered 5/10 · fabricated 1/13 · retries 1 · dropped 1 · downgrades 0 · faithfulness 0.53 · IDK 3/3, false 2 · facts 0.52 · TTFT 15.38 s · 15.7 tok/s · latency 29.5 s (max 52.4) · reloads 0 · num_ctx 16384 · truncations 0
+→ reports/local_opt/eval_baseline.json
+
+Baseline vs Day 28's qwen: fact score -0.14 · latency +2%
+
+=== 19:54:52 verify-local.js --variant baseline ===
+Ollama 0.40.2 at http://localhost:11434 · models: qwen3.5:9b · num_ctx 8192 (RAG 16384) · prompts v1 · variant baseline · no ANTHROPIC_API_KEY
+
+qwen3.5:9b: warm-up… load 6.03 s
+  knowledge (RAG) 1/3… [rag] embedding model ready: onnx-community/embeddinggemma-300m-ONNX (q8, 768 dims) in 3.4 s
+[rag] reranker ready: onnx-community/bge-reranker-v2-m3-ONNX (q8) in 1.4 s
+✗ verifiedCitations 88.0 s · search · 1 citation(s)
+  knowledge (RAG) 2/3… ✓ 20.2 s · memory_only
+  knowledge (RAG) 3/3… ✗ usesMemory 64.6 s · search · 1 citation(s)
+
+baseline · qwen3.5:9b: 19/21 checks · turns 88.0 s, 20.2 s, 64.6 s · reloads 0 · num_ctx 8192/16384 · memory 9.1 GB
+✗ FAIL · outbound 0 · Claude provider calls 0 · wrote reports/local_opt/verify_baseline.json
+(verify:local --variant baseline ended FAIL; recorded, going on)
+
+… cooldown 180 s before ctx8k
+
+=== 20:00:52 eval-local.js --variant ctx8k ===
+Retrieval (local, shared): 10 question(s), rag+rerank, k_retrieve 20, cutoff 0.02
+  reused 10 from local_rag_retrieval.json, retrieved 0
+
+qwen3.5:9b: loading (num_ctx 8192, prompts v1)… load 6.03 s
+  # 1 20:00:59 q02  answered  · verified · 35.5 s · 17.4 tok/s
+  # 2 20:01:35 q04  answered  · verified · 41.7 s · 18.3 tok/s
+  # 3 20:02:16 q06  answered  · retried, still invalid · 1 citation dropped · 51.9 s · 17.9 tok/s
+  # 4 20:03:08 q10  dont_know (model) · verified · 20.9 s · 13.8 tok/s
+  # 5 20:03:29 q12  dont_know (model) · verified · 21.9 s · 14.7 tok/s
+  # 6 20:03:51 q13  dont_know (low_relevance) · low relevance (no answer call) · 8.1 s · 14.3 tok/s
+  # 7 20:03:59 q14  dont_know (model) · verified · 11.6 s · 14.9 tok/s
+  # 8 20:04:11 q15  answered  · verified · 25.4 s · 16.2 tok/s
+  # 9 20:04:36 q16  answered  · verified · 48.7 s · 11.8 tok/s
+  #10 20:05:25 q17  dont_know (model) · verified · 47.1 s · 11.7 tok/s
+
+Judging with claude-haiku-4-5-20251001 (cloud)…
+
+ctx8k · qwen3.5:9b: answered 5/10 · fabricated 1/13 · retries 1 · dropped 1 · downgrades 0 · faithfulness 0.53 · IDK 3/3, false 2 · facts 0.66 · TTFT 16.22 s · 15.1 tok/s · latency 31.3 s (max 51.9) · reloads 0 · num_ctx 8192 · truncations 0
+→ reports/local_opt/eval_ctx8k.json
+
+=== 20:06:40 verify-local.js --variant ctx8k ===
+Ollama 0.40.2 at http://localhost:11434 · models: qwen3.5:9b · num_ctx 8192 (RAG 8192) · prompts v1 · variant ctx8k · no ANTHROPIC_API_KEY
+
+qwen3.5:9b: warm-up… load 6.13 s
+  knowledge (RAG) 1/3… [rag] embedding model ready: onnx-community/embeddinggemma-300m-ONNX (q8, 768 dims) in 1.7 s
+[rag] reranker ready: onnx-community/bge-reranker-v2-m3-ONNX (q8) in 1.3 s
+✗ verifiedCitations 86.6 s · search · 1 citation(s)
+  knowledge (RAG) 2/3… ✗ verifiedCitations 182.3 s · search · 0 citation(s)
+  knowledge (RAG) 3/3… ✗ usesMemory 63.0 s · search · 1 citation(s)
+
+ctx8k · qwen3.5:9b: 19/22 checks · turns 86.6 s, 182.3 s, 63.0 s · reloads 0 · num_ctx 8192 · memory 9.2 GB
+✗ FAIL · outbound 0 · Claude provider calls 0 · wrote reports/local_opt/verify_ctx8k.json
+(verify:local --variant ctx8k ended FAIL; recorded, going on)
+
+… cooldown 180 s before ctx8k+prompt
+
+=== 20:15:20 eval-local.js --variant ctx8k+prompt ===
+Retrieval (local, shared): 10 question(s), rag+rerank, k_retrieve 20, cutoff 0.02
+  reused 10 from local_rag_retrieval.json, retrieved 0
+
+qwen3.5:9b: loading (num_ctx 8192, prompts v2)… load 5.93 s
+  # 1 20:15:26 q02  answered  · retried, still invalid · 1 citation dropped · 62.9 s · 18.6 tok/s
+  # 2 20:16:29 q04  answered  · retried → verified · 65.9 s · 19.1 tok/s
+  # 3 20:17:35 q06  answered  · retried → verified · 57.5 s · 18.1 tok/s
+  # 4 20:18:33 q10  dont_know (model) · verified · 19.6 s · 16.4 tok/s
+  # 5 20:18:52 q12  dont_know (model) · verified · 21.5 s · 15.1 tok/s
+  # 6 20:19:14 q13  dont_know (low_relevance) · low relevance (no answer call) · 8.8 s · 12.9 tok/s
+  # 7 20:19:23 q14  dont_know (model) · verified · 13.1 s · 11.8 tok/s
+  # 8 20:19:36 q15  dont_know (verification_failed) · retried, still invalid · 1 citation dropped · downgraded · 46.6 s · 14.2 tok/s
+  # 9 20:20:22 q16  answered  · retried → verified · 80.9 s · 14.9 tok/s
+  #10 20:21:43 q17  dont_know (verification_failed) · retried, still invalid · 2 citations dropped · downgraded · 61.9 s · 13.4 tok/s
+
+Judging with claude-haiku-4-5-20251001 (cloud)…
+
+ctx8k+prompt · qwen3.5:9b: answered 4/10 · fabricated 2/15 · retries 6 · dropped 4 · downgrades 2 · faithfulness 0.81 · IDK 3/3, false 3 · facts 0.54 · TTFT 16.14 s · 15.4 tok/s · latency 43.9 s (max 80.9) · reloads 0 · num_ctx 8192 · truncations 0
+→ reports/local_opt/eval_ctx8k-prompt.json
+
+=== 20:23:09 verify-local.js --variant ctx8k+prompt ===
+Ollama 0.40.2 at http://localhost:11434 · models: qwen3.5:9b · num_ctx 8192 (RAG 8192) · prompts v2 · variant ctx8k+prompt · no ANTHROPIC_API_KEY
+
+qwen3.5:9b: warm-up… load 6.03 s
+  knowledge (RAG) 1/3… [rag] embedding model ready: onnx-community/embeddinggemma-300m-ONNX (q8, 768 dims) in 1.7 s
+[rag] reranker ready: onnx-community/bge-reranker-v2-m3-ONNX (q8) in 1.3 s
+✓ 128.1 s · search · 5 citation(s)
+  knowledge (RAG) 2/3… ✓ 18.4 s · memory_only
+  knowledge (RAG) 3/3… ✗ usesMemory 70.0 s · search · 2 citation(s)
+
+ctx8k+prompt · qwen3.5:9b: 20/21 checks · turns 128.1 s, 18.4 s, 70.0 s · reloads 0 · num_ctx 8192 · memory 8.8 GB
+✗ FAIL · outbound 0 · Claude provider calls 0 · wrote reports/local_opt/verify_ctx8k-prompt.json
+(verify:local --variant ctx8k+prompt ended FAIL; recorded, going on)
+
+Counting prompt tokens on qwen3.5:9b…
+  contract: v1 344 tokens (1425 chars) → v2 354 tokens (1417 chars)
+  chat: v1 606 tokens (2599 chars) → v2 616 tokens (2591 chars)
+  router: v1 907 tokens (4016 chars) → v2 682 tokens (2928 chars)
+file:///Users/michael/Documents/ai-advents/29_local_llms/first-agent/src/rag/optEval.js:235
+    ["faithfulness (supported / partial / unsupported)", ...evalCol((s) => `${num(s.meanFaithfulness)} · ${s.claimVerdicts.supported} / ${s.claimVerdicts.partial} / ${s.claimVerdicts.unsupported}`, (s) => `${num(s.meanFaithfulness)} · ${s.claimVerdicts.supported} / ${s.claimVerdicts.partial} / ${s.claimVerdicts.unsupported}`)],
+                                                                                                                                                                                                                                                             ^
+
+TypeError: Cannot read properties of undefined (reading 'supported')
+    at file:///Users/michael/Documents/ai-advents/29_local_llms/first-agent/src/rag/optEval.js:235:254
+    at evalCol (file:///Users/michael/Documents/ai-advents/29_local_llms/first-agent/src/rag/optEval.js:219:115)
+    at optSummaryRows (file:///Users/michael/Documents/ai-advents/29_local_llms/first-agent/src/rag/optEval.js:235:61)
+    at renderOptReport (file:///Users/michael/Documents/ai-advents/29_local_llms/first-agent/src/rag/optEval.js:323:17)
+    at file:///Users/michael/Documents/ai-advents/29_local_llms/first-agent/scripts/opt-local.js:151:30
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+
+Node.js v26.8.1
+EXIT 1

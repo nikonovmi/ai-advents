@@ -1,0 +1,927 @@
+{
+  "id": "a58489e8-02ec-41d7-9210-99cfb56414f8",
+  "title": "Is there a talk on how Compose Hot Relo…",
+  "createdAt": "2026-10-04T16:05:45.569Z",
+  "updatedAt": "2026-10-04T16:05:56.347Z",
+  "usage": {
+    "totalInputTokens": 4106,
+    "totalOutputTokens": 312,
+    "totalCostUsd": 0.005666,
+    "turnCount": 3,
+    "overheadInputTokens": 0,
+    "overheadOutputTokens": 0,
+    "overheadCostUsd": 0,
+    "overheadCalls": 0
+  },
+  "project": "default",
+  "agentId": "knowledge",
+  "forkedFrom": null,
+  "ragMode": "rag",
+  "ragOptions": {
+    "rerank": true,
+    "rewrite": true
+  },
+  "memory": {},
+  "messages": [
+    {
+      "role": "user",
+      "content": "Is there a talk on how Compose Hot Reload is implemented? What did they have to work around?",
+      "id": "m1"
+    },
+    {
+      "role": "assistant",
+      "content": "Yes, there is a talk on how Compose Hot Reload is implemented. [1]\n\nThe talk is titled \"Implementing Compose Hot Reload\" by Sebastian Sellmair (2025). According to the description, implementing Hot Reload on the JVM required deep engineering work, and Sebastian breaks down the journey by working around two main challenges: [1]\n\n1. **Fighting ClassLoaders** - dealing with the complexity of Java's class loading mechanism\n2. **Patching the Kotlin Compiler** - modifying the compiler to handle \"shifting lambda names\"\n\nThe talk is described as \"a fascinating look under the hood of the tooling we take for granted.\" [1]",
+      "id": "m2",
+      "tokens": {
+        "input": 1514,
+        "output": 150,
+        "total": 1664
+      },
+      "cost": {
+        "input": 0.001514,
+        "output": 0.0007499999999999999,
+        "total": 0.002264
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 5982,
+      "stopReason": "end_turn",
+      "rag": {
+        "mode": "rag",
+        "label": "rag+rerank",
+        "rerank": true,
+        "rewrite": false,
+        "queries": [
+          "Is there a talk on how Compose Hot Reload is implemented? What did they have to work around?"
+        ],
+        "candidates": [
+          {
+            "chunk_id": "kb/the-ultimate-kmp-watchlist-level-up-your-skills-in-10-talks-the-jetbrains-blog.html:structural:4",
+            "source": "knowledge_database/The Ultimate KMP Watchlist_ Level Up Your Skills in 10 Talks - The JetBrains Blog.html",
+            "section": "? Part 4: The Deep Dive",
+            "vectorScore": 0.4731218961463476,
+            "rerankScore": 0.9641714098374448,
+            "vectorRank": 4,
+            "rerankRank": 1,
+            "kept": true
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.10.0-unified-preview-navigation-3-and-stable-compose-hot-reload-the-jetbrains-blog.html:structural:3",
+            "source": "knowledge_database/Compose Multiplatform 1.10.0_ Unified @Preview, Navigation 3, and Stable Compose Hot Reload - The JetBrains Blog.html",
+            "section": "Compose Hot Reload",
+            "vectorScore": 0.5343836523965521,
+            "rerankScore": 0.856947659126022,
+            "vectorRank": 1,
+            "rerankRank": 2,
+            "kept": true
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:4",
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "Development tools that boost your efficiency",
+            "vectorScore": 0.4731796921258715,
+            "rerankScore": 0.3428582054380468,
+            "vectorRank": 3,
+            "rerankRank": 3,
+            "kept": true
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.12.0-released-the-jetbrains-blog.html:structural:1",
+            "source": "knowledge_database/Compose Multiplatform 1.12.0 Released - The JetBrains Blog.html",
+            "section": "MCP server for AI agents in Compose Hot Reload",
+            "vectorScore": 0.49296095563213355,
+            "rerankScore": 0.2142755311619985,
+            "vectorRank": 2,
+            "rerankRank": 4,
+            "kept": true
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.10.0-unified-preview-navigation-3-and-stable-compose-hot-reload-the-jetbrains-blog.html:structural:0",
+            "source": "knowledge_database/Compose Multiplatform 1.10.0_ Unified @Preview, Navigation 3, and Stable Compose Hot Reload - The JetBrains Blog.html",
+            "section": "",
+            "vectorScore": 0.4339750364136706,
+            "rerankScore": 0.09633070886737626,
+            "vectorRank": 5,
+            "rerankRank": 5,
+            "kept": true
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.12.0-released-the-jetbrains-blog.html:structural:0",
+            "source": "knowledge_database/Compose Multiplatform 1.12.0 Released - The JetBrains Blog.html",
+            "section": "",
+            "vectorScore": 0.4123906773800932,
+            "rerankScore": 0.032255100784978084,
+            "vectorRank": 7,
+            "rerankRank": 6,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/the-ultimate-kmp-watchlist-level-up-your-skills-in-10-talks-the-jetbrains-blog.html:structural:1",
+            "source": "knowledge_database/The Ultimate KMP Watchlist_ Level Up Your Skills in 10 Talks - The JetBrains Blog.html",
+            "section": "? Part 1: Production Case Studies",
+            "vectorScore": 0.36490134012124953,
+            "rerankScore": 0.006289213703314162,
+            "vectorRank": 17,
+            "rerankRank": 7,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:3",
+            "source": "knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html",
+            "section": "Performance improvements on iOS",
+            "vectorScore": 0.35926197078310895,
+            "rerankScore": 0.0032714413146683954,
+            "vectorRank": 19,
+            "rerankRank": 8,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/kotlin-2.4.20-release-what-s-new-why-it-matters-2026-medium.html:structural:2",
+            "source": "knowledge_database/Kotlin 2.4.20 Release_ What's New & Why It Matters (2026) _ Medium.html",
+            "section": "What Actually Changed › 2. Compose Multiplatform Gets Serious",
+            "vectorScore": 0.39988546198768016,
+            "rerankScore": 0.0025157711635803493,
+            "vectorRank": 8,
+            "rerankRank": 9,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:3",
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "Performance that’s ready for production",
+            "vectorScore": 0.39557920034137656,
+            "rerankScore": 0.0024114570305049255,
+            "vectorRank": 9,
+            "rerankRank": 10,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/the-ultimate-kmp-watchlist-level-up-your-skills-in-10-talks-the-jetbrains-blog.html:structural:2",
+            "source": "knowledge_database/The Ultimate KMP Watchlist_ Level Up Your Skills in 10 Talks - The JetBrains Blog.html",
+            "section": "?️ Part 2: Getting Your Hands Dirty",
+            "vectorScore": 0.4186121574733998,
+            "rerankScore": 0.002333583461565474,
+            "vectorRank": 6,
+            "rerankRank": 11,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:6",
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "Compose Multiplatform beyond mobile",
+            "vectorScore": 0.36849117486845195,
+            "rerankScore": 0.0021981721680862207,
+            "vectorRank": 16,
+            "rerankRank": 12,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:2",
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "Apps that feel truly native",
+            "vectorScore": 0.3893485259873432,
+            "rerankScore": 0.0016005916731761784,
+            "vectorRank": 10,
+            "rerankRank": 13,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:5",
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "Production-ready and easy to adopt",
+            "vectorScore": 0.36363577782399803,
+            "rerankScore": 0.0008400968577815058,
+            "vectorRank": 18,
+            "rerankRank": 14,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/kotlin-2.4.20-release-what-s-new-why-it-matters-2026-medium.html:structural:8",
+            "source": "knowledge_database/Kotlin 2.4.20 Release_ What's New & Why It Matters (2026) _ Medium.html",
+            "section": "Key Takeaways",
+            "vectorScore": 0.3768919688192416,
+            "rerankScore": 0.0007081401985133982,
+            "vectorRank": 11,
+            "rerankRank": 15,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/what-s-next-for-kotlin-multiplatform-and-compose-multiplatform-august-2025-update-the-jetbrains-blog.html:structural:2",
+            "source": "knowledge_database/What’s Next for Kotlin Multiplatform and Compose Multiplatform – August 2025 Update - The JetBrains Blog.html",
+            "section": "Compose Multiplatform › Release Compose Multiplatform for Web in Beta",
+            "vectorScore": 0.36956063518306687,
+            "rerankScore": 0.0005473689255174504,
+            "vectorRank": 14,
+            "rerankRank": 16,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:4",
+            "source": "knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html",
+            "section": "Improved touch interop between Compose Multiplatform and native iOS",
+            "vectorScore": 0.3586800430476247,
+            "rerankScore": 0.0005057375297908026,
+            "vectorRank": 20,
+            "rerankRank": 17,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:0",
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "",
+            "vectorScore": 0.37343110045073635,
+            "rerankScore": 0.0002362191318501788,
+            "vectorRank": 12,
+            "rerankRank": 18,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/what-s-next-for-kotlin-multiplatform-and-compose-multiplatform-august-2025-update-the-jetbrains-blog.html:structural:11",
+            "source": "knowledge_database/What’s Next for Kotlin Multiplatform and Compose Multiplatform – August 2025 Update - The JetBrains Blog.html",
+            "section": "Kotlin/JS › Fallback to Kotlin/JS for Compose for Web",
+            "vectorScore": 0.36891033118039374,
+            "rerankScore": 0.0001537631323692195,
+            "vectorRank": 15,
+            "rerankRank": 19,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.10.0-unified-preview-navigation-3-and-stable-compose-hot-reload-the-jetbrains-blog.html:structural:1",
+            "source": "knowledge_database/Compose Multiplatform 1.10.0_ Unified @Preview, Navigation 3, and Stable Compose Hot Reload - The JetBrains Blog.html",
+            "section": "Common @Preview annotation",
+            "vectorScore": 0.37148560210593423,
+            "rerankScore": 0.00007380576244827997,
+            "vectorRank": 13,
+            "rerankRank": 20,
+            "kept": false
+          }
+        ],
+        "chunks": [
+          {
+            "n": 1,
+            "score": 0.4731218961463476,
+            "rerankScore": 0.9641714098374448,
+            "source": "knowledge_database/The Ultimate KMP Watchlist_ Level Up Your Skills in 10 Talks - The JetBrains Blog.html",
+            "section": "? Part 4: The Deep Dive",
+            "title": "The Ultimate KMP Watchlist: Level Up Your Skills in 10 Talks",
+            "chunk_id": "kb/the-ultimate-kmp-watchlist-level-up-your-skills-in-10-talks-the-jetbrains-blog.html:structural:4",
+            "text": "? Part 4: The Deep Dive\n\nFor those who want to see how the magic trick is performed.\n\nUsing C & native platforms in Kotlin: Building a multi-platform advanced library | Salomon Brys (2024)Sometimes you need to go low-level. Using cryptography as an excuse, this talk demonstrates how to build an advanced library that links against native C dependencies, aligns JNI with Kotlin/Native C-interop, and connects to Swift SDKs. Essential viewing for library authors.\n\nImplementing Compose Hot Reload | Sebastian Sellmair (2025)Hot Reload is a productivity game-changer, but implementing it on the JVM required deep engineering work. Sebastian breaks down the journey, from fighting ClassLoaders to patching the Kotlin Compiler to handle “shifting lambda names.” A fascinating look under the hood of the tooling we take for granted.\n\n? Want to watch them all in one go? We’ve compiled every talk from this list into a single KMP Level Up Playlist on YouTube. Save it to your library and start your marathon."
+          },
+          {
+            "n": 2,
+            "score": 0.5343836523965521,
+            "rerankScore": 0.856947659126022,
+            "source": "knowledge_database/Compose Multiplatform 1.10.0_ Unified @Preview, Navigation 3, and Stable Compose Hot Reload - The JetBrains Blog.html",
+            "section": "Compose Hot Reload",
+            "title": "Compose Multiplatform 1.10.0: Unified @Preview, Navigation 3, and Stable Compose Hot Reload",
+            "chunk_id": "kb/compose-multiplatform-1.10.0-unified-preview-navigation-3-and-stable-compose-hot-reload-the-jetbrains-blog.html:structural:3",
+            "text": "Compose Hot Reload\n\nCompose Hot Reload is designed to speed up UI iteration by letting you instantly see changes without restarting the application:\n\nThe Compose Hot Reload plugin is now stable – check out this deep-dive blog post to learn more about how it works. It’s now bundled with the Compose Multiplatform Gradle plugin and enabled by default, so no additional configuration is required.\n\nTry Compose Hot Reload\n\nThese are just the highlights – this release includes numerous updates across platforms, including the introduction of more transparent dependency management for Compose Multiplatform libraries with direct library references.\n\nMake sure to check out the full version in our documentation. If you encounter any issues, please report them on our issue tracker."
+          },
+          {
+            "n": 3,
+            "score": 0.4731796921258715,
+            "rerankScore": 0.3428582054380468,
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "Development tools that boost your efficiency",
+            "title": "Compose Multiplatform 1.8.0 Released: Compose Multiplatform for iOS Is Stable and Production-Ready",
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:4",
+            "text": "Development tools that boost your efficiency\n\nTo make building Compose Multiplatform apps faster, smoother, and more enjoyable, we’re actively improving the KMP tooling. A new KMP plugin is coming soon for both IntelliJ IDEA and Android Studio. Besides features for writing common logic, it will bring support for Compose Previews in common code, and tools for managing resources.\n\nEven more exciting: Compose Hot Reload is already available. It lets you make changes to your UI code and see the results instantly, without restarting the app or losing the current state. It intelligently reloads code as you work – making UI iteration faster and smoother than ever.\n\nTry Compose Hot Reload"
+          },
+          {
+            "n": 4,
+            "score": 0.49296095563213355,
+            "rerankScore": 0.2142755311619985,
+            "source": "knowledge_database/Compose Multiplatform 1.12.0 Released - The JetBrains Blog.html",
+            "section": "MCP server for AI agents in Compose Hot Reload",
+            "title": "Compose Multiplatform 1.12.0 Released",
+            "chunk_id": "kb/compose-multiplatform-1.12.0-released-the-jetbrains-blog.html:structural:1",
+            "text": "MCP server for AI agents in Compose Hot Reload\n\nCompose Hot Reload now ships with an experimental Model Context Protocol (MCP) server that connects AI coding agents to your running application.\n\nUsing the MCP server, an agent can trigger reloads, take screenshots, inspect the semantic tree, simulate clicks and text input, and read application logs. In practice, this means the agent can verify the results of its own edits. It can confirm that the reload succeeded, inspect the rendered UI, catch a runtime exception, and iterate – all without you describing what’s on screen.\n\nFor the full list of available tools and instructions on connecting your agent, see the Compose Hot Reload documentation.\n\nTry Compose Hot Reload"
+          },
+          {
+            "n": 5,
+            "score": 0.4339750364136706,
+            "rerankScore": 0.09633070886737626,
+            "source": "knowledge_database/Compose Multiplatform 1.10.0_ Unified @Preview, Navigation 3, and Stable Compose Hot Reload - The JetBrains Blog.html",
+            "section": "",
+            "title": "Compose Multiplatform 1.10.0: Unified @Preview, Navigation 3, and Stable Compose Hot Reload",
+            "chunk_id": "kb/compose-multiplatform-1.10.0-unified-preview-navigation-3-and-stable-compose-hot-reload-the-jetbrains-blog.html:structural:0",
+            "text": "Multiplatform\n\nReleases\n\nCompose Multiplatform 1.10.0: Unified @Preview, Navigation 3, and Stable Compose Hot Reload\n\nCompose Multiplatform 1.10.0 has been released! We’re continually developing our multiplatform APIs and expanding support for Jetpack libraries commonly used on Android.\n\nHere are the highlights of this release:\n\n- One common @Preview annotation to rule them all\n\n- Navigation 3 is available on non-Android targets\n\n- Stable and bundled Compose Hot Reload\n\nGet Started with Compose Multiplatform\n\nFor a complete overview of the changes, check out What’s new in Compose Multiplatform 1.10.0 or the release notes on GitHub."
+          }
+        ],
+        "declined": false,
+        "rejected": [],
+        "timings": {
+          "rewriteMs": 0,
+          "retrieveMs": 194,
+          "rerankMs": 3009,
+          "llmMs": 2778
+        }
+      }
+    },
+    {
+      "role": "user",
+      "content": "How long should I proof sourdough bread in the fridge overnight, and at what temperature?",
+      "id": "m3"
+    },
+    {
+      "role": "assistant",
+      "content": "The provided documents do not cover this question: none of the retrieved passages was relevant enough to answer from, so no answer was generated. The closest passages are listed below.",
+      "id": "m4",
+      "tokens": {
+        "input": 0,
+        "output": 0,
+        "total": 0
+      },
+      "cost": {
+        "input": 0,
+        "output": 0,
+        "total": 0
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 5205,
+      "stopReason": "declined",
+      "rag": {
+        "mode": "rag",
+        "label": "rag+rerank",
+        "rerank": true,
+        "rewrite": false,
+        "queries": [
+          "How long should I proof sourdough bread in the fridge overnight, and at what temperature?"
+        ],
+        "candidates": [
+          {
+            "chunk_id": "projects/first-agent/src/context/invariants.js:structural:10",
+            "source": "first-agent/src/context/invariants.js",
+            "section": "InvariantProposer",
+            "vectorScore": 0.18994738995672864,
+            "rerankScore": 0.0007628476536029986,
+            "vectorRank": 3,
+            "rerankRank": 1,
+            "kept": false
+          },
+          {
+            "chunk_id": "projects/first-agent/src/context/memory.js:structural:115",
+            "source": "first-agent/src/context/memory.js",
+            "section": "MemoryStrategy",
+            "vectorScore": 0.15671567232097355,
+            "rerankScore": 0.00028499821137936866,
+            "vectorRank": 15,
+            "rerankRank": 2,
+            "kept": false
+          },
+          {
+            "chunk_id": "projects/first-agent/src/store/conversationstore.js:structural:13",
+            "source": "first-agent/src/store/conversationStore.js",
+            "section": "normaliseRecord",
+            "vectorScore": 0.156405023236299,
+            "rerankScore": 0.00022690270208389996,
+            "vectorRank": 17,
+            "rerankRank": 3,
+            "kept": false
+          },
+          {
+            "chunk_id": "projects/prompt.md:structural:5",
+            "source": "PROMPT.md",
+            "section": "Pipeline › Chunk record",
+            "vectorScore": 0.1784787430679314,
+            "rerankScore": 0.00017290212440709588,
+            "vectorRank": 5,
+            "rerankRank": 4,
+            "kept": false
+          },
+          {
+            "chunk_id": "projects/first-agent/src/store/invariantstore.js:structural:0",
+            "source": "first-agent/src/store/invariantStore.js",
+            "section": "(module)",
+            "vectorScore": 0.16264717984429644,
+            "rerankScore": 0.00016005028591941197,
+            "vectorRank": 10,
+            "rerankRank": 5,
+            "kept": false
+          },
+          {
+            "chunk_id": "projects/first-agent/src/context/memory.js:structural:96",
+            "source": "first-agent/src/context/memory.js",
+            "section": "MemoryStrategy",
+            "vectorScore": 0.15699862525208197,
+            "rerankScore": 0.0001256607434920351,
+            "vectorRank": 14,
+            "rerankRank": 6,
+            "kept": false
+          },
+          {
+            "chunk_id": "projects/first-agent/src/context/memory.js:structural:102",
+            "source": "first-agent/src/context/memory.js",
+            "section": "MemoryStrategy",
+            "vectorScore": 0.15748281491353305,
+            "rerankScore": 0.00009232899043160686,
+            "vectorRank": 12,
+            "rerankRank": 7,
+            "kept": false
+          },
+          {
+            "chunk_id": "projects/scheduler-mcp-server/src/steps.js:structural:14",
+            "source": "scheduler_mcp_server/src/steps.js",
+            "section": "validateProposal",
+            "vectorScore": 0.15740902628325787,
+            "rerankScore": 0.00009091138852597262,
+            "vectorRank": 13,
+            "rerankRank": 8,
+            "kept": false
+          },
+          {
+            "chunk_id": "projects/first-agent/src/store/profilestore.js:structural:0",
+            "source": "first-agent/src/store/profileStore.js",
+            "section": "(module)",
+            "vectorScore": 0.1631792977941,
+            "rerankScore": 0.00008510723762247306,
+            "vectorRank": 9,
+            "rerankRank": 9,
+            "kept": false
+          },
+          {
+            "chunk_id": "projects/first-agent/src/context/invariants.js:structural:7",
+            "source": "first-agent/src/context/invariants.js",
+            "section": "PROPOSER_PROMPT",
+            "vectorScore": 0.18327614280916543,
+            "rerankScore": 0.0000801071759545183,
+            "vectorRank": 4,
+            "rerankRank": 10,
+            "kept": false
+          },
+          {
+            "chunk_id": "projects/first-agent/src/context/memory.js:structural:111",
+            "source": "first-agent/src/context/memory.js",
+            "section": "MemoryStrategy",
+            "vectorScore": 0.15182148326922734,
+            "rerankScore": 0.00007370996511287816,
+            "vectorRank": 20,
+            "rerankRank": 11,
+            "kept": false
+          },
+          {
+            "chunk_id": "projects/first-agent/src/context/memory.js:structural:53",
+            "source": "first-agent/src/context/memory.js",
+            "section": "writeProfile",
+            "vectorScore": 0.15360103392181795,
+            "rerankScore": 0.00006081530704209245,
+            "vectorRank": 19,
+            "rerankRank": 12,
+            "kept": false
+          },
+          {
+            "chunk_id": "projects/first-agent/src/context/invariants.js:structural:11",
+            "source": "first-agent/src/context/invariants.js",
+            "section": "proposalPrompt",
+            "vectorScore": 0.17814074587286094,
+            "rerankScore": 0.00005879970680180058,
+            "vectorRank": 6,
+            "rerankRank": 13,
+            "kept": false
+          },
+          {
+            "chunk_id": "projects/first-agent/src/store/memorystore.js:structural:2",
+            "source": "first-agent/src/store/memoryStore.js",
+            "section": "MemoryStore",
+            "vectorScore": 0.16084381925639737,
+            "rerankScore": 0.0000500935874062642,
+            "vectorRank": 11,
+            "rerankRank": 14,
+            "kept": false
+          },
+          {
+            "chunk_id": "projects/first-agent/src/memoryroutes.js:structural:2",
+            "source": "first-agent/src/memoryRoutes.js",
+            "section": "memoryRoutes",
+            "vectorScore": 0.1564954824730685,
+            "rerankScore": 0.00004656396512235924,
+            "vectorRank": 16,
+            "rerankRank": 15,
+            "kept": false
+          },
+          {
+            "chunk_id": "projects/first-agent/src/context/memory.js:structural:101",
+            "source": "first-agent/src/context/memory.js",
+            "section": "MemoryStrategy",
+            "vectorScore": 0.1651860599175367,
+            "rerankScore": 0.00004146730625563745,
+            "vectorRank": 8,
+            "rerankRank": 16,
+            "kept": false
+          },
+          {
+            "chunk_id": "projects/prompt.md:structural:11",
+            "source": "PROMPT.md",
+            "section": "Project setup",
+            "vectorScore": 0.15581369963867553,
+            "rerankScore": 0.000030861592241855494,
+            "vectorRank": 18,
+            "rerankRank": 17,
+            "kept": false
+          },
+          {
+            "chunk_id": "projects/first-agent/src/context/memory.js:structural:3",
+            "source": "first-agent/src/context/memory.js",
+            "section": "HISTORY_DEPTH",
+            "vectorScore": 0.16968003310851038,
+            "rerankScore": 0.00002489630700456595,
+            "vectorRank": 7,
+            "rerankRank": 18,
+            "kept": false
+          },
+          {
+            "chunk_id": "projects/first-agent/src/context/memory.js:structural:107",
+            "source": "first-agent/src/context/memory.js",
+            "section": "MemoryStrategy",
+            "vectorScore": 0.19095386189138963,
+            "rerankScore": 0.000024001457059375623,
+            "vectorRank": 2,
+            "rerankRank": 19,
+            "kept": false
+          },
+          {
+            "chunk_id": "projects/scheduler-mcp-server/src/tools.js:structural:2",
+            "source": "scheduler_mcp_server/src/tools.js",
+            "section": "intervalSeconds",
+            "vectorScore": 0.19142420189369164,
+            "rerankScore": 0.000020449491704607095,
+            "vectorRank": 1,
+            "rerankRank": 20,
+            "kept": false
+          }
+        ],
+        "chunks": [],
+        "declined": true,
+        "rejected": [
+          {
+            "score": 0.18994738995672864,
+            "rerankScore": 0.0007628476536029986,
+            "source": "first-agent/src/context/invariants.js",
+            "section": "InvariantProposer",
+            "title": "first-agent/src/context/invariants.js",
+            "chunk_id": "projects/first-agent/src/context/invariants.js:structural:10",
+            "text": "/**\n   * @param {object} params\n   * @param {string} params.text - What the person typed, verbatim.\n   * @param {{ key: string, text: string, check: string }[]} [params.invariants]\n   *   Every rule already stored. Without them the model cannot tell an `amend`\n   *   from an `add`, and the whole point of the feature is that it tells you\n   *   *which* invariants change rather than silently shadowing the old value.\n   * @param {{ key: string, value: string }[]} [params.longterm] - Everything in\n   *   long-term memory, so the draft is written knowing what it lands beside.\n   */\n  async propose({ text, invariants = [], longterm = [] } = {}) {\n    const startedAt = Date.now();\n    const result = await this.#provider.complete({\n      model: this.model,\n      system: PROPOSER_PROMPT,\n      messages: [{ role: \"user\", content: proposalPrompt(text, invariants, longterm) }],\n      temperature: 0,\n      maxTokens: this.maxTokens,\n    });\n\n    const parsed = parseRows(result?.text);\n    return {\n      rows: parsed.rows,\n      /** What the reply could not be read as — never an empty silence. */\n      rejected: parsed.dropped,\n      usage: result?.usage ?? { inputTokens: 0, outputTokens: 0 },\n      model: result?.model ?? null,\n      ms: Date.now() - startedAt,\n    };\n  }\n}"
+          },
+          {
+            "score": 0.15671567232097355,
+            "rerankScore": 0.00028499821137936866,
+            "source": "first-agent/src/context/memory.js",
+            "section": "MemoryStrategy",
+            "title": "first-agent/src/context/memory.js",
+            "chunk_id": "projects/first-agent/src/context/memory.js:structural:115",
+            "text": "/**\n   * The project's rules.\n   *\n   * An unreadable rule set degrades to *no rules* rather than to a failed\n   * turn, which is the same bargain every other store here strikes — and it is\n   * worth being explicit that it is the unsafe direction of the two. The block\n   * simply is not sent, the answer is unconstrained, and the console says so.\n   * The alternative is refusing to answer at all because a file would not\n   * parse, which nobody wants and which this app does nowhere else.\n   */\n  async #loadInvariants() {\n    try {\n      return await this.invariantStore.load(this.project);\n    } catch (err) {\n      console.error(\"[memory] could not read the invariants:\", err?.message ?? err);\n      return emptyInvariants(this.project);\n    }\n  }\n\n  async #saveInvariants(record) {\n    try {\n      await this.invariantStore.save(this.project, record);\n    } catch (err) {\n      console.error(\"[memory] could not write the invariants:\", err?.message ?? err);\n    }\n  }\n\n  #extractorFor(provider) {\n    if (this.#extractor && this.#cachedFor === null) return this.#extractor;\n    this.#rebuild(provider);\n    return this.#extractor;\n  }\n\n  #promoterFor(provider) {\n    if (this.#promoter && this.#cachedFor === null) return this.#promoter;\n    this.#rebuild(provider);\n    return this.#promoter;\n  }\n\n  #brieferFor(provider) {\n    if (this.#briefer && this.#cachedFor === null) return this.#briefer;\n    this.#rebuild(provider);\n    return this.#briefer;\n  }\n\n  #proposerFor(provider) {\n    if (this.#proposer && this.#cachedFor === null) return this.#proposer;\n    this.#rebuild(provider);\n    return this.#proposer;\n  }"
+          },
+          {
+            "score": 0.156405023236299,
+            "rerankScore": 0.00022690270208389996,
+            "source": "first-agent/src/store/conversationStore.js",
+            "section": "normaliseRecord",
+            "title": "first-agent/src/store/conversationStore.js",
+            "chunk_id": "projects/first-agent/src/store/conversationstore.js:structural:13",
+            "text": "/**\n * The whole record, coerced: usage, messages, and the branch graph.\n *\n * This is the single place a file from any earlier version becomes something\n * the current code can work with. It is called on read and never on write, so\n * an old file is migrated in memory and only takes its new shape the next time\n * something is actually saved to it.\n *\n * @param {object} data\n * @returns {Conversation}\n */\nexport function normaliseRecord(data) {\n  const flat = flatten(data);\n  return {\n    id: data?.id,\n    title: data?.title,\n    createdAt: data?.createdAt,\n    updatedAt: data?.updatedAt,\n    usage: normaliseUsage(data?.usage),\n    // **Which project's rules this conversation is subject to.**\n    //\n    // It lives on the record rather than being folded into the user key\n    // because it is a different question: the user key says whose long-term\n    // memory to read, this says whose invariants apply. One person has two\n    // codebases with two rule sets, and a field that answered both would have\n    // to pick one of them and be wrong about the other. A record written\n    // before this field existed loads as the default project, which is the\n    // honest answer for a conversation nobody ever said belonged anywhere.\n    project: projectOf(data?.project),\n    // **Which agent answers this conversation.** It is on the record rather\n    // than chosen per request because the transcript below was written by one\n    // persona, and a dropdown that silently re-pointed an open chat at another\n    // would make the two halves of it disagree for no stated reason. A record\n    // written before this field existed reads back as the default agent, which\n    // is the honest answer for a conversation nobody ever assigned.\n    agentId: agentOf(data?.agentId),\n    // **Which conversation this one was split off from**, or null. It is a\n    // provenance note and nothing more: a fork is a conversation in its own\n    // right from the moment it exists, and deleting its parent does not\n    // orphan it, because it holds its own copy of everything."
+          }
+        ],
+        "timings": {
+          "rewriteMs": 0,
+          "retrieveMs": 62,
+          "rerankMs": 5143,
+          "llmMs": 0
+        }
+      }
+    },
+    {
+      "role": "user",
+      "content": "Which Compose Multiplatform release added type-safe navigation, and which one brought Navigation 3?",
+      "id": "m5"
+    },
+    {
+      "role": "assistant",
+      "content": "Based on the documents:\n\n**Type-safe navigation** was added in **Compose Multiplatform 1.7.0**. The release notes state: \"Compose Multiplatform now provides compile-time safety for your navigation graph.\" [1][2]\n\n**Navigation 3** became available in **Compose Multiplatform 1.10.0**. The release highlights mention: \"Navigation 3 is available on non-Android targets.\" [3]",
+      "id": "m6",
+      "tokens": {
+        "input": 2592,
+        "output": 162,
+        "total": 2754
+      },
+      "cost": {
+        "input": 0.002592,
+        "output": 0.0008100000000000001,
+        "total": 0.003402
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 5171,
+      "stopReason": "end_turn",
+      "rag": {
+        "mode": "rag",
+        "label": "rag+rewrite+rerank",
+        "rerank": true,
+        "rewrite": true,
+        "queries": [
+          "Compose Multiplatform type-safe navigation release",
+          "Compose Multiplatform Navigation 3"
+        ],
+        "candidates": [
+          {
+            "chunk_id": "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:0",
+            "source": "knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html",
+            "section": "",
+            "vectorScore": 0.7164392380404396,
+            "rerankScore": 0.9923031729406873,
+            "vectorRank": 3,
+            "rerankRank": 1,
+            "kept": true
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:2",
+            "source": "knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html",
+            "section": "Type-safe navigation",
+            "vectorScore": 0.7771159172843135,
+            "rerankScore": 0.984299379230834,
+            "vectorRank": 1,
+            "rerankRank": 2,
+            "kept": true
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.10.0-unified-preview-navigation-3-and-stable-compose-hot-reload-the-jetbrains-blog.html:structural:0",
+            "source": "knowledge_database/Compose Multiplatform 1.10.0_ Unified @Preview, Navigation 3, and Stable Compose Hot Reload - The JetBrains Blog.html",
+            "section": "",
+            "vectorScore": 0.6889804758648802,
+            "rerankScore": 0.9836231655805834,
+            "vectorRank": 4,
+            "rerankRank": 3,
+            "kept": true
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:1",
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "Everything you need to build apps for real-world use",
+            "vectorScore": 0.6270465968553002,
+            "rerankScore": 0.9466240707143277,
+            "vectorRank": 5,
+            "rerankRank": 4,
+            "kept": true
+          },
+          {
+            "chunk_id": "kb/what-s-next-for-kotlin-multiplatform-and-compose-multiplatform-august-2025-update-the-jetbrains-blog.html:structural:3",
+            "source": "knowledge_database/What’s Next for Kotlin Multiplatform and Compose Multiplatform – August 2025 Update - The JetBrains Blog.html",
+            "section": "Compose Multiplatform › Make more ecosystem components available for Compose Multiplatform",
+            "vectorScore": 0.5609675844540524,
+            "rerankScore": 0.8793772963064493,
+            "vectorRank": 15,
+            "rerankRank": 5,
+            "kept": true
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.10.0-unified-preview-navigation-3-and-stable-compose-hot-reload-the-jetbrains-blog.html:structural:2",
+            "source": "knowledge_database/Compose Multiplatform 1.10.0_ Unified @Preview, Navigation 3, and Stable Compose Hot Reload - The JetBrains Blog.html",
+            "section": "Navigation 3",
+            "vectorScore": 0.7378935724078158,
+            "rerankScore": 0.6784779423706034,
+            "vectorRank": 2,
+            "rerankRank": 6,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:6",
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "Compose Multiplatform beyond mobile",
+            "vectorScore": 0.6179022268887228,
+            "rerankScore": 0.3352865474299072,
+            "vectorRank": 7,
+            "rerankRank": 7,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:2",
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "Apps that feel truly native",
+            "vectorScore": 0.6057526445322555,
+            "rerankScore": 0.27588702205836474,
+            "vectorRank": 9,
+            "rerankRank": 8,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/kotlin-2.4.20-release-what-s-new-why-it-matters-2026-medium.html:structural:2",
+            "source": "knowledge_database/Kotlin 2.4.20 Release_ What's New & Why It Matters (2026) _ Medium.html",
+            "section": "What Actually Changed › 2. Compose Multiplatform Gets Serious",
+            "vectorScore": 0.5115969156739623,
+            "rerankScore": 0.26636557175080844,
+            "vectorRank": 22,
+            "rerankRank": 9,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/kotlin-2.4.20-release-what-s-new-why-it-matters-2026-medium.html:structural:8",
+            "source": "knowledge_database/Kotlin 2.4.20 Release_ What's New & Why It Matters (2026) _ Medium.html",
+            "section": "Key Takeaways",
+            "vectorScore": 0.4766930236541619,
+            "rerankScore": 0.19272992864556426,
+            "vectorRank": 23,
+            "rerankRank": 10,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:0",
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "",
+            "vectorScore": 0.6168859355107423,
+            "rerankScore": 0.1566831634894254,
+            "vectorRank": 8,
+            "rerankRank": 11,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.12.0-released-the-jetbrains-blog.html:structural:0",
+            "source": "knowledge_database/Compose Multiplatform 1.12.0 Released - The JetBrains Blog.html",
+            "section": "",
+            "vectorScore": 0.5688436173762658,
+            "rerankScore": 0.11467063931605599,
+            "vectorRank": 14,
+            "rerankRank": 12,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:6",
+            "source": "knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html",
+            "section": "Shared element transitions",
+            "vectorScore": 0.5840931438005865,
+            "rerankScore": 0.09409470962852055,
+            "vectorRank": 12,
+            "rerankRank": 13,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:7",
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "Read more",
+            "vectorScore": 0.5338758774123952,
+            "rerankScore": 0.045770930548970586,
+            "vectorRank": 21,
+            "rerankRank": 14,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:1",
+            "source": "knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html",
+            "section": "New common modules",
+            "vectorScore": 0.6247487153730024,
+            "rerankScore": 0.04050682844924349,
+            "vectorRank": 6,
+            "rerankRank": 15,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:5",
+            "source": "knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html",
+            "section": "Drag and drop on desktop",
+            "vectorScore": 0.5591896245636837,
+            "rerankScore": 0.032851019883301094,
+            "vectorRank": 16,
+            "rerankRank": 16,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/what-s-next-for-kotlin-multiplatform-and-compose-multiplatform-august-2025-update-the-jetbrains-blog.html:structural:2",
+            "source": "knowledge_database/What’s Next for Kotlin Multiplatform and Compose Multiplatform – August 2025 Update - The JetBrains Blog.html",
+            "section": "Compose Multiplatform › Release Compose Multiplatform for Web in Beta",
+            "vectorScore": 0.5576900881995728,
+            "rerankScore": 0.024545055317550628,
+            "vectorRank": 17,
+            "rerankRank": 17,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:7",
+            "source": "knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html",
+            "section": "Resources updates and improvements",
+            "vectorScore": 0.5366673555199283,
+            "rerankScore": 0.02414012577516621,
+            "vectorRank": 20,
+            "rerankRank": 18,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.10.0-unified-preview-navigation-3-and-stable-compose-hot-reload-the-jetbrains-blog.html:structural:3",
+            "source": "knowledge_database/Compose Multiplatform 1.10.0_ Unified @Preview, Navigation 3, and Stable Compose Hot Reload - The JetBrains Blog.html",
+            "section": "Compose Hot Reload",
+            "vectorScore": 0.5816996342559594,
+            "rerankScore": 0.02250781006030922,
+            "vectorRank": 13,
+            "rerankRank": 19,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:3",
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "Performance that’s ready for production",
+            "vectorScore": 0.5476569572912986,
+            "rerankScore": 0.022381082514802288,
+            "vectorRank": 18,
+            "rerankRank": 20,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/kotlin-2.4.20-release-what-s-new-why-it-matters-2026-medium.html:structural:6",
+            "source": "knowledge_database/Kotlin 2.4.20 Release_ What's New & Why It Matters (2026) _ Medium.html",
+            "section": "What You Should Actually Share › Keep Platform-Specific:",
+            "vectorScore": 0.4718619356156,
+            "rerankScore": 0.018468600018980107,
+            "vectorRank": 24,
+            "rerankRank": 21,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:4",
+            "source": "knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html",
+            "section": "Improved touch interop between Compose Multiplatform and native iOS",
+            "vectorScore": 0.5914251530051264,
+            "rerankScore": 0.010955504872888652,
+            "vectorRank": 10,
+            "rerankRank": 22,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:5",
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "Production-ready and easy to adopt",
+            "vectorScore": 0.5858075541075101,
+            "rerankScore": 0.008225969439869816,
+            "vectorRank": 11,
+            "rerankRank": 23,
+            "kept": false
+          },
+          {
+            "chunk_id": "kb/compose-multiplatform-1.10.0-unified-preview-navigation-3-and-stable-compose-hot-reload-the-jetbrains-blog.html:structural:1",
+            "source": "knowledge_database/Compose Multiplatform 1.10.0_ Unified @Preview, Navigation 3, and Stable Compose Hot Reload - The JetBrains Blog.html",
+            "section": "Common @Preview annotation",
+            "vectorScore": 0.5408208701149618,
+            "rerankScore": 0.00026968194649170714,
+            "vectorRank": 19,
+            "rerankRank": 24,
+            "kept": false
+          }
+        ],
+        "chunks": [
+          {
+            "n": 1,
+            "score": 0.7164392380404396,
+            "rerankScore": 0.9923031729406873,
+            "source": "knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html",
+            "section": "",
+            "title": "Compose Multiplatform 1.7.0 Released",
+            "chunk_id": "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:0",
+            "text": "Multiplatform\n\nReleases\n\nCompose Multiplatform 1.7.0 Released\n\nCompose Multiplatform is a declarative UI framework built by JetBrains that allows developers to share UI implementations across different platforms. The 1.7.0 release brings more components to common code, support for type-safe navigation, significant performance improvements on iOS, and changes from the latest Jetpack Compose update.\n\nHere are the highlights of this release:\n\n- Material3 adaptive and WindowSizeClass are now available in common code.\n\n- Compose Multiplatform now provides compile-time safety for your navigation graph.\n\n- Compose Multiplatform 1.7.0 paired with Kotlin 2.0.20 performs significantly faster and smoother on iOS than the combination of previous stable releases.\n\nFor the complete list of changes, refer to our What’s New page or release notes on GitHub.\n\nGet Started with Compose Multiplatform"
+          },
+          {
+            "n": 2,
+            "score": 0.7771159172843135,
+            "rerankScore": 0.984299379230834,
+            "source": "knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html",
+            "section": "Type-safe navigation",
+            "title": "Compose Multiplatform 1.7.0 Released",
+            "chunk_id": "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:2",
+            "text": "Type-safe navigation\n\nYou can now rely on Compose Multiplatform for compile-time safety in navigation graphs. To ensure type safety, we adopted Jetpack Compose’s type-safe approach to passing objects along a navigation route.\n\nSee the Type safety in Navigation Compose guide for API details."
+          },
+          {
+            "n": 3,
+            "score": 0.6889804758648802,
+            "rerankScore": 0.9836231655805834,
+            "source": "knowledge_database/Compose Multiplatform 1.10.0_ Unified @Preview, Navigation 3, and Stable Compose Hot Reload - The JetBrains Blog.html",
+            "section": "",
+            "title": "Compose Multiplatform 1.10.0: Unified @Preview, Navigation 3, and Stable Compose Hot Reload",
+            "chunk_id": "kb/compose-multiplatform-1.10.0-unified-preview-navigation-3-and-stable-compose-hot-reload-the-jetbrains-blog.html:structural:0",
+            "text": "Multiplatform\n\nReleases\n\nCompose Multiplatform 1.10.0: Unified @Preview, Navigation 3, and Stable Compose Hot Reload\n\nCompose Multiplatform 1.10.0 has been released! We’re continually developing our multiplatform APIs and expanding support for Jetpack libraries commonly used on Android.\n\nHere are the highlights of this release:\n\n- One common @Preview annotation to rule them all\n\n- Navigation 3 is available on non-Android targets\n\n- Stable and bundled Compose Hot Reload\n\nGet Started with Compose Multiplatform\n\nFor a complete overview of the changes, check out What’s new in Compose Multiplatform 1.10.0 or the release notes on GitHub."
+          },
+          {
+            "n": 4,
+            "score": 0.6270465968553002,
+            "rerankScore": 0.9466240707143277,
+            "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+            "section": "Everything you need to build apps for real-world use",
+            "title": "Compose Multiplatform 1.8.0 Released: Compose Multiplatform for iOS Is Stable and Production-Ready",
+            "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:1",
+            "text": "Everything you need to build apps for real-world use\n\nCompose Multiplatform for iOS now includes everything you need to build beautiful UIs for real-world apps:\n\n- Feature parity with Jetpack Compose for all popular use cases.\n\n- Type-safe navigation with deep linking support.\n\n- Flexible resource management.\n\n- First-class accessibility support with VoiceOver, AssistiveTouch, and Full Keyboard Access.\n\n- And more.\n\nVersion 1.8.0 finalizes the core API surface and brings targeted improvements to accessibility and navigation, along with a wide range of bug fixes and performance improvements (see the details in the 1.8.0 What’s New). All major APIs are now officially stable, with strong compatibility guarantees and minimal breaking changes expected in the future.\n\nThis stable foundation is backed by a rapidly growing ecosystem. Jetpack libraries are adopting multiplatform capabilities, and the community continues to contribute high-quality libraries, covering everything from architecture and dependency injection to image loading and graph rendering – all listed on klibs.io, the official Kotlin Multiplatform library catalog.\n\nWith these building blocks in place, you can start developing robust, feature-rich apps today – just like the teams already shipping Compose Multiplatform apps to production."
+          },
+          {
+            "n": 5,
+            "score": 0.5609675844540524,
+            "rerankScore": 0.8793772963064493,
+            "source": "knowledge_database/What’s Next for Kotlin Multiplatform and Compose Multiplatform – August 2025 Update - The JetBrains Blog.html",
+            "section": "Compose Multiplatform › Make more ecosystem components available for Compose Multiplatform",
+            "title": "What’s Next for Kotlin Multiplatform and Compose Multiplatform – August 2025 Update",
+            "chunk_id": "kb/what-s-next-for-kotlin-multiplatform-and-compose-multiplatform-august-2025-update-the-jetbrains-blog.html:structural:3",
+            "text": "Make more ecosystem components available for Compose Multiplatform\n\nGoogle has developed excellent Jetpack libraries, which are already available for Android. We’re collaborating closely with Google to make more Jetpack libraries, such as Navigation 3 and Paging 3, available for Compose Multiplatform."
+          }
+        ],
+        "declined": false,
+        "rejected": [],
+        "timings": {
+          "rewriteMs": 934,
+          "retrieveMs": 120,
+          "rerankMs": 2578,
+          "llmMs": 1539
+        }
+      }
+    }
+  ]
+}

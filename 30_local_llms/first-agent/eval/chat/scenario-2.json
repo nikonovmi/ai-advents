@@ -1,0 +1,244 @@
+{
+  "id": "scenario-2",
+  "title": "Comparison: two Kotlin 2.4 articles, then a navigation choice",
+  "kind": "comparison",
+  "description": "The user compares what two Medium articles say about upgrading to Kotlin 2.4 ('the comparison' and 'the feature list'), corrects a detail about the team, then changes direction to choosing a navigation approach for a Compose Multiplatform app (1.7.0 type-safe navigation vs 1.10.0 Navigation 3) — after which the memory must let go of the Kotlin 2.4 focus.",
+  "messages": [
+    {
+      "turn": 1,
+      "user": "I need to decide whether our team should upgrade to Kotlin 2.4 now. Two articles cover it: 'Kotlin 2.4 vs Kotlin 2.3: What Actually Changed?' and 'Kotlin 2.4: 10 New Features Android Developers Should Know'. What does each one call the most important change?",
+      "expected_intent": "search",
+      "expect": {
+        "decline": false,
+        "sources": [
+          "knowledge_database/Kotlin 2.4 vs Kotlin 2.3_ What Actually Changed_ _ Medium.html",
+          "knowledge_database/Kotlin 2.4_ 10 New Features Android Developers Should Know _ Medium.html"
+        ],
+        "facts": [
+          "Both articles put stable context parameters first"
+        ]
+      },
+      "memory_checkpoint": [
+        "The goal is deciding whether the team should upgrade to Kotlin 2.4 now"
+      ],
+      "tags": [
+        "goal"
+      ],
+      "notes": "Goal stated in message 1 together with a question that needs both documents."
+    },
+    {
+      "turn": 2,
+      "user": "Some context: we're an Android-only team. And let's call the first article 'the comparison' and the second one 'the feature list'.",
+      "expected_intent": "memory_only",
+      "expect": {
+        "decline": false
+      },
+      "memory_checkpoint": [
+        "The team is Android-only",
+        "'the comparison' is the article 'Kotlin 2.4 vs Kotlin 2.3: What Actually Changed?'",
+        "'the feature list' is the article 'Kotlin 2.4: 10 New Features Android Developers Should Know'"
+      ],
+      "tags": [
+        "term"
+      ],
+      "notes": "A clarified detail and two defined terms, nothing asked: memory_only."
+    },
+    {
+      "turn": 3,
+      "user": "What does the comparison say about whether we should upgrade right now?",
+      "expected_intent": "search",
+      "expect": {
+        "decline": false,
+        "sources": [
+          "knowledge_database/Kotlin 2.4 vs Kotlin 2.3_ What Actually Changed_ _ Medium.html"
+        ],
+        "facts": [
+          "Kotlin 2.4 requires Gradle 9.5.0 or newer, so check Gradle compatibility and update Android Studio",
+          "Adopt context parameters incrementally rather than rewriting everything at once"
+        ]
+      },
+      "notes": "Uses a defined term: the standalone question and queries must name the right article. (First version asked what to 'check before upgrading'; the feature list has no such checks, so the follow-up 'And the other one?' was honestly declined — reworded to the upgrade advice both articles give.)"
+    },
+    {
+      "turn": 4,
+      "user": "And the other one?",
+      "expected_intent": "search",
+      "expect": {
+        "decline": false,
+        "sources": [
+          "knowledge_database/Kotlin 2.4_ 10 New Features Android Developers Should Know _ Medium.html"
+        ],
+        "facts": [
+          "Context parameters and explicit backing fields are a safe, backward-compatible win for MVVM or Clean Architecture codebases",
+          "The major structural advantages go to multiplatform teams; single-platform Android apps get mainly ergonomic and modest performance gains"
+        ]
+      },
+      "tags": [
+        "reference"
+      ],
+      "notes": "Pure reference follow-up: 'the other one' is the feature list, asking the same question (its 'Should You Upgrade Now?' section)."
+    },
+    {
+      "turn": 5,
+      "user": "Why does it say teams like ours gain less than multiplatform teams?",
+      "expected_intent": "search",
+      "expect": {
+        "decline": false,
+        "sources": [
+          "knowledge_database/Kotlin 2.4_ 10 New Features Android Developers Should Know _ Medium.html"
+        ],
+        "facts": [
+          "The Native/Wasm work in this release is particularly impactful for multiplatform and KMP+iOS teams"
+        ]
+      },
+      "tags": [
+        "reference"
+      ],
+      "notes": "Reference ('it' = the feature list) plus the user's own detail ('teams like ours' = Android-only, from memory)."
+    },
+    {
+      "turn": 6,
+      "user": "Correction: we're not Android-only after all — we're a Kotlin Multiplatform team shipping to Android and iOS.",
+      "expected_intent": "memory_only",
+      "expect": {
+        "decline": false
+      },
+      "memory_checkpoint": [
+        "The team is a Kotlin Multiplatform team shipping to Android and iOS"
+      ],
+      "tags": [
+        "correction"
+      ],
+      "notes": "A correction of a memory item: the Android-only detail is removed and replaced, not kept next to the new one."
+    },
+    {
+      "turn": 7,
+      "user": "Given that, what does each article say about Swift export?",
+      "expected_intent": "search",
+      "expect": {
+        "decline": false,
+        "sources": [
+          "knowledge_database/Kotlin 2.4 vs Kotlin 2.3_ What Actually Changed_ _ Medium.html",
+          "knowledge_database/Kotlin 2.4_ 10 New Features Android Developers Should Know _ Medium.html"
+        ],
+        "facts": [
+          "The comparison: Kotlin 2.4 brings updates to Swift export (with dependency support for Swift packages)",
+          "The feature list: the 2.4 line improved Swift export"
+        ]
+      },
+      "notes": "Comparison across both articles, framed by the corrected detail."
+    },
+    {
+      "turn": 8,
+      "user": "Got it, thanks.",
+      "expected_intent": "chat",
+      "expect": {
+        "decline": false
+      },
+      "tags": [
+        "chat"
+      ],
+      "notes": "Chat only."
+    },
+    {
+      "turn": 9,
+      "user": "Actually, drop the Kotlin upgrade question — the team already decided to upgrade. What I need now is to choose a navigation approach for our Compose Multiplatform app. What did Compose Multiplatform 1.7.0 add for navigation?",
+      "expected_intent": "search",
+      "expect": {
+        "decline": false,
+        "sources": [
+          "knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html"
+        ],
+        "facts": [
+          "Compose Multiplatform 1.7.0 provides compile-time (type-safe) navigation, adopting Jetpack Compose's type-safe approach to passing objects along a navigation route"
+        ]
+      },
+      "memory_checkpoint": [
+        "The goal is now choosing a navigation approach for the team's Compose Multiplatform app",
+        "Nothing about the Kotlin 2.4 upgrade decision or the two Kotlin 2.4 articles remains in memory"
+      ],
+      "tags": [
+        "change_direction"
+      ],
+      "notes": "Change of direction mixed with a question (so search): the goal changes, and the article terms that only applied to the Kotlin 2.4 comparison are removed. The team detail still applies."
+    },
+    {
+      "turn": 10,
+      "user": "And what does Navigation 3 in 1.10.0 give me instead?",
+      "expected_intent": "search",
+      "expect": {
+        "decline": false,
+        "sources": [
+          "knowledge_database/Compose Multiplatform 1.10.0_ Unified @Preview, Navigation 3, and Stable Compose Hot Reload - The JetBrains Blog.html"
+        ],
+        "facts": [
+          "Navigation 3 is available on non-Android targets",
+          "With Navigation 3 you can manipulate the navigation stack directly, e.g. adding or removing destinations"
+        ]
+      },
+      "tags": [
+        "reference"
+      ],
+      "notes": "Reference follow-up on the new focus; second document of the new comparison."
+    },
+    {
+      "turn": 11,
+      "user": "Does the August 2025 roadmap say anything about bringing it to Compose Multiplatform?",
+      "expected_intent": "search",
+      "expect": {
+        "decline": false,
+        "sources": [
+          "knowledge_database/What’s Next for Kotlin Multiplatform and Compose Multiplatform – August 2025 Update - The JetBrains Blog.html"
+        ],
+        "facts": [
+          "JetBrains is collaborating with Google to make more Jetpack libraries, such as Navigation 3 and Paging 3, available for Compose Multiplatform"
+        ]
+      },
+      "tags": [
+        "reference"
+      ],
+      "notes": "Reference ('it' = Navigation 3) into a third document."
+    },
+    {
+      "turn": 12,
+      "user": "From here on, answer in at most 2 sentences. Which navigation option does the 1.8.0 release say supports deep linking on iOS?",
+      "expected_intent": "search",
+      "expect": {
+        "decline": false,
+        "sources": [
+          "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html"
+        ],
+        "facts": [
+          "Compose Multiplatform for iOS 1.8.0 includes type-safe navigation with deep linking support"
+        ]
+      },
+      "memory_checkpoint": [
+        "Answers must be at most 2 sentences"
+      ],
+      "constraint_check": {
+        "max_sentences": 2
+      },
+      "tags": [
+        "constraint"
+      ],
+      "notes": "A new constraint mixed with a question: search, and the 2-sentence limit is stored (replacing nothing else) and applied immediately."
+    },
+    {
+      "turn": 13,
+      "user": "So for our app on both platforms, which should we pick based on what the documents say?",
+      "expected_intent": "search",
+      "expect": {
+        "decline": false
+      },
+      "memory_checkpoint": [
+        "The goal is choosing a navigation approach for the Compose Multiplatform app",
+        "The team ships to Android and iOS",
+        "Answers must be at most 2 sentences"
+      ],
+      "constraint_check": {
+        "max_sentences": 2
+      },
+      "notes": "The decision: 'our app on both platforms' comes from the correction in message 6, outside the history window; the 2-sentence limit holds."
+    }
+  ]
+}

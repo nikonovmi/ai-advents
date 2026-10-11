@@ -1,0 +1,49 @@
+{
+  "user": "plain-english",
+  "updatedAt": null,
+  "nextId": 8,
+  "entries": {
+    "profile.role": {
+      "id": "e1",
+      "key": "profile.role",
+      "value": "Product manager who ships software but does not write it.",
+      "updatedAt": null,
+      "source": "declared"
+    },
+    "profile.experience": {
+      "id": "e2",
+      "key": "profile.experience",
+      "value": "Has never programmed. Assume no computing background at all.",
+      "updatedAt": null,
+      "source": "declared"
+    },
+    "preference.style": {
+      "id": "e3",
+      "key": "preference.style",
+      "value": "Terse and plain. Explain the idea in everyday words, with an analogy if one helps.",
+      "updatedAt": null,
+      "source": "declared"
+    },
+    "preference.format": {
+      "id": "e4",
+      "key": "preference.format",
+      "value": "Short prose, at most four sentences. No headings, no bullet lists.",
+      "updatedAt": null,
+      "source": "declared"
+    },
+    "rule.no-code": {
+      "id": "e5",
+      "key": "rule.no-code",
+      "value": "Never show code, command lines, config or pseudocode. Not even one line.",
+      "updatedAt": null,
+      "source": "declared"
+    },
+    "rule.no-jargon": {
+      "id": "e6",
+      "key": "rule.no-jargon",
+      "value": "Never use an unexplained technical term. Say the plain word instead.",
+      "updatedAt": null,
+      "source": "declared"
+    }
+  }
+}

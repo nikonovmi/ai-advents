@@ -1,0 +1,100 @@
+{
+  "id": "1390ca5f-276e-4734-8883-a71980a4d233",
+  "title": "What has changed in Kotlin 2.4.20?",
+  "createdAt": "2026-10-04T01:57:32.815Z",
+  "updatedAt": "2026-10-04T01:57:32.815Z",
+  "usage": {
+    "totalInputTokens": 1222,
+    "totalOutputTokens": 341,
+    "totalCostUsd": 0.002927,
+    "turnCount": 1,
+    "overheadInputTokens": 0,
+    "overheadOutputTokens": 0,
+    "overheadCostUsd": 0,
+    "overheadCalls": 0
+  },
+  "project": "default",
+  "agentId": "knowledge",
+  "forkedFrom": null,
+  "ragMode": "rag",
+  "memory": {},
+  "messages": [
+    {
+      "role": "user",
+      "content": "What has changed in Kotlin 2.4.20?",
+      "id": "m1"
+    },
+    {
+      "role": "assistant",
+      "content": "# What's Changed in Kotlin 2.4.20\n\nBased on the documents, here are the key changes in Kotlin 2.4.20: [2]\n\n## Major Features\n\n**Explicit Context Arguments Go Stable** [4]\n- Context parameters, previously experimental since 2.4.0, are now a stable, production-ready feature\n- Allows passing context values directly at the call site instead of relying only on implicit resolution\n- Eliminates ambiguity about which instance is used and makes debugging easier [4]\n\n## Practical Improvements\n\n**New Collection Utilities** [1]\n- `allDistinct()` and `allEqual()` functions — eliminating the need to implement your own uniqueness checks\n\n**Better Error Handling** [1]\n- Coroutine stacktrace recovery — provides more readable stacktraces when coroutines fail, reducing debugging time\n\n**Testing Enhancements** [3]\n- New overloads for quiet test assertion functions that make writing expressive test suites easier\n- Reduces testing tech debt\n\n**Swift Interoperability** [3]\n- Better Swift export for improved multiplatform team collaboration\n\n## Deprecations & Compatibility\n\n**K1 Compiler Deprecated** [1]\n- Users still on K1 need to migrate to K2\n\n**Backward Compatibility** [1]\n- Java 1.8 and Gradle 9.7.0 support confirmed\n- Backward compatible down to Gradle 7.6.3",
+      "id": "m2",
+      "tokens": {
+        "input": 1222,
+        "output": 341,
+        "total": 1563
+      },
+      "cost": {
+        "input": 0.001222,
+        "output": 0.001705,
+        "total": 0.002927
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 5059,
+      "stopReason": "end_turn",
+      "rag": {
+        "mode": "rag",
+        "chunks": [
+          {
+            "n": 1,
+            "score": 0.7042075673737622,
+            "source": "knowledge_database/Kotlin 2.4.20 Release_ What's New & Why It Matters (2026) _ Medium.htm",
+            "section": "Quick Hits Worth Knowing",
+            "title": "Kotlin 2.4.20: Stable Context Arguments, Better Swift Export, and a Karma-Free Testing Future",
+            "chunk_id": "kb/kotlin-2.4.20-release-what-s-new-why-it-matters-2026-medium.htm:structural:5",
+            "text": "Quick Hits Worth Knowing\n\n- allDistinct() and allEqual() — no need to implement your own uniqueness checks\n\n- Coroutine stacktrace recovery — provides more readable stacktraces when coroutines fail => spend less time the guessing as to where things broke\n\n- K1 compiler is now deprecated — If you are still on K1, here we go, time to migrate\n\n- Java 1.8 and Gradle 9.7.0 support confirmed as well, backward compatible down to 7.6.3"
+          },
+          {
+            "n": 2,
+            "score": 0.6866397044654554,
+            "source": "knowledge_database/Kotlin 2.4.20 Release_ What's New & Why It Matters (2026) _ Medium.htm",
+            "section": "",
+            "title": "Kotlin 2.4.20: Stable Context Arguments, Better Swift Export, and a Karma-Free Testing Future",
+            "chunk_id": "kb/kotlin-2.4.20-release-what-s-new-why-it-matters-2026-medium.htm:structural:0",
+            "text": "Kotlin 2.4.20: Stable Context Arguments, Better Swift Export, and a Karma-Free Testing Future\n\nAndroidLab by Andre3 min readSep 12, 2026\n\nJetBrains just quietly shipped one of the most practical Kotlin releases in a while — here’s what actually changes your day-to-day.\n\nEvery few releases, there is something Kotlin ships that actually alters the way you write code from day to day not just a changelog bullet that you quickly skim over. 2.4.20 is one of those."
+          },
+          {
+            "n": 3,
+            "score": 0.6741470982409894,
+            "source": "knowledge_database/Kotlin 2.4.20 Release_ What's New & Why It Matters (2026) _ Medium.htm",
+            "section": "Why This Matters",
+            "title": "Kotlin 2.4.20: Stable Context Arguments, Better Swift Export, and a Karma-Free Testing Future",
+            "chunk_id": "kb/kotlin-2.4.20-release-what-s-new-why-it-matters-2026-medium.htm:structural:6",
+            "text": "Why This Matters\n\nThese aren’t any of the big “wow” features — and that’s sort of the point. JetBrains applies on this: cleaner interop for multiplatform teams, safer destructuring and less testing tech debt. In addition, new overloads for kotlin are also included in this release. quiet test assertion functions that makes writing expressive test suites easier."
+          },
+          {
+            "n": 4,
+            "score": 0.6673488805168757,
+            "source": "knowledge_database/Kotlin 2.4.20 Release_ What's New & Why It Matters (2026) _ Medium.htm",
+            "section": "headline change headlined: Explicit Context Arguments Go Stable",
+            "title": "Kotlin 2.4.20: Stable Context Arguments, Better Swift Export, and a Karma-Free Testing Future",
+            "chunk_id": "kb/kotlin-2.4.20-release-what-s-new-why-it-matters-2026-medium.htm:structural:1",
+            "text": "headline change headlined: Explicit Context Arguments Go Stable\n\nFor users who had been playing with context parameters since 2.4.0, you can now get explicit context arguments as a stable feature. This okay, it means that you can pass context values right in the call site instead of only with implicit resolution:\n\ncontext(logger: Logger)\nfun syncUserData(userId: String) {\n    logger.log(\"Syncing $userId\")\n}\n// Explicit context argument — no ambiguity about which instance is used\nsyncUserData(context(prodLogger), \"user_492\")\n\n- Eliminates guesswork in codebases with many possible contexts\n\n- This makes context resolving debug a lot less painful.\n\n- Does not need to opt-in anymore, Production-ready"
+          },
+          {
+            "n": 5,
+            "score": 0.6635634228655053,
+            "source": "knowledge_database/Kotlin 2.4_ 10 New Features Android Developers Should Know _ Medium.html",
+            "section": "9. Invokedynamic for when Expressions which is now the Default",
+            "title": "Kotlin 2.4: 10 New Features Android Developers Should Know",
+            "chunk_id": "kb/kotlin-2.4-10-new-features-android-developers-should-know-medium.html:structural:7",
+            "text": "8. Sorted-Order Checks for Collections\n\nWe now have isSorted()- style extensions for iterables, arrays, and sequences to avoid using manual comparator loops before doing a binary search.\n\n9. Invokedynamic for when Expressions which is now the Default\n\nWe stabilize and enable by default in JVM 21+ an experimental “block of when” optimization we introduced in 2.2.20 that trims bytecode for large when blocks — a small but free performance win (.. | Small Improvements to Dynamic Language Support"
+          }
+        ],
+        "timings": {
+          "retrieveMs": 872,
+          "llmMs": 4186
+        }
+      }
+    }
+  ]
+}

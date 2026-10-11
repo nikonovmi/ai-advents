@@ -1,0 +1,150 @@
+{
+  "id": "7ad19067-2751-4ad1-901c-9483010a11de",
+  "title": "Search omdb for potato and give me the…",
+  "createdAt": "2026-09-27T02:18:56.389Z",
+  "updatedAt": "2026-09-27T02:18:56.389Z",
+  "usage": {
+    "totalInputTokens": 4667,
+    "totalOutputTokens": 121,
+    "totalCostUsd": 0.005272,
+    "turnCount": 1,
+    "overheadInputTokens": 3174,
+    "overheadOutputTokens": 67,
+    "overheadCostUsd": 0.003509,
+    "overheadCalls": 1
+  },
+  "project": "default",
+  "agentId": "movie-buff",
+  "forkedFrom": null,
+  "memory": {
+    "working": {
+      "goal": {
+        "value": "Search OMDB for potato and return the first result",
+        "updatedAt": "2026-09-27T02:18:53.228Z",
+        "turn": 1,
+        "previous": []
+      },
+      "open.api_key": {
+        "value": "Do you have an OMDB API key, or should I use a public endpoint?",
+        "updatedAt": "2026-09-27T02:18:53.228Z",
+        "turn": 1,
+        "previous": []
+      }
+    },
+    "task": {
+      "id": "tznpijr",
+      "previous": null,
+      "startedAt": "2026-09-27T02:18:51.699Z",
+      "updatedAt": "2026-09-27T02:18:51.699Z",
+      "transitions": [],
+      "step": "working out what the task is",
+      "stepTurn": 0,
+      "suggestion": null,
+      "refused": [],
+      "refusals": []
+    },
+    "brief": null,
+    "briefThrough": 0,
+    "digest": null,
+    "digestThrough": 0,
+    "digestUpdatedAt": null,
+    "pastTasks": [],
+    "proposals": [],
+    "discarded": [],
+    "promotedAt": {},
+    "profileSeen": {},
+    "profileUser": "local",
+    "invariantsSeen": {},
+    "invariantProject": "default",
+    "attribution": [
+      {
+        "turn": 1,
+        "invariants": 0,
+        "profile": 0,
+        "working": 2300,
+        "brief": 0,
+        "digest": 0
+      }
+    ],
+    "usage": {
+      "overheadWorking": {
+        "calls": 1,
+        "inputTokens": 3174,
+        "outputTokens": 67,
+        "costUsd": 0.003509
+      },
+      "overheadSummary": {
+        "calls": 0,
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "costUsd": 0
+      },
+      "overheadProfile": {
+        "calls": 0,
+        "turns": 1,
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "costUsd": 0,
+        "estimated": true
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "Search omdb for potato and give me the first one",
+      "id": "m1",
+      "tokens": {
+        "request": 18
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Here's the first result:\n\n**The Guernsey Literary and Potato Peel Pie Society** (2018)\n\nIt's a drama film based on the bestselling novel. Would you like me to pull up the full details like runtime, cast, rating, and plot?",
+      "id": "m2",
+      "tokens": {
+        "request": 18,
+        "sent": 691,
+        "input": 4667,
+        "output": 121,
+        "total": 4788
+      },
+      "cost": {
+        "input": 0.004667,
+        "output": 0.000605,
+        "total": 0.005272
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 4688,
+      "stopReason": "end_turn",
+      "strategy": {
+        "id": "memory",
+        "label": "Layered memory",
+        "overheadTokens": 3241,
+        "overheadCost": 0.003509,
+        "overheadMs": 1527,
+        "overheadCalls": 1,
+        "blockTokens": 546,
+        "note": "2 keys set",
+        "droppedMessages": 0,
+        "changedKeys": [
+          "goal",
+          "open.api_key"
+        ],
+        "degraded": false
+      },
+      "toolCalls": [
+        {
+          "server": "omdb",
+          "tool": "search_movies",
+          "input": {
+            "query": "potato"
+          },
+          "ok": true,
+          "resultPreview": "{\n  \"results\": [\n    {\n      \"title\": \"The Guernsey Literary and Potato Peel Pie Society\",\n      \"year\": \"2018\",\n      \"imdbId\": \"tt1289403\",\n      \"type\": \"movie\"\n    },\n    {\n      \"title\": \"Potato Salad\",\n      \"year\": \"2015\",\n      \"imdbId\": \"tt4404474\",\n      \"type\": \"movie\"\n    },\n    {\n      \"title\": \"Sex Lives of the Potato Men\",\n      \"year\": \"2004\",\n      \"imdbId\": \"tt0368259\",\n      \"type\": \"movie\"\n    },\n    {\n      \"title\": \"The Potato Lab\",\n      \"year\": \"2025\",\n      \"imdbId\": \"tt35665377\",\n      \"type\": \"series\"\n    },\n    {\n      \"title\": \"One Potato, Two Potato\",\n      \"year\": \"1964\",\n      \"imdbId\": \"tt0058429\",\n      \"type\": \"movie\"\n    },\n    {\n      \"title\": \"The Hot Potato\",\n      \"year\": \"2012\",\n      \"imdbId\": \"tt1641252\",\n      \"type\": \"movie\"\n    },\n    {\n      \"title\": \"Potato Dreams of America\",\n      \"year\": \"2021\",\n      \"imdbId\": \"tt3513522\",\n      \"type\": \"movie\"\n    },\n    {\n      \"title\": \"Hot Potato: The Story of the Wiggles\",\n      \"year\": \"2023\",\n      \"imdbId\": \"tt22694238\",\n      \"type\": \"movie\"\n    },\n    {\n      \"title\": \"Hot Potato\",\n      \"year\": \"1976\",\n      \"imdbId\": \"tt0074646\",\n      \"type\": \"movie\"\n    },\n    {\n      \"title\": \"Chip and Potato\",\n      \"year\": \"2018–\",\n      \"imdbId\": \"tt9897038\",\n      \"type\": \"series\"\n    }\n  ],\n  \"totalResults\": 163\n}",
+          "ms": 262
+        }
+      ]
+    }
+  ]
+}
