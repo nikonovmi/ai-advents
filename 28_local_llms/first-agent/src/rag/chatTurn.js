@@ -23,6 +23,9 @@ import { addOpenQuestion, applyPatch, memoryDiff, renderMemory, taskMemoryOf } f
  *
  * The chat route and `eval:chat` both call this, so the eval measures what the
  * chat does.
+ *
+ * Day 28: every call here — router, answer, clarification — goes to the one
+ * `provider` given, so a chat on a local model is local end to end.
  */
 
 export const CHAT_RULES = [
@@ -139,6 +142,11 @@ export async function runChatTurn({
     answerMs,
     routerModel: route.model ?? routerModel,
     routerUsage: route.usage ?? null,
+    // Day 28: on a local model, the router's timings and JSON record.
+    ...(route.provider ? { routerProvider: route.provider } : {}),
+    ...(route.metrics ? { routerMetrics: route.metrics } : {}),
+    ...(route.structured ? { routerStructured: route.structured } : {}),
+    ...(route.possible_truncation ? { possible_truncation: true } : {}),
   };
   return {
     route: routeRecord,

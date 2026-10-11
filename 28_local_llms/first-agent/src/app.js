@@ -193,7 +193,7 @@ export async function createApp(options = {}) {
    */
   async function llmFor(agentId, wanted) {
     if (!supportsLocal(agentId)) {
-      if (isLocalChoice(wanted)) throw httpError(400, `${agentFor(agentId).name} answers with Claude only: local models are for first-agent and Knowledge (Without RAG).`);
+      if (isLocalChoice(wanted)) throw httpError(400, `${agentFor(agentId).name} answers with Claude only: local models are for first-agent and Knowledge.`);
       return CLAUDE;
     }
     const choice = wanted ?? (await llms.defaultChoice());

@@ -149,11 +149,11 @@ test("compare: both modes, stored nowhere", async (t) => {
 
 test("report data: null before the first eval, the files after", async (t) => {
   const { call, reportsDir } = await serve(t);
-  assert.deepEqual((await call("GET", "/rag-report/data")).body, { results: null, notes: null, citations: null, citationNotes: null, chat: null, chatNotes: null });
+  assert.deepEqual((await call("GET", "/rag-report/data")).body, { results: null, notes: null, citations: null, citationNotes: null, chat: null, chatNotes: null, local: null, localNotes: null });
   fs.writeFileSync(path.join(reportsDir, "rag_results.json"), JSON.stringify({ summary: { count: 10 } }));
   fs.writeFileSync(path.join(reportsDir, "rag_notes.md"), "**Findings.**");
   fs.writeFileSync(path.join(reportsDir, "citations_notes.md"), "Citations findings.");
-  assert.deepEqual((await call("GET", "/rag-report/data")).body, { results: { summary: { count: 10 } }, notes: "**Findings.**", citations: null, citationNotes: "Citations findings.", chat: null, chatNotes: null });
+  assert.deepEqual((await call("GET", "/rag-report/data")).body, { results: { summary: { count: 10 } }, notes: "**Findings.**", citations: null, citationNotes: "Citations findings.", chat: null, chatNotes: null, local: null, localNotes: null });
   const status = await call("GET", "/rag/status");
   assert.equal(status.body.kFinal, 2);
   assert.equal(status.body.rerankThreshold, 0.5);

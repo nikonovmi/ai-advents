@@ -21,14 +21,19 @@ export class AnthropicProvider extends LlmProvider {
   #apiKey;
   #model;
   #workspaceId;
+  #stream;
 
   /**
    * @param {object} params
    * @param {string} params.apiKey
    * @param {string} [params.model]
    * @param {string} [params.workspaceId] - Only needed for identity-linked keys.
+   * @param {boolean} [params.stream] - Day 28: stream the response, only to time it.
+   *   The result is the same `Completion`, plus `metrics` (time to first token,
+   *   generation time and rate), so Compare and `eval:local` can put Claude's
+   *   numbers next to a local model's. The chat routes do not stream.
    */
-  constructor({ apiKey, model = "claude-haiku-4-5-20251001", workspaceId } = {}) {
+  constructor({ apiKey, model = "claude-haiku-4-5-20251001", workspaceId, stream = false } = {}) {
     super();
     if (!apiKey) {
       throw new Error(
@@ -38,10 +43,20 @@ export class AnthropicProvider extends LlmProvider {
     this.#apiKey = apiKey;
     this.#model = model;
     this.#workspaceId = workspaceId;
+    this.#stream = stream;
   }
 
   get model() {
     return this.#model;
+  }
+
+  get provider() {
+    return "claude";
+  }
+
+  /** The same key and model, streamed and timed (Day 28). */
+  streaming() {
+    return this.#stream ? this : new AnthropicProvider({ apiKey: this.#apiKey, model: this.#model, workspaceId: this.#workspaceId, stream: true });
   }
 
   async complete({ system, messages, temperature = 0.7, maxTokens = 1024, model, tools, toolChoice }) {
@@ -61,6 +76,7 @@ export class AnthropicProvider extends LlmProvider {
       if (THINKS_BY_DEFAULT.test(id)) body.thinking = { type: "disabled" };
     }
 
+    if (this.#stream) return this.#streamed(body, model);
     const data = await this.#post(API_URL, body);
 
     return {
@@ -93,10 +109,73 @@ export class AnthropicProvider extends LlmProvider {
   }
 
   /**
-   * One POST, one set of headers, one timeout, one error translation — shared
-   * by both endpoints so they cannot drift apart.
+   * Day 28: one streamed call, put back together into the same `Completion`.
+   * The first `content_block_delta` is the first token; everything before it
+   * (network, queueing, prompt processing) is `ttftMs`.
    */
-  async #post(url, body) {
+  async #streamed(body, model) {
+    const startedAt = performance.now();
+    const response = await this.#send(API_URL, { ...body, stream: true });
+    if (!response.ok) throw new LlmError(errorMessageFrom(await response.text(), response.status), response.status);
+    const blocks = [];
+    const json = [];
+    let message = null;
+    let stopReason = null;
+    let usage = {};
+    let firstTokenAt = null;
+    for await (const event of sseEvents(response.body)) {
+      if (event.type === "error") throw new LlmError(event.error?.message ?? "Anthropic stream error", 500);
+      if (event.type === "message_start") {
+        message = event.message;
+        usage = { ...event.message?.usage };
+      } else if (event.type === "content_block_start") {
+        blocks[event.index] = { ...event.content_block };
+        json[event.index] = "";
+      } else if (event.type === "content_block_delta") {
+        firstTokenAt ??= performance.now();
+        const block = blocks[event.index];
+        if (event.delta?.type === "text_delta") block.text = (block.text ?? "") + event.delta.text;
+        else if (event.delta?.type === "input_json_delta") json[event.index] += event.delta.partial_json ?? "";
+      } else if (event.type === "content_block_stop") {
+        const block = blocks[event.index];
+        if (block?.type === "tool_use") {
+          try {
+            block.input = json[event.index] ? JSON.parse(json[event.index]) : (block.input ?? {});
+          } catch {
+            block.input = {};
+          }
+        }
+      } else if (event.type === "message_delta") {
+        stopReason = event.delta?.stop_reason ?? stopReason;
+        usage = { ...usage, ...event.usage };
+      }
+    }
+    const endedAt = performance.now();
+    const content = blocks.filter(Boolean);
+    const neutral = neutralUsage(usage);
+    const ttftMs = Math.round((firstTokenAt ?? endedAt) - startedAt);
+    const generationMs = Math.round(endedAt - (firstTokenAt ?? endedAt));
+    return {
+      text: extractText(content),
+      content: neutralContent(content),
+      model: message?.model ?? model ?? this.#model,
+      stopReason,
+      usage: neutral,
+      provider: "claude",
+      metrics: {
+        ttftMs,
+        evalMs: generationMs,
+        totalMs: Math.round(endedAt - startedAt),
+        wallMs: Math.round(endedAt - startedAt),
+        genTps: generationMs > 0 && neutral.outputTokens ? Math.round((10 * neutral.outputTokens) / (generationMs / 1000)) / 10 : null,
+        promptTokens: neutral.inputTokens,
+        outputTokens: neutral.outputTokens,
+      },
+    };
+  }
+
+  /** The request itself: headers, timeout, and a network failure as an `LlmError`. */
+  async #send(url, body) {
     const headers = {
       "x-api-key": this.#apiKey,
       "anthropic-version": API_VERSION,
@@ -105,25 +184,20 @@ export class AnthropicProvider extends LlmProvider {
     // Identity-linked keys must name the workspace they act in; workspace-scoped
     // keys don't, and the header is harmless to omit for them.
     if (this.#workspaceId) headers["anthropic-workspace-id"] = this.#workspaceId;
-
-    let response;
     try {
-      response = await fetch(url, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(TIMEOUT_MS),
-      });
+      return await fetch(url, { method: "POST", headers, body: JSON.stringify(body), signal: AbortSignal.timeout(TIMEOUT_MS) });
     } catch (err) {
       const timedOut = err?.name === "TimeoutError" || err?.name === "AbortError";
-      throw new LlmError(
-        timedOut
-          ? `Request to Anthropic timed out after ${TIMEOUT_MS}ms`
-          : `Could not reach Anthropic: ${err?.message ?? String(err)}`,
-        timedOut ? 408 : 0
-      );
+      throw new LlmError(timedOut ? `Request to Anthropic timed out after ${TIMEOUT_MS}ms` : `Could not reach Anthropic: ${err?.message ?? String(err)}`, timedOut ? 408 : 0);
     }
+  }
 
+  /**
+   * One POST, one set of headers, one timeout, one error translation — shared
+   * by both endpoints so they cannot drift apart.
+   */
+  async #post(url, body) {
+    const response = await this.#send(url, body);
     const raw = await response.text();
 
     if (!response.ok) {
@@ -134,6 +208,26 @@ export class AnthropicProvider extends LlmProvider {
       return JSON.parse(raw);
     } catch {
       throw new LlmError("Anthropic returned a response that was not JSON", response.status);
+    }
+  }
+}
+
+/** Server-sent events → parsed `data:` payloads. */
+async function* sseEvents(stream) {
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for await (const chunk of stream) {
+    buffer += decoder.decode(chunk, { stream: true });
+    let cut;
+    while ((cut = buffer.indexOf("\n\n")) >= 0) {
+      const frame = buffer.slice(0, cut);
+      buffer = buffer.slice(cut + 2);
+      const data = frame
+        .split("\n")
+        .filter((line) => line.startsWith("data:"))
+        .map((line) => line.slice(5).trimStart())
+        .join("\n");
+      if (data) yield JSON.parse(data);
     }
   }
 }

@@ -224,6 +224,7 @@
       ["modes", "Modes (Day 23)", () => (data.results ? render(data.results, data.notes) : empty("eval:rag"))],
       ["citations", "Citations (Day 24)", () => (data.citations ? renderCitations(data.citations, data.citationNotes) : empty("eval:citations"))],
       ["chat", "Chat (Day 25)", () => (data.chat ? renderChat(data.chat, data.chatNotes) : empty("eval:chat"))],
+      ["local", "Local (Day 28)", () => (data.local ? renderLocal(data.local, data.localNotes) : empty("eval:local"))],
     ];
     const show = (key) => {
       const [, , draw] = tabs.find(([k]) => k === key) ?? tabs[0];
@@ -507,6 +508,72 @@
           el("tr", {}, el("td", {}, x.fact), el("td", { class: "grade-" + x.grade }, x.grade), el("td", { class: "muted" }, x.note || ""))))));
     }
     return el("div", { class: "detail-box" }, box);
+  }
+
+  // ---- the Local tab (Day 28) -----------------------------------------------------
+
+  function renderLocal(results, notes) {
+    const { settings, generators, questions, retrieval, environment } = results;
+    const table = results.summaryTable;
+    document.getElementById("sub").textContent =
+      `Claude vs local · generated ${new Date(results.generatedAt).toLocaleString()} · ${questions.length} questions · ${settings.mode} · ${generators.map((g) => g.label).join(" → ")}`;
+    const status = (r) => (!r ? "—" : r.error ? "error" : r.run.status === "dont_know" ? `IDK (${r.run.dontKnow?.reason})` : r.run.status);
+    const latency = (r) => (r ? (r.run.timings?.llmMs ?? 0) + (r.run.timings?.clarifyMs ?? 0) : null);
+    const body = el("tbody");
+    for (const q of questions) {
+      const rows = generators.map((g) => g.rows.find((r) => r.id === q.id));
+      const tr = el("tr", { class: "q" },
+        el("td", {}, q.id),
+        el("td", {}, q.type + (q.expect_decline ? " (IDK)" : "")),
+        el("td", {}, q.question.length > 90 ? q.question.slice(0, 90) + "…" : q.question),
+        rows.map((r) => {
+          const applied = r ? Object.values(r.checks).filter((x) => x !== null) : [];
+          return el("td", { class: r?.error ? "warn" : r?.run.status === "dont_know" ? "muted" : "" },
+            `${status(r)} · ${applied.filter(Boolean).length}/${applied.length} · ${secs(latency(r))}`);
+        }),
+      );
+      const detail = el("tr", { class: "detail", hidden: "" }, el("td", { colspan: String(3 + generators.length) }));
+      tr.addEventListener("click", () => {
+        const open = detail.hidden;
+        detail.hidden = !open;
+        tr.classList.toggle("open", open);
+        if (open && !detail.firstChild.firstChild) {
+          detail.firstChild.append(el("div", { class: "arms" }, generators.map((g, i) => {
+            const r = rows[i];
+            if (!r) return null;
+            if (r.error) return el("div", { class: "arm" }, el("h3", {}, g.label), el("div", { class: "warn" }, r.error));
+            const arm = citationDetail(r).querySelector(".arm");
+            const m = r.run.generation?.metrics ?? {};
+            arm.prepend(el("div", { class: "sub-h" }, `${g.label} (${g.where})`),
+              el("div", { class: "line" }, `run #${r.order} at ${r.startedAt.slice(11, 19)} · TTFT ${secs(r.run.generation?.calls?.[0]?.metrics?.ttftMs)} · ${num(m.genTps, 1)} tok/s · latency ${secs(latency(r))} · ${r.run.usage?.inputTokens ?? "?"} / ${r.run.usage?.outputTokens ?? "?"} tokens` +
+                (r.run.generation?.invalidJson ? ` · ${r.run.generation.invalidJson} invalid JSON` : "") + (r.run.possible_truncation ? " · ⚠ possible truncation" : "")));
+            return arm;
+          })));
+        }
+      });
+      body.append(tr, detail);
+    }
+    return [
+      el("h2", {}, "Where each call ran"),
+      el("p", { class: "settings" },
+        "Local: ", (results.calls?.local ?? []).join(" · "), ". Cloud: ", (results.calls?.cloud ?? []).join(" · "), ". ",
+        `Retrieval and rerank ran once per question (cached in local_rag_retrieval.json) and every generator answered from the same chunks through the same submit_answer contract. `,
+        `Local calls: num_ctx ${settings.localRagNumCtx}, num_predict ≤ ${settings.localRagNumPredict}, JSON-schema output, Ollama ${environment?.ollamaVersion ?? "?"} on ${environment?.machine ?? "?"}.`),
+      el("p", { class: "settings" },
+        `Shared retrieval cost (local, once): search ${secs(retrieval?.meanRetrieveMs)} · rerank ${secs(retrieval?.meanRerankMs)} mean (max ${secs(retrieval?.maxRerankMs)}).`),
+      el("h2", {}, "Summary"),
+      el("div", { class: "scroll" }, el("table", { class: "summary" },
+        el("thead", {}, el("tr", {}, el("th", {}, ""), (table?.head ?? []).map((h) => el("th", {}, h)))),
+        (table?.sections ?? []).map((section) => el("tbody", {},
+          el("tr", {}, el("td", { colspan: String(1 + table.head.length) }, el("b", {}, section.title))),
+          section.rows.map(([label, ...values]) => el("tr", {}, el("td", {}, label), values.map((v) => el("td", {}, v)))))))),
+      el("h2", {}, "Per question"),
+      el("p", { class: "settings" }, "Each cell: status · checks passed · answer latency. Click a row for every generator's answer side by side, with its citations, verification, the judge's verdicts and timings."),
+      el("div", { class: "scroll" }, el("table", { class: "questions" },
+        el("thead", {}, el("tr", {}, el("th", {}, "id"), el("th", {}, "type"), el("th", {}, "question"), generators.map((g) => el("th", {}, g.label)))),
+        body)),
+      ...(notes?.trim() ? [el("h2", {}, "Findings"), el("div", { class: "findings", html: md(notes) })] : []),
+    ];
   }
 
   // ---- the Chat tab (Day 25) ------------------------------------------------------

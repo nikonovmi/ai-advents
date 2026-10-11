@@ -1,3 +1,4 @@
+import { combineMetrics } from "../llm/ollama.js";
 import { clarifyQuestion } from "./clarify.js";
 import { RAG_CONTRACT_MAX_TOKENS, RAG_MAX_TOKENS, ragSettings } from "./config.js";
 import { answerWithContract, dontKnowText } from "./contract.js";
@@ -84,6 +85,132 @@ export function mergeHits(lists) {
 }
 
 /**
+ * **Retrieval alone**: rewrite (if on), vector search, rerank and cutoff — the
+ * first half of `answerQuestion`, so a caller can run it once and hand the
+ * same chunks to several generators (Day 28: Compare's Claude vs local, and
+ * `eval:local`). The options are `answerQuestion`'s retrieval ones.
+ *
+ * @returns {Promise<{ queries: string[], candidates: object[], chunks: object[], rejected: object[], declined: boolean,
+ *   rerank: boolean, rewrite: boolean, timings: { rewriteMs: number, retrieveMs: number, rerankMs: number }, rewriteUsage: object | null }>}
+ */
+export async function retrieveForQuestion(question, options = {}) {
+  const defaults = ragSettings();
+  const {
+    rerank = false,
+    rewrite = false,
+    kFinal = defaults.kFinal,
+    kRetrieve = defaults.kRetrieve,
+    rerankThreshold = defaults.rerankThreshold,
+    strategy = defaults.strategy,
+    collections = defaults.collections,
+    minScore = defaults.minScore,
+    provider,
+    model,
+    search = realSearch,
+    rerankScores = realRerank,
+    rewriter = rewriteQuery,
+    log = console.log,
+    queries: givenQueries,
+    rerankQuestion = question,
+  } = options;
+  const useRerank = Boolean(rerank);
+  const useRewrite = Boolean(rewrite) && !(Array.isArray(givenQueries) && givenQueries.length);
+  const timings = { rewriteMs: 0, retrieveMs: 0, rerankMs: 0 };
+  let rewriteUsage = null;
+  let declined = false;
+  let rejected = [];
+
+  // 1. rewrite
+  let queries = [question];
+  if (Array.isArray(givenQueries) && givenQueries.length) {
+    queries = givenQueries;
+  } else if (useRewrite) {
+    if (!provider) throw new Error("rewrite needs a provider");
+    const startedAt = Date.now();
+    const rewritten = await rewriter(question, { provider, model });
+    timings.rewriteMs = Date.now() - startedAt;
+    queries = rewritten.queries?.length ? rewritten.queries : [question];
+    rewriteUsage = rewritten.usage ?? null;
+    log(`[rag] rewrite "${question.slice(0, 60)}" → ${queries.map((q) => JSON.stringify(q)).join(" · ")}`);
+  }
+
+  // 2. vector search, once per query
+  const k = useRerank ? kRetrieve : kFinal;
+  let startedAt = Date.now();
+  const lists = [];
+  try {
+    for (const query of queries) {
+      const hits = await search(query, { k, strategy, collections });
+      logScores(log, query, hits, { k, strategy, minScore });
+      lists.push(hits);
+    }
+  } catch (err) {
+    throw err instanceof RetrievalError ? err : new RetrievalError(readableRetrievalError(err), { cause: err });
+  }
+  timings.retrieveMs = Date.now() - startedAt;
+  const pool = mergeHits(lists)
+    .filter((hit) => minScore == null || hit.score >= minScore)
+    .map((hit, i) => ({ ...hit, vectorRank: i + 1 }));
+
+  // 3. rerank + cutoff, against the original question
+  let kept;
+  let candidates;
+  if (useRerank) {
+    startedAt = Date.now();
+    let scores;
+    try {
+      scores = pool.length ? await rerankScores(rerankQuestion, pool.map((hit) => hit.text)) : [];
+    } catch (err) {
+      throw err instanceof RetrievalError ? err : new RetrievalError("Reranking failed: " + String(err?.message ?? err).split("\n")[0], { cause: err });
+    }
+    timings.rerankMs = Date.now() - startedAt;
+    const ranked = pool.map((hit, i) => ({ ...hit, rerankScore: scores[i] })).sort((a, b) => b.rerankScore - a.rerankScore);
+    kept = ranked.filter((hit) => hit.rerankScore >= rerankThreshold).slice(0, kFinal);
+    const keptIds = new Set(kept.map((hit) => hit.chunk_id));
+    candidates = ranked.map((hit, i) => ({ ...hit, rerankRank: i + 1, kept: keptIds.has(hit.chunk_id) }));
+    log(`[rag] rerank threshold ${rerankThreshold} → ${ranked.map((h) => h.rerankScore.toFixed(3)).join(" ") || "no candidates"} · kept ${kept.length}`);
+    if (!kept.length) {
+      declined = true;
+      rejected = ranked.slice(0, REJECTED_SHOWN).map(chunkOf);
+    }
+  } else {
+    kept = pool.slice(0, kFinal);
+    candidates = pool.map((hit, i) => ({ ...hit, rerankRank: null, kept: i < kFinal }));
+  }
+  const chunks = kept.map((hit, i) => ({ n: i + 1, ...chunkOf(hit) }));
+  candidates = candidates.map(({ chunk_id, source, section, score, rerankScore, vectorRank, rerankRank, kept: isKept, queryIndex }) => ({
+    chunk_id,
+    source,
+    section: section ?? "",
+    vectorScore: score,
+    rerankScore: rerankScore ?? null,
+    vectorRank,
+    rerankRank,
+    kept: isKept,
+    ...(queries.length > 1 || useRewrite ? { query: queryIndex } : {}),
+  }));
+  return { queries, candidates, chunks, rejected, declined, rerank: useRerank, rewrite: useRewrite, timings, rewriteUsage };
+}
+
+/** One generation call's record (Day 28): its metrics, and its JSON record on a local model. */
+const callOf = (attempt, c) => ({
+  attempt,
+  provider: c?.provider ?? null,
+  metrics: c?.metrics ?? null,
+  ...(c?.structured ? { structured: c.structured } : {}),
+  ...(c?.possible_truncation ? { possible_truncation: true } : {}),
+});
+function generationOf(calls) {
+  return {
+    calls,
+    metrics: combineMetrics(calls.map((c) => c.metrics)),
+    invalidJson: calls.reduce((n, c) => n + (c.structured?.invalid ?? 0), 0),
+    schemaFailures: calls.filter((c) => c.structured && c.structured.invalid === c.structured.attempts).length,
+    possible_truncation: calls.some((c) => c.possible_truncation),
+  };
+}
+
+/**
  * @param {string} question
  * @param {object} options
  * @param {"rag" | "plain"} [options.mode]
@@ -107,122 +234,44 @@ export function mergeHits(lists) {
  * @param {string} [options.rerankQuestion] - Day 25: what the reranker and the clarifying call see (the standalone question); default `question`
  * @param {string} [options.system] - Day 25: the answering system prompt; default `RAG_SYSTEM`
  * @param {(chunks: object[]) => string} [options.buildPrompt] - Day 25: the latest user message; default `buildRagPrompt(question, chunks)`
+ * @param {Awaited<ReturnType<typeof retrieveForQuestion>>} [options.retrieval] - Day 28: retrieval already done (shared by several
+ *   generators); no rewrite, search or rerank runs, and its timings are reported as they were
  */
 export async function answerQuestion(question, options = {}) {
-  const defaults = ragSettings();
   const {
     mode = "rag",
-    rerank = false,
-    rewrite = false,
     history = [],
-    kFinal = defaults.kFinal,
-    kRetrieve = defaults.kRetrieve,
-    rerankThreshold = defaults.rerankThreshold,
-    strategy = defaults.strategy,
-    collections = defaults.collections,
-    minScore = defaults.minScore,
     provider,
     model,
     maxTokens = RAG_MAX_TOKENS,
-    search = realSearch,
-    rerankScores = realRerank,
-    rewriter = rewriteQuery,
     log = console.log,
-    queries: givenQueries,
     rerankQuestion = question,
     system = RAG_SYSTEM,
     buildPrompt = (chunks) => buildRagPrompt(question, chunks),
+    retrieval: given,
   } = options;
   if (mode !== "rag" && mode !== "plain") throw new Error(`mode must be "rag" or "plain", got "${mode}"`);
   if (!provider) throw new Error("answerQuestion needs a provider");
   const isRag = mode === "rag";
-  const useRerank = isRag && Boolean(rerank);
-  const useRewrite = isRag && Boolean(rewrite) && !(Array.isArray(givenQueries) && givenQueries.length);
 
   const timings = { rewriteMs: 0, retrieveMs: 0, rerankMs: 0, clarifyMs: 0, llmMs: 0 };
   const usageByStage = { rewrite: null, clarify: null, llm: null };
-  let queries = [];
-  let candidates = [];
-  let chunks = [];
-  let rejected = [];
-  let declined = false;
+  let retrieval = { queries: [], candidates: [], chunks: [], rejected: [], declined: false, rerank: false, rewrite: false };
   let content = question;
 
   if (isRag) {
-    // 1. rewrite
-    queries = [question];
-    if (Array.isArray(givenQueries) && givenQueries.length) {
-      queries = givenQueries;
-    } else if (useRewrite) {
-      const startedAt = Date.now();
-      const rewritten = await rewriter(question, { provider, model });
-      timings.rewriteMs = Date.now() - startedAt;
-      queries = rewritten.queries?.length ? rewritten.queries : [question];
-      usageByStage.rewrite = rewritten.usage ?? null;
-      log(`[rag] rewrite "${question.slice(0, 60)}" → ${queries.map((q) => JSON.stringify(q)).join(" · ")}`);
-    }
-
-    // 2. vector search, once per query
-    const k = useRerank ? kRetrieve : kFinal;
-    let startedAt = Date.now();
-    const lists = [];
-    try {
-      for (const query of queries) {
-        const hits = await search(query, { k, strategy, collections });
-        logScores(log, query, hits, { k, strategy, minScore });
-        lists.push(hits);
-      }
-    } catch (err) {
-      throw err instanceof RetrievalError ? err : new RetrievalError(readableRetrievalError(err), { cause: err });
-    }
-    timings.retrieveMs = Date.now() - startedAt;
-    const pool = mergeHits(lists)
-      .filter((hit) => minScore == null || hit.score >= minScore)
-      .map((hit, i) => ({ ...hit, vectorRank: i + 1 }));
-
-    // 3. rerank + cutoff, against the original question
-    let kept;
-    if (useRerank) {
-      startedAt = Date.now();
-      let scores;
-      try {
-        scores = pool.length ? await rerankScores(rerankQuestion, pool.map((hit) => hit.text)) : [];
-      } catch (err) {
-        throw err instanceof RetrievalError ? err : new RetrievalError("Reranking failed: " + String(err?.message ?? err).split("\n")[0], { cause: err });
-      }
-      timings.rerankMs = Date.now() - startedAt;
-      const ranked = pool.map((hit, i) => ({ ...hit, rerankScore: scores[i] })).sort((a, b) => b.rerankScore - a.rerankScore);
-      kept = ranked.filter((hit) => hit.rerankScore >= rerankThreshold).slice(0, kFinal);
-      const keptIds = new Set(kept.map((hit) => hit.chunk_id));
-      candidates = ranked.map((hit, i) => ({ ...hit, rerankRank: i + 1, kept: keptIds.has(hit.chunk_id) }));
-      log(`[rag] rerank threshold ${rerankThreshold} → ${ranked.map((h) => h.rerankScore.toFixed(3)).join(" ") || "no candidates"} · kept ${kept.length}`);
-      if (!kept.length) {
-        declined = true;
-        rejected = ranked.slice(0, REJECTED_SHOWN).map(chunkOf);
-      }
-    } else {
-      kept = pool.slice(0, kFinal);
-      candidates = pool.map((hit, i) => ({ ...hit, rerankRank: null, kept: i < kFinal }));
-    }
-    chunks = kept.map((hit, i) => ({ n: i + 1, ...chunkOf(hit) }));
-    candidates = candidates.map(({ chunk_id, source, section, score, rerankScore, vectorRank, rerankRank, kept: isKept, queryIndex }) => ({
-      chunk_id,
-      source,
-      section: section ?? "",
-      vectorScore: score,
-      rerankScore: rerankScore ?? null,
-      vectorRank,
-      rerankRank,
-      kept: isKept,
-      ...(queries.length > 1 || useRewrite ? { query: queryIndex } : {}),
-    }));
-    content = buildPrompt(chunks);
+    retrieval = given ?? (await retrieveForQuestion(question, { ...options, rerank: Boolean(options.rerank), rewrite: Boolean(options.rewrite), log }));
+    Object.assign(timings, retrieval.timings);
+    usageByStage.rewrite = given ? null : (retrieval.rewriteUsage ?? null);
+    content = buildPrompt(retrieval.chunks);
   }
+  const { queries, candidates, chunks, rejected, declined } = retrieval;
 
   const messages = [...history.map(({ role, content }) => ({ role, content })), { role: "user", content }];
   let completion = null;
   let contract = null;
   let clarifying = "";
+  let generation = null;
   if (declined) {
     // Low relevance: no answering call, one small clarifying one.
     const startedAt = Date.now();
@@ -230,22 +279,29 @@ export async function answerQuestion(question, options = {}) {
     timings.clarifyMs = Date.now() - startedAt;
     usageByStage.clarify = clarified.usage;
     clarifying = clarified.clarifyingQuestion;
+    completion = null;
+    generation = generationOf([callOf(1, clarified)]);
+    generation.model = clarified.model ?? null;
+    generation.provider = clarified.provider ?? null;
   } else if (isRag) {
     const startedAt = Date.now();
     contract = await answerWithContract({ provider, system, messages, chunks, model, maxTokens: maxTokens === RAG_MAX_TOKENS ? RAG_CONTRACT_MAX_TOKENS : maxTokens });
     timings.llmMs = Date.now() - startedAt;
     usageByStage.llm = contract.usage;
+    generation = contract.generation;
     const v = contract.verification;
     log(
       `[rag] contract ${contract.status}${contract.dontKnow ? ` (${contract.dontKnow.reason})` : ""} · ${contract.citations.length} citation(s)` +
         `${v.retried ? " · retried" : ""}${v.fabricatedFirstAttempt.length ? ` · ${v.fabricatedFirstAttempt.length} fabricated on attempt 1` : ""}` +
-        `${v.droppedCitations.length ? ` · dropped ${v.droppedCitations.length}` : ""}${v.downgraded ? " · downgraded" : ""}`,
+        `${v.droppedCitations.length ? ` · dropped ${v.droppedCitations.length}` : ""}${v.downgraded ? " · downgraded" : ""}` +
+        `${generation.invalidJson ? ` · ${generation.invalidJson} invalid JSON` : ""}${generation.possible_truncation ? " · POSSIBLE TRUNCATION" : ""}`,
     );
   } else {
     const startedAt = Date.now();
     completion = await provider.complete({ system: BASE_SYSTEM, messages, temperature: 0, maxTokens, ...(model ? { model } : {}) });
     timings.llmMs = Date.now() - startedAt;
     usageByStage.llm = completion.usage ?? null;
+    generation = generationOf([callOf(1, completion)]);
   }
 
   const ragFields = !isRag
@@ -261,13 +317,14 @@ export async function answerQuestion(question, options = {}) {
           verification: contract.verification,
         };
   const answer = !isRag ? completion.text : ragFields.status === "dont_know" ? dontKnowText(ragFields.clarifyingQuestion) : contract.answer;
+  const answeredBy = completion?.provider ?? contract?.provider ?? generation?.provider ?? provider.provider ?? null;
 
   return {
     answer,
     mode,
-    label: modeLabel({ mode, rerank: useRerank, rewrite: useRewrite }),
-    rerank: useRerank,
-    rewrite: useRewrite,
+    label: modeLabel({ mode, rerank: retrieval.rerank, rewrite: retrieval.rewrite }),
+    rerank: retrieval.rerank,
+    rewrite: retrieval.rewrite,
     queries,
     candidates,
     chunks,
@@ -276,10 +333,14 @@ export async function answerQuestion(question, options = {}) {
     ...ragFields,
     usage: addUsage(addUsage(usageByStage.rewrite, usageByStage.clarify), usageByStage.llm),
     usageByStage,
-    model: completion?.model ?? contract?.model ?? provider.model ?? null,
+    model: completion?.model ?? contract?.model ?? generation?.model ?? provider.model ?? null,
     // Day 27: who answered, and a local model's timings for the badge.
-    provider: completion?.provider ?? contract?.provider ?? provider.provider ?? null,
-    localMetrics: completion?.metrics ?? null,
+    provider: answeredBy,
+    localMetrics: answeredBy === "local" ? (generation?.metrics ?? null) : null,
+    // Day 28: every generation call's timings and JSON record, and the flag for a prompt that may not have fit.
+    generation,
+    ...(generation?.possible_truncation ? { possible_truncation: true } : {}),
+    ...(given ? { retrievalShared: true } : {}),
     stopReason: completion?.stopReason ?? contract?.stopReason ?? "declined",
     timings,
   };

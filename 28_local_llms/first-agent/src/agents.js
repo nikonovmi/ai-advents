@@ -114,7 +114,7 @@ const AGENTS = [
     name: "Knowledge",
     tagline: "Kotlin & KMP articles, with or without RAG",
     kind: "knowledge",
-    // Without RAG only: local + RAG is Day 28.
+    // Both modes run locally (Day 28: RAG too; the Rewrite stage stays Claude-only).
     local: true,
     // The plain-mode prompt; RAG mode adds the document rules to it. Both live
     // in src/rag/prompt.js, next to the function that builds the documents.

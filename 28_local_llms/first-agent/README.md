@@ -49,6 +49,135 @@ Defined in `src/agents.js`; each has its own chat list.
   side. **Eval results** opens http://localhost:3000/rag-report. Works without any MCP
   server running.
 
+## Local RAG (Day 28)
+
+A Knowledge chat **With RAG** runs fully on this machine when its Model switch is a local
+model. Retrieval was already local (EmbeddingGemma vectors from `../doc_index`, bge-reranker
+for the rerank); now generation is too, through the same Day 27 `OllamaProvider`. Nothing in
+the RAG path was forked: `runChatTurn`, `answerQuestion`, `answerWithContract` /
+`verifySubmission`, `clarifyQuestion` and `routeMessage` all take a provider, and the chat
+route hands them the chat's.
+
+**Which calls run where**, per message of a RAG chat:
+
+| call | Claude chat | local chat |
+| --- | --- | --- |
+| router (`route`: intent, standalone question, queries, memory patch) | Claude (`RAG_ROUTER_MODEL`) | local model, JSON schema |
+| vector search (EmbeddingGemma) + rerank (bge-reranker-v2-m3) | local | local |
+| answer (`submit_answer` contract, + one retry) | Claude | local model, JSON schema |
+| low-relevance clarification (`submit_clarification`) | Claude | local model, JSON schema |
+| Rewrite stage (`submit_queries`) | only in Compare, Claude | not used (the button is disabled; the router writes the queries anyway) |
+
+`llms.ragProviderFor(llm)` (`src/llm/choice.js`) is the only way the route gets a provider for
+a RAG turn: Claude for `claude`, an `OllamaProvider` sized for RAG for `local:<tag>`. There is
+**no cloud fallback**. Ollama down, a timeout or a model that isn't pulled is the Day 27
+readable error. A reply that never becomes valid JSON is handled in code, never sent to Claude:
+- for `submit_answer`, it counts as not calling it; the contract retries once, then downgrades;
+- for the router, the message is searched as typed (override `invalid JSON → search`);
+- for the clarification, the fixed fallback question is used.
+
+**Forced tool calls → JSON schema.** For the Ollama provider, a forced tool is sent as
+Ollama's `format` with the tool's own `inputSchema` (the same object Claude gets as
+`input_schema`), then parsed and validated with ajv. An invalid reply is retried once with the
+validation errors, and the caller still receives a `tool_use` block. Each completion records
+`structured: { attempts, invalid, errors }`, which the eval counts as "invalid JSON".
+
+**The citation contract is unchanged.** It runs the same `verifySubmission` rules: markers,
+known chunk_ids, verbatim quotes of 4–60 words, every citation used. The same single retry
+follows, then the same repair or downgrade. The only difference is how the retry is sent.
+Claude's tool call is answered with a `tool_result`. A local model's submission was a JSON
+reply, so it gets that JSON back as an assistant message and the error list as a plain user
+message.
+
+**Context window.** Every RAG call on a local model sends `num_ctx = LOCAL_RAG_NUM_CTX`
+(default 16384) and `num_predict ≤ LOCAL_RAG_NUM_PREDICT` (2048, the contract's ceiling). The
+default comes from measurement: the eval's answer prompts are 0.7–3.1k tokens (system prompt +
+5 chunks + question). A chat turn adds task memory and up to 6 history messages, and the reply
+needs room. The window does cost memory once prompts fill it. Right after loading, `/api/ps`
+shows 7.7 GB for qwen3.5:9b at 8k, 12k and 16k alike. After the eval's prompts at 16k it is
+9.6 GB for qwen3.5:9b and 15.2 GB for gemma4:12b, nearly all of a 16 GB machine. Lower
+`LOCAL_RAG_NUM_CTX` (e.g. 8192: still about 2.6× the largest eval prompt) if gemma is your
+RAG model. Ollama doesn't report it when it cuts a prompt that doesn't fit. So any
+response whose `prompt_eval_count` is within 10% of `num_ctx` is logged (`[local] possible
+truncation: …`) and flagged on the result and the stored reply as `possible_truncation`. The
+page shows a **⚠ possible truncation** chip. Plain local chats keep `LOCAL_NUM_CTX` (8192).
+Ollama reloads a model when `num_ctx` changes, so the first message after switching a chat
+between Without RAG and With RAG pays one model load (≈ 8–10 s).
+
+**In the page.** A local RAG reply has one badge, `qwen3.5:9b · rag+rerank`. Hovering it shows:
+- TTFT, tok/s, model latency over all calls, and tokens with `num_ctx`;
+- the router's time;
+- the local retrieval and rerank times;
+- any invalid-JSON retries.
+
+Citation chips, the verification badge, Sources, the chunk list and "I don't know" with its
+clarifying question are the same components as for Claude. The side panel says the router and
+the answer are local.
+
+**Compare: Claude vs local.** The Compare dialog has a **Compare** select: *With RAG vs
+without* (on a local chat both arms use the local model) or *Claude vs local* (the chat's
+local model, or the default one). Claude vs local runs `retrieveForQuestion` **once**
+(rag or rag+rerank, as the chat's Rerank switch says, never Rewrite). Then it calls
+`answerQuestion({ retrieval })` for Claude and for the local model in parallel, so both
+answer from the same chunks. Claude's call is streamed only to time it
+(`AnthropicProvider({ stream: true })`), so its TTFT is a real first-token time. Each side
+shows its answer, citation chips, verification badge, sources and timings: retrieval and
+rerank (shared), TTFT, generation, total. A local failure shows as that side's error, never
+filled in by Claude.
+
+**`npm run eval:local`** (`scripts/eval-local.js`, pure half in `src/rag/localEval.js`):
+
+- **Questions:** the 10 `citations` questions in `rag+rerank`, 7 to answer and 3 to decline,
+  as on Day 24.
+- **Shared retrieval:** each question is retrieved and reranked once, locally, and cached in
+  [`reports/local_rag_retrieval.json`](reports/local_rag_retrieval.json). The cache is keyed by
+  the retrieval settings and the question text; `--fresh` rebuilds it. Every generator answers
+  from those exact chunks through `answerQuestion({ retrieval })`, the same contract as the
+  chat, so the comparison isolates generation. Retrieval and rerank times are reported once.
+- **Generators:** Claude Haiku 4.5 (cloud, streamed for TTFT), then each `LOCAL_MODELS` model
+  in turn. Before each local model, everything is unloaded; the model is loaded with the RAG
+  `num_ctx` and its load time recorded. After its questions, its memory comes from `/api/ps`
+  and it is unloaded.
+- **Judges:** they stay on Claude (`RAG_JUDGE_MODEL`): faithfulness and Day 22's fact judge,
+  run after all generation so the local runs are back to back. The API key is needed for
+  Claude's generation and the judges only. The report lists which calls were cloud and which
+  local.
+- **Thermals:** every request records its run order and start time. The summary compares the
+  first and second half of each model's questions (tok/s, latency), because the Air is
+  fanless.
+- **Options:**
+  - `-- --quick`: 3 questions (one corpus, one paraphrased, one decline), Claude + the first
+    local model, written to `local_rag_quick_*`;
+  - `-- --models qwen3.5:9b`, `-- q14`: partial runs, merged into the existing results;
+  - `-- --no-claude`;
+  - `-- --report`: re-render from the JSON and the notes.
+- **Outputs:**
+  [`reports/local_rag_results.json`](reports/local_rag_results.json) and
+  [`reports/local_rag_report.md`](reports/local_rag_report.md). The report has a summary with
+  the generators as columns, then every question with each generator's answer, citations,
+  verification and timings, and the run order. The findings are in
+  [`reports/local_rag_notes.md`](reports/local_rag_notes.md), and `/rag-report` has a
+  **Local** tab.
+
+**`npm run verify:local`** now also holds a Knowledge **With RAG** conversation per local model:
+- turn 1 states a goal and asks if CMP for iOS is stable;
+- turn 2 sets "at most 3 sentences" and "CMP = Compose Multiplatform";
+- turn 3 asks only about "CMP", so the router has to read the term from the task memory.
+
+It runs under the same no-key, localhost-only fetch guard, with a Claude provider that counts
+its calls. It checks that every reply and every router call came from the local model and that
+Claude was called 0 times. It also checks that search replies are `answered` with citations
+that passed verification and were not downgraded, that no prompt was flagged for truncation,
+and that turn 3's standalone question says "Compose Multiplatform" with the term held in
+memory. See [`reports/day27_verify.md`](reports/day27_verify.md).
+
+| env (Day 28) | default | |
+| --- | --- | --- |
+| `LOCAL_RAG_NUM_CTX` | 16384 | context window of every local call in a Knowledge RAG chat; a prompt within 10% of it is flagged `possible_truncation` |
+| `LOCAL_RAG_NUM_PREDICT` | 2048 | output ceiling of those calls |
+| `RAG_JUDGE_MODEL` | Haiku 4.5 | `eval:local`'s judges (cloud) |
+| `OLLAMA_URL`, `LOCAL_MODELS`, `LOCAL_TIMEOUT_MS`, … | | as on Day 27, below |
+
 ## Local models (Day 27)
 
 first-agent and Knowledge chats can be answered by a model running on this machine under
@@ -102,7 +231,7 @@ non-streaming, so TTFT is Ollama's load + prompt-eval time.
 | --- | --- | --- |
 | first-agent (memory chat) | fully | every model call goes to the chat's provider (list below); nothing disabled |
 | Knowledge, Without RAG | fully | short-term history only, as before |
-| Knowledge, With RAG | no | with a local model the RAG switch shows off and is disabled, with the note "local + RAG: Day 28"; **Compare** (which runs both modes on Claude) is disabled too. The server answers a local `ragMode: "rag"` with a 400 |
+| Knowledge, With RAG | fully, since Day 28 | router, answer and clarification on the local model; see [Local RAG (Day 28)](#local-rag-day-28). Only the Rewrite stage (used by Compare) stays Claude's |
 | pirate support, Movie buff, Pipeline | no | Claude only; the Model switch is hidden and the server refuses a local choice |
 
 Every model call the first-agent chat makes, all on the chat's provider:
@@ -121,8 +250,8 @@ Every model call the first-agent chat makes, all on the chat's provider:
 None of these uses forced tool use: the extractor, promoter and proposer ask for JSON as text
 and parse it, so they run on a local model unchanged. The memory routes get the provider from
 the chat's record (`providerFor`), so the lifecycle buttons stay local too. The forced-tool →
-JSON-schema path in `OllamaProvider` is what Knowledge With RAG (router, contract, clarify,
-rewrite) will use locally on Day 28. It is covered by the offline tests.
+JSON-schema path in `OllamaProvider` is what Knowledge With RAG (router, contract, clarify)
+uses locally since Day 28.
 
 | env | default | |
 | --- | --- | --- |

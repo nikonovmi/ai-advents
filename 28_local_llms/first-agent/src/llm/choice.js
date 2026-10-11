@@ -74,6 +74,18 @@ export function createLlms({ claude, claudeAvailable, env = process.env, fetch }
     if (!providers.has(model)) providers.set(model, new OllamaProvider({ model, settings, fetch }));
     return providers.get(model);
   };
+  /**
+   * Day 28: the same model for a Knowledge RAG chat, with its own window
+   * (`LOCAL_RAG_NUM_CTX`) and output ceiling: the system prompt, the task
+   * memory, the history, five chunks and a `submit_answer` with quotes do not
+   * fit the chat default.
+   */
+  const ragSettingsOf = { ...settings, numCtx: settings.ragNumCtx, numPredict: settings.ragNumPredict };
+  const localRag = (model) => {
+    const key = `${model} (rag)`;
+    if (!providers.has(key)) providers.set(key, new OllamaProvider({ model, settings: ragSettingsOf, fetch }));
+    return providers.get(key);
+  };
 
   async function client() {
     const { createOllama } = await loadOllamaModule(settings.dir);
@@ -117,13 +129,19 @@ export function createLlms({ claude, claudeAvailable, env = process.env, fetch }
       return isLocalChoice(choice) ? local(localModelOf(choice)) : claude;
     },
 
+    /** Day 28: the provider for every call of a Knowledge RAG turn (router, answer, clarification). */
+    ragProviderFor(choice) {
+      return isLocalChoice(choice) ? localRag(localModelOf(choice)) : claude;
+    },
+    localRag,
+
     /**
      * `GET /local/status`: whether Ollama answers, its version, what is
      * installed and loaded, and what the switch offers. Never throws: a down
      * server is a state the page draws.
      */
     async status() {
-      const base = { url: settings.url, numCtx: settings.numCtx, numPredict: settings.numPredict, timeoutMs: settings.timeoutMs, claudeAvailable };
+      const base = { url: settings.url, numCtx: settings.numCtx, ragNumCtx: settings.ragNumCtx, numPredict: settings.numPredict, timeoutMs: settings.timeoutMs, claudeAvailable };
       try {
         const c = await client();
         const [version, installed, running] = await Promise.all([c.version(), c.list(), c.running()]);

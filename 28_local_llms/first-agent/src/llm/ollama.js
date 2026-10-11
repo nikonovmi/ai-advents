@@ -41,6 +41,8 @@ export const PROJECT_DIR = path.join(import.meta.dirname, "..", "..");
  * | `LOCAL_NUM_PREDICT` | 1024 | ceiling on generated tokens per call |
  * | `LOCAL_TIMEOUT_MS` | 180000 | per call, model load included |
  * | `LOCAL_LLM_DIR` | `../local_llm` | where the Day 26 client lives |
+ * | `LOCAL_RAG_NUM_CTX` | 16384 | Day 28: the context window of every call in a Knowledge RAG chat |
+ * | `LOCAL_RAG_NUM_PREDICT` | 2048 | Day 28: the RAG calls' output ceiling (a `submit_answer` carries quotes: about twice a free-text answer) |
  */
 export function localSettings(env = process.env) {
   const int = (name, fallback, min, max) => {
@@ -55,6 +57,8 @@ export function localSettings(env = process.env) {
     numCtx: int("LOCAL_NUM_CTX", 8192, 512, 262144),
     numPredict: int("LOCAL_NUM_PREDICT", 1024, 1, 32768),
     timeoutMs: int("LOCAL_TIMEOUT_MS", 180000, 1000, 3600000),
+    ragNumCtx: int("LOCAL_RAG_NUM_CTX", 16384, 2048, 262144),
+    ragNumPredict: int("LOCAL_RAG_NUM_PREDICT", 2048, 1, 32768),
     dir: path.resolve(PROJECT_DIR, env.LOCAL_LLM_DIR || path.join("..", "local_llm")),
   };
 }
@@ -154,7 +158,42 @@ export function localMetrics(metrics = {}) {
     cachedPromptTokens: metrics.cached_prompt_tokens ?? null,
     outputTokens: metrics.gen_tokens ?? null,
     promptTps: metrics.prompt_tps ?? null,
+    promptEvalMs: metrics.prompt_eval_ms ?? null,
+    evalMs: metrics.eval_ms ?? null,
   };
+}
+
+/**
+ * Several calls' metrics as one (Day 28: a structured retry, or the contract's
+ * second attempt): time to first token is the first call's, everything else
+ * adds up, and tokens/s is recomputed over all the generation time.
+ */
+export function combineMetrics(list) {
+  const all = list.filter(Boolean);
+  if (!all.length) return null;
+  if (all.length === 1) return all[0];
+  const add = (key) => (all.some((m) => typeof m[key] === "number") ? all.reduce((a, m) => a + (m[key] ?? 0), 0) : null);
+  const outputTokens = add("outputTokens");
+  const evalMs = add("evalMs");
+  return {
+    ...all[0],
+    genTps: outputTokens && evalMs ? Math.round((10 * outputTokens) / (evalMs / 1000)) / 10 : all[0].genTps,
+    totalMs: add("totalMs"),
+    wallMs: add("wallMs"),
+    loadMs: add("loadMs"),
+    promptTokens: add("promptTokens"),
+    cachedPromptTokens: add("cachedPromptTokens"),
+    outputTokens,
+    promptEvalMs: add("promptEvalMs"),
+    evalMs,
+    calls: all.length,
+  };
+}
+
+/** A prompt this close to `num_ctx` may have been cut by Ollama, which does not say so. */
+export const TRUNCATION_MARGIN = 0.1;
+export function nearContextLimit(promptTokens, numCtx) {
+  return typeof promptTokens === "number" && typeof numCtx === "number" && promptTokens >= numCtx * (1 - TRUNCATION_MARGIN);
 }
 
 const ajv = new Ajv({ allErrors: true, strict: false });
@@ -190,6 +229,7 @@ export class OllamaProvider extends LlmProvider {
   #settings;
   #fetch;
   #client = null;
+  #log;
 
   /** The last few request bodies as sent, newest last, for tests to read. */
   calls = [];
@@ -200,12 +240,13 @@ export class OllamaProvider extends LlmProvider {
    * @param {Partial<ReturnType<typeof localSettings>>} [params.settings]
    * @param {typeof fetch} [params.fetch] - Tests pass a fake.
    */
-  constructor({ model, settings = {}, fetch } = {}) {
+  constructor({ model, settings = {}, fetch, log = console.warn } = {}) {
     super();
     if (!model) throw new Error("OllamaProvider requires a model (an Ollama tag such as qwen3.5:9b).");
     this.#model = model;
     this.#settings = { ...localSettings({}), ...settings };
     this.#fetch = fetch;
+    this.#log = log;
   }
 
   get model() {
@@ -253,34 +294,53 @@ export class OllamaProvider extends LlmProvider {
 
     if (!forced) {
       const res = await this.#chat({ ...base, messages: wire });
-      return this.#completion(res, { text: res.text.trim(), content: [{ type: "text", text: res.text.trim() }] });
+      const completion = this.#completion(res, { text: res.text.trim(), content: [{ type: "text", text: res.text.trim() }] });
+      return this.#nearLimit(res) ? { ...completion, possible_truncation: true } : completion;
     }
 
     // Structured output: the tool's schema as `format`, validated, one retry.
     const schema = forced.inputSchema ?? { type: "object" };
     const first = await this.#chat({ ...base, messages: wire, format: schema });
     let parsed = parseStructured(first.text, schema);
-    let last = first;
-    let attempts = 1;
+    const responses = [first];
+    const errors = parsed.ok ? [] : [parsed.error];
     if (!parsed.ok) {
-      attempts = 2;
       const retry = [
         ...wire,
         { role: "assistant", content: first.text },
         { role: "user", content: `That reply was rejected: ${parsed.error}. Reply again with only the JSON object for ${forced.name}, matching the schema exactly.` },
       ];
-      last = await this.#chat({ ...base, messages: retry, format: schema });
-      parsed = parseStructured(last.text, schema);
+      const second = await this.#chat({ ...base, messages: retry, format: schema });
+      responses.push(second);
+      parsed = parseStructured(second.text, schema);
+      if (!parsed.ok) errors.push(parsed.error);
     }
+    const last = responses.at(-1);
     const usage = {
-      inputTokens: sumTokens(first.metrics.prompt_tokens, attempts === 2 ? last.metrics.prompt_tokens : 0),
-      outputTokens: sumTokens(first.metrics.gen_tokens, attempts === 2 ? last.metrics.gen_tokens : 0),
+      inputTokens: sumTokens(...responses.map((r) => r.metrics.prompt_tokens)),
+      outputTokens: sumTokens(...responses.map((r) => r.metrics.gen_tokens)),
     };
+    // Day 28: what the eval counts — how many replies were not valid JSON for the schema.
+    const structured = { tool: forced.name, attempts: responses.length, invalid: errors.length, errors };
     if (!parsed.ok) {
-      throw localError(`${id} didn't return valid JSON for ${forced.name} after one retry: ${parsed.error}`, { status: 422, code: "invalid_json" });
+      const err = localError(`${id} didn't return valid JSON for ${forced.name} after one retry: ${parsed.error}`, { status: 422, code: "invalid_json" });
+      err.structured = structured;
+      err.metrics = combineMetrics(responses.map((r) => this.#completion(r, { text: "", content: [] }).metrics));
+      err.usage = usage;
+      err.possible_truncation = responses.some((r) => this.#nearLimit(r));
+      throw err;
     }
     const use = { type: "tool_use", id: `toolu_local_${Date.now().toString(36)}`, name: forced.name, input: parsed.value };
-    return { ...this.#completion(last, { text: "", content: [use] }), stopReason: "tool_use", usage, attempts };
+    const completion = this.#completion(last, { text: "", content: [use] });
+    return {
+      ...completion,
+      stopReason: "tool_use",
+      usage,
+      attempts: responses.length,
+      structured,
+      metrics: combineMetrics(responses.map((r) => this.#completion(r, { text: "", content: [] }).metrics)),
+      ...(responses.some((r) => this.#nearLimit(r)) ? { possible_truncation: true } : {}),
+    };
   }
 
   /** Ollama has no token-counting endpoint; the Agent shows "unknown" rather than a guess. */
@@ -304,6 +364,17 @@ export class OllamaProvider extends LlmProvider {
     }
   }
 
+  /**
+   * Day 28: Ollama cuts a prompt that does not fit `num_ctx` and says nothing,
+   * so a prompt within 10 % of the window is logged and flagged on the result.
+   */
+  #nearLimit(res) {
+    const prompt = res.metrics?.prompt_tokens;
+    if (!nearContextLimit(prompt, this.#settings.numCtx)) return false;
+    this.#log(`[local] possible truncation: ${res.model ?? this.#model} prompt ${prompt} tokens, num_ctx ${this.#settings.numCtx}`);
+    return true;
+  }
+
   #completion(res, { text, content }) {
     return {
       text,
@@ -312,7 +383,7 @@ export class OllamaProvider extends LlmProvider {
       stopReason: res.done_reason === "length" ? "max_tokens" : "end_turn",
       usage: { inputTokens: res.metrics?.prompt_tokens ?? 0, outputTokens: res.metrics?.gen_tokens ?? 0 },
       provider: LOCAL_PROVIDER,
-      metrics: localMetrics(res.metrics),
+      metrics: { ...localMetrics(res.metrics), numCtx: this.#settings.numCtx },
     };
   }
 }
@@ -328,6 +399,6 @@ function structuredSystem(system, tool) {
     .join("\n\n");
 }
 
-function sumTokens(a, b) {
-  return (a ?? 0) + (b ?? 0);
+function sumTokens(...counts) {
+  return counts.reduce((a, b) => a + (b ?? 0), 0);
 }

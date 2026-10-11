@@ -9,6 +9,10 @@ import { FALLBACK_CLARIFYING_QUESTION } from "./contract.js";
  * title, section and first 150 characters of the best rejected chunks, and
  * writes a clarifying question. It may point at what the documents do cover
  * nearby ("Did you mean X or Y?"); it never answers.
+ *
+ * Day 28: on a local model, a reply that is still not valid JSON after the
+ * provider's retry gets the fixed fallback question (and is counted), never a
+ * call to Claude.
  */
 
 export const CLARIFY_TOOL = {
@@ -54,16 +58,30 @@ export function clarifyPrompt(question, rejected) {
  * @returns {Promise<{ clarifyingQuestion: string, usage: object | null }>}
  */
 export async function clarifyQuestion(question, rejected, { provider, model }) {
-  const completion = await provider.complete({
-    system: CLARIFY_SYSTEM,
-    messages: [{ role: "user", content: clarifyPrompt(question, rejected) }],
-    tools: [CLARIFY_TOOL],
-    toolChoice: { name: CLARIFY_TOOL.name },
-    temperature: 0,
-    maxTokens: 200,
-    ...(model ? { model } : {}),
-  });
+  let completion;
+  try {
+    completion = await provider.complete({
+      system: CLARIFY_SYSTEM,
+      messages: [{ role: "user", content: clarifyPrompt(question, rejected) }],
+      tools: [CLARIFY_TOOL],
+      toolChoice: { name: CLARIFY_TOOL.name },
+      temperature: 0,
+      maxTokens: 200,
+      ...(model ? { model } : {}),
+    });
+  } catch (err) {
+    if (err?.code !== "invalid_json") throw err;
+    completion = { content: [], usage: err.usage ?? null, model: provider.model ?? null, provider: "local", metrics: err.metrics ?? null, structured: err.structured, possible_truncation: err.possible_truncation };
+  }
   const call = (completion?.content ?? []).find((block) => block?.type === "tool_use" && block.name === CLARIFY_TOOL.name);
   const text = String(call?.input?.clarifying_question ?? "").trim();
-  return { clarifyingQuestion: text || FALLBACK_CLARIFYING_QUESTION, usage: completion?.usage ?? null };
+  return {
+    clarifyingQuestion: text || FALLBACK_CLARIFYING_QUESTION,
+    usage: completion?.usage ?? null,
+    model: completion?.model ?? null,
+    provider: completion?.provider ?? provider.provider ?? null,
+    metrics: completion?.metrics ?? null,
+    ...(completion?.structured ? { structured: completion.structured } : {}),
+    ...(completion?.possible_truncation ? { possible_truncation: true } : {}),
+  };
 }

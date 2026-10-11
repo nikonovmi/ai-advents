@@ -6,11 +6,12 @@ import express from "express";
 import { agentOf, isKnowledgeAgent } from "./agents.js";
 import { CLAUDE, isLlmChoice, isLocalChoice } from "./llm/choice.js";
 import { estimateCost } from "./llm/pricing.js";
-import { answerQuestion } from "./rag/answer.js";
+import { answerQuestion, modeLabel as modeLabelOf, retrieveForQuestion } from "./rag/answer.js";
 import { RAG_MAX_TOKENS, REPORTS_DIR, chatSettings, ragSettings } from "./rag/config.js";
 import { chatSummaryRows } from "./rag/chatEval.js";
 import { runChatTurn } from "./rag/chatTurn.js";
 import { citationSummaryRows } from "./rag/citationsEval.js";
+import { localSummaryRows } from "./rag/localEval.js";
 import { summaryRows } from "./rag/eval.js";
 import { sharedReranker } from "./rag/reranker.js";
 import { RetrievalError, sharedRetriever } from "./rag/retriever.js";
@@ -34,18 +35,23 @@ import { RAG_MODES, isValidSessionId, nextMessageId, normaliseUsage } from "./st
  *   - `POST /chat` with `ragMode` (`rag` | `plain`), the `rerank` / `rewrite` switches and (Day 27) `llm`;
  *   - `GET /conversations/:id` → messages, `kind: "knowledge"`, `ragMode`, `rerank`, `rewrite`, `taskMemory`, `llm`.
  *
- * Day 27: a chat whose Model switch is a local model is answered Without RAG
- * by that model (local + RAG is Day 28). Asking for RAG on one is a 400, never
- * a quiet hand-off to Claude.
+ * Day 27/28: a chat whose Model switch is a local model is answered by that
+ * model in both modes. With RAG, every call of the turn — the router, the
+ * `submit_answer` contract and the low-relevance clarification — goes to the
+ * chat's local provider, built with `LOCAL_RAG_NUM_CTX`; retrieval and rerank
+ * were always local. A failed local call is an error or a downgraded answer,
+ * never a Claude answer: there is no path from a local chat to Claude.
  *
  * And its own:
  *
  *   - `PUT /conversations/:id/rag` `{ mode?, rerank?, rewrite? }` — the With RAG / Without RAG switch and the two RAG stages;
  *   - `DELETE /conversations/:id/task-memory` — the panel's reset button;
- *   - `POST /rag/compare` `{ question, rerank?, rewrite? }` — both modes side by side, stored nowhere;
+ *   - `POST /rag/compare` `{ question, rerank?, rewrite?, llm?, versus? }` — both modes side by side, stored nowhere;
+ *     Day 28: `versus: "models"` answers one RAG question with Claude and with the local model `llm`,
+ *     from one retrieval and rerank, so both get the same chunks;
  *   - `GET /rag/status` — the retrieval settings, and whether the models are loaded;
  *   - `GET /rag-report` — the eval page; `GET /rag-report/data` — its JSON (the
- *     Day 23 modes eval, the Day 24 citations eval and the Day 25 chat eval), read from `reports/` on every request.
+ *     Day 23 modes eval, the Day 24 citations eval, the Day 25 chat eval and the Day 28 local eval), read from `reports/` on every request.
  */
 
 /** Short-term memory in plain mode: the last few exchanges, verbatim. (RAG mode: `RAG_HISTORY_TURNS`.) */
@@ -89,7 +95,7 @@ export function ragRoutes({
   routeTurn = routeMessage,
   chat = chatSettings(),
   log = console.log,
-  llms = { providerFor: () => provider, defaultChoice: async () => CLAUDE, claudeAvailable: true },
+  llms = { providerFor: () => provider, ragProviderFor: () => provider, defaultChoice: async () => CLAUDE, claudeAvailable: true },
 }) {
   const router = express.Router();
   const fakes = { ...(search ? { search } : {}), ...(rerankScores ? { rerankScores } : {}), ...(rewriter ? { rewriter } : {}), log };
@@ -149,8 +155,7 @@ export function ragRoutes({
       const llm = wantedLlm ?? record?.llm ?? (await llms.defaultChoice());
       const local = isLocalChoice(llm);
       if (!local && !llms.claudeAvailable) return res.status(400).json({ error: "Claude isn't available: ANTHROPIC_API_KEY is not set. Pick a local model in the Model switch." });
-      if (local && ragMode === "rag") return res.status(400).json({ error: "local + RAG: Day 28. Turn RAG off for a local model, or pick Claude." });
-      const mode = local ? "plain" : (ragMode ?? record?.ragMode ?? "rag");
+      const mode = ragMode ?? record?.ragMode ?? "rag";
       const ragOptions = { rerank: rerank ?? record?.ragOptions?.rerank ?? DEFAULT_RAG_OPTIONS.rerank, rewrite: rewrite ?? record?.ragOptions?.rewrite ?? DEFAULT_RAG_OPTIONS.rewrite };
 
       const messages = record?.messages ?? [];
@@ -166,7 +171,8 @@ export function ragRoutes({
             messages,
             memory: memoryBefore,
             turn: messages.filter((m) => m.role === "user").length + 1,
-            provider,
+            // Day 28: the chat's provider for every call of the turn; a local one is sized for RAG.
+            provider: llms.ragProviderFor(llm),
             routerModel: chat.routerModel,
             historyTurns: chat.historyTurns,
             ragOptions: { ...settings, ...fakes, rerank: ragOptions.rerank },
@@ -202,6 +208,9 @@ export function ragRoutes({
           tokens,
           cost: { input: cost.inputCost, output: cost.outputCost, total: cost.totalCost },
           model: turn.route.routerModel,
+          ...(turn.route.routerProvider ? { provider: turn.route.routerProvider } : {}),
+          ...(turn.route.routerProvider === "local" && turn.route.routerMetrics ? { localMetrics: turn.route.routerMetrics } : {}),
+          ...(turn.route.possible_truncation ? { possible_truncation: true } : {}),
           ms: Date.now() - startedAt,
           stopReason: "routed",
         };
@@ -222,6 +231,7 @@ export function ragRoutes({
         model: result.model,
         ...(result.provider ? { provider: result.provider } : {}),
         ...(result.localMetrics ? { localMetrics: result.localMetrics } : {}),
+        ...(result.possible_truncation || turn?.route.possible_truncation ? { possible_truncation: true } : {}),
         ms: Date.now() - startedAt,
         stopReason: result.stopReason,
         ...(result.stopReason === "max_tokens" ? { truncated: true } : {}),
@@ -246,6 +256,7 @@ export function ragRoutes({
               }
             : {}),
           timings: result.timings,
+          ...(result.generation ? { generation: { invalidJson: result.generation.invalidJson, schemaFailures: result.generation.schemaFailures, calls: result.generation.calls.length } } : {}),
         },
       };
       const usage = normaliseUsage(record?.usage);
@@ -255,8 +266,7 @@ export function ragRoutes({
       usage.turnCount += 1;
       await store.save(sessionId, [...messages, userMessage, reply], usage, {
         agentId: agentOf(record?.agentId ?? req.body.agent),
-        // A local turn leaves the stored RAG switch alone: switching back to Claude finds it where it was.
-        ragMode: local ? (record?.ragMode ?? "rag") : mode,
+        ragMode: mode,
         ragOptions,
         llm,
         ...(turn ? { taskMemory: turn.memory } : {}),
@@ -327,25 +337,75 @@ export function ragRoutes({
     }),
   );
 
+  /** Day 28: Compare's timings, per side: the shared retrieval and rerank, then this generator's own. */
+  const sideTimings = (r) => {
+    const m = r.generation?.metrics ?? {};
+    const generationMs = r.timings.llmMs + r.timings.clarifyMs;
+    return {
+      retrieveMs: r.timings.retrieveMs,
+      rerankMs: r.timings.rerankMs,
+      rewriteMs: r.timings.rewriteMs,
+      ttftMs: m.ttftMs ?? null,
+      generationMs: m.evalMs ?? null,
+      answerMs: generationMs,
+      totalMs: r.timings.rewriteMs + r.timings.retrieveMs + r.timings.rerankMs + generationMs,
+    };
+  };
+  const shape = (r) => ({ ...r, cost: estimateCost({ model: r.model, inputTokens: r.usage?.inputTokens, outputTokens: r.usage?.outputTokens }).totalCost, compareTimings: sideTimings(r) });
+
   router.post(
     "/rag/compare",
     route(async (req, res) => {
       const question = req.body?.question;
       if (typeof question !== "string" || !question.trim()) return res.status(400).json({ error: "A non-empty 'question' is required." });
       if (question.length > MAX_QUESTION_CHARS) return res.status(400).json({ error: `A question is at most ${MAX_QUESTION_CHARS} characters.` });
+      const llm = req.body?.llm;
+      if (llm !== undefined && !isLlmChoice(llm)) return res.status(400).json({ error: "'llm' must be \"claude\" or \"local:<model>\"." });
+      const versus = req.body?.versus ?? "modes";
+      if (versus !== "modes" && versus !== "models") return res.status(400).json({ error: "'versus' must be \"modes\" or \"models\"." });
+      const local = isLocalChoice(llm);
       let options;
       try {
-        options = { mode: "rag", rerank: switchOf(req.body, "rerank") ?? false, rewrite: switchOf(req.body, "rewrite") ?? false };
+        // The Rewrite stage is Claude's: never part of a local generator's run.
+        options = { mode: "rag", rerank: switchOf(req.body, "rerank") ?? false, rewrite: local || versus === "models" ? false : (switchOf(req.body, "rewrite") ?? false) };
       } catch (err) {
         return res.status(400).json({ error: err.message });
       }
+
+      if (versus === "models") {
+        if (!local) return res.status(400).json({ error: "Claude vs local needs 'llm': the local model to compare (\"local:<model>\")." });
+        if (!llms.claudeAvailable) return res.status(400).json({ error: "Claude isn't available: ANTHROPIC_API_KEY is not set, so there is nothing to compare the local model with." });
+        let retrieval;
+        try {
+          // Once, for both: the comparison isolates generation.
+          retrieval = await retrieveForQuestion(question.trim(), { ...settings, ...fakes, rerank: options.rerank, rewrite: false });
+        } catch (err) {
+          return failure(res, err);
+        }
+        const claudeProvider = provider.streaming?.() ?? provider;
+        const [claudeSide, localSide] = await Promise.allSettled([
+          answer(question.trim(), { ...options, provider: claudeProvider, retrieval, ...settings, ...fakes }),
+          answer(question.trim(), { ...options, provider: llms.ragProviderFor(llm), retrieval, ...settings, ...fakes }),
+        ]);
+        // Each side stands alone: a failed local call is shown as that side's error, never filled in by Claude.
+        const side = (s) => (s.status === "fulfilled" ? shape(s.value) : { error: readableError(s.reason) });
+        return res.json({
+          question: question.trim(),
+          versus,
+          llm,
+          label: retrieval ? modeLabelOf(options) : null,
+          retrieval: { timings: retrieval.timings, chunks: retrieval.chunks.length, declined: retrieval.declined },
+          claude: side(claudeSide),
+          local: side(localSide),
+        });
+      }
+
       try {
         // RAG first: it is the one that can fail on retrieval, and a failure
         // should not leave a plain answer paid for and thrown away.
-        const rag = await ask(question.trim(), options);
-        const plain = await ask(question.trim(), { mode: "plain" });
-        const shape = (r) => ({ ...r, cost: estimateCost({ model: r.model, inputTokens: r.usage?.inputTokens, outputTokens: r.usage?.outputTokens }).totalCost });
-        res.json({ question: question.trim(), rag: shape(rag), plain: shape(plain) });
+        const rag = await ask(question.trim(), options, [], llms.ragProviderFor(llm ?? CLAUDE));
+        const plain = await ask(question.trim(), { mode: "plain" }, [], llms.providerFor(llm ?? CLAUDE));
+        res.json({ question: question.trim(), versus, rag: shape(rag), plain: shape(plain) });
       } catch (err) {
         failure(res, err);
       }
@@ -353,7 +413,7 @@ export function ragRoutes({
   );
 
   router.get("/rag/status", (_req, res) => {
-    res.json({ ...settings, ...chat, maxTokens: RAG_MAX_TOKENS, model: provider.model ?? null, ready: ready(), rerankerReady: rerankerReady() });
+    res.json({ ...settings, ...chat, maxTokens: RAG_MAX_TOKENS, model: provider.model ?? null, ready: ready(), rerankerReady: rerankerReady(), localRagNumCtx: llms.settings?.ragNumCtx ?? null });
   });
 
   if (publicDir) router.get("/rag-report", (_req, res) => res.sendFile(path.join(publicDir, "rag-report.html")));
@@ -362,13 +422,15 @@ export function ragRoutes({
     "/rag-report/data",
     route(async (_req, res) => {
       const read = (name) => fs.readFile(path.join(reportsDir, name), "utf8").catch((err) => (err.code === "ENOENT" ? null : Promise.reject(err)));
-      const [results, notes, citationResults, citationNotes, chatResults, chatNotes] = await Promise.all([
+      const [results, notes, citationResults, citationNotes, chatResults, chatNotes, localResults, localNotes] = await Promise.all([
         read("rag_results.json"),
         read("rag_notes.md"),
         read("citations_results.json"),
         read("citations_notes.md"),
         read("chat_results.json"),
         read("chat_notes.md"),
+        read("local_rag_results.json"),
+        read("local_rag_notes.md"),
       ]);
       const parsed = results ? JSON.parse(results) : null;
       // The summary tables' rows, built by the same code as the Markdown reports'.
@@ -377,7 +439,9 @@ export function ragRoutes({
       if (citations?.summary) citations.summaryRows = citationSummaryRows(citations.summary);
       const chatParsed = chatResults ? JSON.parse(chatResults) : null;
       for (const scenario of chatParsed?.scenarios ?? []) scenario.summaryRows = chatSummaryRows(scenario.summary);
-      res.json({ results: parsed, notes, citations, citationNotes, chat: chatParsed, chatNotes });
+      const local = localResults ? JSON.parse(localResults) : null;
+      if (local?.generators) local.summaryTable = localSummaryRows(local.generators);
+      res.json({ results: parsed, notes, citations, citationNotes, chat: chatParsed, chatNotes, local, localNotes });
     }),
   );
 

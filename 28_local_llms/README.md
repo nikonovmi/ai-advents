@@ -1,3 +1,36 @@
+# Day 28 — Local LLM + RAG
+
+**Day 28:** a [`first-agent`](first-agent) Knowledge chat **With RAG** now runs fully on this
+machine when a local model is selected. Retrieval and rerank were already local. The router, the
+`submit_answer` contract and the low-relevance clarification now run on the chat's Ollama model as
+JSON-schema calls, under the same citation rules as Claude, with no cloud fallback. Compare gains a
+**Claude vs local** mode (one retrieval, both models answer from the same chunks). `npm run
+eval:local` answers the 10 Day 24 citation questions in `rag+rerank` with Claude Haiku 4.5 and each
+local model, all from one cached retrieval, and judges them on Claude
+([report](first-agent/reports/local_rag_report.md), [notes](first-agent/reports/local_rag_notes.md),
+[docs](first-agent/README.md#local-rag-day-28)):
+
+| | Claude Haiku 4.5 | gemma4:12b | qwen3.5:9b |
+| --- | ---: | ---: | ---: |
+| answerable questions answered (of 7) | 6 | 6 | 5 |
+| correct "I don't know" (of 3) · false IDK | 3 · 1 | 3 · 1 | 3 · 2 |
+| fabricated quotes, first attempt | 2 of 15 | 1 of 12 | 1 of 13 |
+| retries · dropped citations · downgrades | 2 · 0 · 0 | 4 · 0 · 0 | 1 · 1 · 0 |
+| invalid JSON (structured calls) | n/a | 0 of 14 | 0 of 11 |
+| faithfulness · mean fact score | 0.86 · 0.76 | 0.74 · 0.74 | 0.53 · 0.66 |
+| time to first token | 0.71 s | 25.1 s | 15.3 s |
+| generation | 129 tok/s | 11.8 tok/s | 16.1 tok/s |
+| answer latency, mean · max | 3.9 s · 8.0 s | 52.9 s · 98.1 s | 28.9 s · 50.7 s |
+| memory at num_ctx 16384 · truncations | — | 15.2 GB · 0 | 9.6 GB · 0 |
+
+Retrieval (0.5 s) and rerank (4.1 s) are shared and local. The local models never produced invalid
+JSON. They lose on content: wrong citation ids (gemma), a joined two-line quote that qwen couldn't
+repair, and one over-cautious "I don't know" (qwen). The time goes to reading the ~2k-token prompt
+(15–25 s) more than to writing. `verify:local` added a 3-turn RAG chat per model. It made 0
+non-localhost requests and 0 Claude calls, but ended **FAIL, 80/83 checks**: gemma routed a
+rule-setting message to search, qwen didn't write the CMP term to the task memory, and qwen had
+citations dropped on turn 1 ([verify report](first-agent/reports/day27_verify.md)).
+
 # Day 27 — Integrating a local LLM into an application
 
 **Day 27:** [`first-agent`](first-agent) can now answer with a model running under Ollama on

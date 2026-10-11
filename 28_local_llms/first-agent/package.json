@@ -20,6 +20,7 @@
     "eval:rag": "node scripts/eval-rag.js",
     "eval:citations": "node scripts/eval-citations.js",
     "eval:chat": "node scripts/eval-chat.js",
+    "eval:local": "node scripts/eval-local.js",
     "verify:local": "node scripts/verify-local.js"
   },
   "dependencies": {

@@ -21,6 +21,11 @@ import { MEMORY_OPS, renderMemory, taskMemoryOf } from "./taskMemory.js";
  * retrieved chunks. Code then overrides two things: a missing or invalid
  * intent is `search`, and while a clarifying question is open, anything that
  * is not `chat` is `search`.
+ *
+ * Day 28: on a local model the call is a JSON-schema reply (`ollama.js`). One
+ * that is still invalid after the provider's retry is a missing route: the
+ * message is searched as typed, the override says why, and nothing goes to
+ * Claude.
  */
 
 export const INTENTS = ["search", "memory_only", "chat"];
@@ -202,14 +207,31 @@ export function parseRoute(completion, { message, memory }) {
  */
 export async function routeMessage({ provider, model, message, messages, memory, historyTurns = DEFAULT_HISTORY_TURNS }) {
   const history = routerHistory(messages, historyTurns);
-  const completion = await provider.complete({
-    system: ROUTER_SYSTEM,
-    messages: [{ role: "user", content: routerPrompt({ message, history, memory }) }],
-    tools: [ROUTE_TOOL],
-    toolChoice: { name: ROUTE_TOOL.name },
-    temperature: 0,
-    maxTokens: 800,
-    ...(model ? { model } : {}),
-  });
-  return { ...parseRoute(completion, { message, memory }), usage: completion?.usage ?? null, model: completion?.model ?? model ?? null };
+  let completion;
+  try {
+    completion = await provider.complete({
+      system: ROUTER_SYSTEM,
+      messages: [{ role: "user", content: routerPrompt({ message, history, memory }) }],
+      tools: [ROUTE_TOOL],
+      toolChoice: { name: ROUTE_TOOL.name },
+      temperature: 0,
+      maxTokens: 800,
+      ...(model ? { model } : {}),
+    });
+  } catch (err) {
+    if (err?.code !== "invalid_json") throw err;
+    completion = { content: [], usage: err.usage ?? null, model: provider.model ?? null, provider: "local", metrics: err.metrics ?? null, structured: err.structured, possible_truncation: err.possible_truncation, invalidJson: true };
+  }
+  const route = parseRoute(completion, { message, memory });
+  if (completion.invalidJson) route.override = "invalid JSON → search";
+  return {
+    ...route,
+    usage: completion?.usage ?? null,
+    model: completion?.model ?? model ?? null,
+    // Day 28: who routed, and a local model's timings and JSON record.
+    provider: completion?.provider ?? provider.provider ?? null,
+    ...(completion?.metrics ? { metrics: completion.metrics } : {}),
+    ...(completion?.structured ? { structured: completion.structured } : {}),
+    ...(completion?.possible_truncation ? { possible_truncation: true } : {}),
+  };
 }

@@ -1,3 +1,4 @@
+import { combineMetrics } from "../llm/ollama.js";
 import { findQuote, wordCount } from "./quotes.js";
 
 /**
@@ -26,6 +27,13 @@ import { findQuote, wordCount } from "./quotes.js";
  * failure keeps what is valid: bad citations are dropped, and so is every
  * sentence that relied only on them; with no valid citation left, the answer
  * becomes `dont_know`.
+ *
+ * Day 28, a local model: the call is a JSON-schema reply (`ollama.js`), so
+ * there is no tool call to answer — the retry is the submission as an
+ * assistant message and the errors as a plain user message. A reply that is
+ * still not valid JSON after the provider's own retry counts as not calling
+ * `submit_answer` (rule 0), and goes through the same retry and downgrade.
+ * The rules do not change.
  */
 
 export const ANSWER_TOOL_NAME = "submit_answer";
@@ -346,21 +354,43 @@ const addUsage = (a, b) => ({ inputTokens: (a?.inputTokens ?? 0) + (b?.inputToke
  *   dontKnow: { reason: string } | null, verification: object, usage: object, model: string | null, stopReason: string | null, attempts: number }>}
  */
 export async function answerWithContract({ provider, system, messages, chunks, model, maxTokens, temperature = 0 }) {
-  const call = (msgs) =>
-    provider.complete({
-      system,
-      messages: msgs,
-      tools: [ANSWER_TOOL],
-      toolChoice: { name: ANSWER_TOOL_NAME },
-      temperature,
-      maxTokens,
-      ...(model ? { model } : {}),
+  const calls = [];
+  const call = async (msgs) => {
+    let completion;
+    try {
+      completion = await provider.complete({
+        system,
+        messages: msgs,
+        tools: [ANSWER_TOOL],
+        toolChoice: { name: ANSWER_TOOL_NAME },
+        temperature,
+        maxTokens,
+        ...(model ? { model } : {}),
+      });
+    } catch (err) {
+      if (err?.code !== "invalid_json") throw err;
+      // Not valid JSON twice: the model did not submit. Rule 0, below.
+      completion = { text: "", content: [], usage: err.usage ?? null, model: null, provider: "local", metrics: err.metrics ?? null, structured: err.structured, invalidJson: err.message, possible_truncation: err.possible_truncation || undefined };
+    }
+    calls.push({
+      attempt: calls.length + 1,
+      provider: completion.provider ?? provider.provider ?? null,
+      metrics: completion.metrics ?? null,
+      ...(completion.structured ? { structured: completion.structured } : {}),
+      ...(completion.possible_truncation ? { possible_truncation: true } : {}),
     });
+    return completion;
+  };
+  const verify = (completion, sub) => {
+    const check = verifySubmission(sub, chunks);
+    if (completion.invalidJson) check.errors[0] = `Your reply was not a valid ${ANSWER_TOOL_NAME} JSON object (${completion.structured?.errors?.at(-1) ?? "invalid JSON"}). Reply with exactly one JSON object matching the schema.`;
+    return check;
+  };
 
   let completion = await call(messages);
   let usage = addUsage(null, completion.usage);
   let sub = parseSubmission(completion);
-  let check = verifySubmission(sub, chunks);
+  let check = verify(completion, sub);
   const first = { errors: check.errors, fabricated: check.fabricated, status: sub.status ?? null, citations: sub.citations.length };
   let retried = false;
 
@@ -370,13 +400,17 @@ export async function answerWithContract({ provider, system, messages, chunks, m
       `The answer did not pass verification:\n${check.errors.map((e) => `- ${e}`).join("\n")}\n\n` +
       `Fix every problem and call ${ANSWER_TOOL_NAME} again with the whole corrected answer. ` +
       "Quotes must be copied exactly from the cited document. If the documents do not contain the answer, use dont_know.";
-    const retry = sub.use
-      ? [...messages, { role: "assistant", content: sub.content }, { role: "user", content: [{ type: "tool_result", toolUseId: sub.use.id, content: problems, isError: true }] }]
-      : [...messages, { role: "assistant", content: sub.text || "(no answer)" }, { role: "user", content: problems }];
+    // Claude answers its tool call with a tool_result; a local model's submission
+    // was a JSON reply, so it gets the JSON back and the errors as a user message.
+    const local = completion.provider === "local";
+    const retry =
+      sub.use && !local
+        ? [...messages, { role: "assistant", content: sub.content }, { role: "user", content: [{ type: "tool_result", toolUseId: sub.use.id, content: problems, isError: true }] }]
+        : [...messages, { role: "assistant", content: sub.use ? JSON.stringify(sub.use.input) : sub.text || "(no answer)" }, { role: "user", content: problems }];
     completion = await call(retry);
     usage = addUsage(usage, completion.usage);
     sub = parseSubmission(completion);
-    check = verifySubmission(sub, chunks);
+    check = verify(completion, sub);
   }
 
   const verification = {
@@ -390,7 +424,23 @@ export async function answerWithContract({ provider, system, messages, chunks, m
     fabricatedFirstAttempt: first.fabricated,
     finalErrors: check.valid ? [] : check.errors,
   };
-  const base = { usage, model: completion.model ?? null, stopReason: completion.stopReason ?? null, attempts: retried ? 2 : 1, verification };
+  const generation = {
+    calls,
+    metrics: combineMetrics(calls.map((c) => c.metrics)),
+    // Day 28: replies that were not valid JSON for the schema (each was retried by the provider), and calls that never got there.
+    invalidJson: calls.reduce((n, c) => n + (c.structured?.invalid ?? 0), 0),
+    schemaFailures: calls.filter((c) => c.structured && c.structured.invalid === c.structured.attempts).length,
+    possible_truncation: calls.some((c) => c.possible_truncation),
+  };
+  const base = {
+    usage,
+    model: completion.model ?? null,
+    provider: completion.provider ?? null,
+    stopReason: completion.stopReason ?? null,
+    attempts: retried ? 2 : 1,
+    verification,
+    generation,
+  };
   const dontKnow = (reason, question) => ({
     ...base,
     status: "dont_know",

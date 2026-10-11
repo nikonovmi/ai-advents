@@ -31,7 +31,7 @@ class ClaudeSpy extends FakeProvider {
   }
 }
 
-async function serve(t, { claudeAvailable = true, env = { LOCAL_MODELS: "qwen3.5:9b,gemma4:12b" }, ollama = fakeOllama() } = {}) {
+async function serve(t, { claudeAvailable = true, env = { LOCAL_MODELS: "qwen3.5:9b,gemma4:12b" }, ollama = fakeOllama(), ragDeps } = {}) {
   const claude = new ClaudeSpy();
   const store = new MemoryStore();
   const llms = createLlms({ claude, claudeAvailable, env, fetch: ollama.fetch });
@@ -41,7 +41,7 @@ async function serve(t, { claudeAvailable = true, env = { LOCAL_MODELS: "qwen3.5
     store,
     profileStore: new MemoryProfileStore(),
     invariantStore: new MemoryInvariantStore(),
-    ragDeps: { search: async () => assert.fail("no retrieval in a local chat"), log: () => {} },
+    ragDeps: ragDeps ?? { search: async () => assert.fail("no retrieval in a local chat"), log: () => {} },
   });
   const server = app.listen(0);
   await new Promise((resolve) => server.once("listening", resolve));
@@ -117,27 +117,119 @@ test("a local chat's lifecycle calls (the invariant proposer) run locally too", 
   assert.deepEqual(claude.calls, []);
 });
 
-test("Knowledge: local is Without RAG only, and asking for RAG is a 400, not Claude", async (t) => {
-  const { claude, ollama, call } = await serve(t);
-  const sessionId = id();
-  let res = await call("POST", "/chat", { message: "What is KMP?", sessionId, agent: "knowledge", llm: "local:qwen3.5:9b", ragMode: "rag" });
-  assert.equal(res.status, 400);
-  assert.match(res.body.error, /local \+ RAG: Day 28/);
-  assert.equal(ollama.chats().length, 0);
+const KB = [
+  { score: 0.8, source: "kb/cmp.html", section: "iOS", title: "CMP 1.8", chunk_id: "cmp:3", text: "Compose Multiplatform for iOS is stable as of version 1.8.0. Teams can now ship shared UI to production." },
+  { score: 0.6, source: "kb/ktor.html", section: "", title: "Ktor", chunk_id: "ktor:0", text: "Ktor 3 moves to kotlinx-io for its byte channels. The migration guide lists every renamed API." },
+];
+/** Ollama answering each JSON-schema call by its schema: the router searches, the answer cites cmp:3. */
+const ragReply = (body) => {
+  const props = body.format?.properties ?? {};
+  if ("intent" in props) {
+    const message = /New message:\n([\s\S]*)$/.exec(body.messages.at(-1).content)?.[1] ?? "";
+    return JSON.stringify({ intent: "search", standalone_question: message, queries: [message], reply: "", memory_patch: [{ op: "add_constraint", text: "'CMP' = Compose Multiplatform" }] });
+  }
+  if ("citations" in props) {
+    return JSON.stringify({ status: "answered", answer: "It is stable since 1.8.0 [c1].", citations: [{ id: "c1", chunk_id: "cmp:3", quote: "Compose Multiplatform for iOS is stable as of version 1.8.0." }], clarifying_question: "" });
+  }
+  if ("clarifying_question" in props) return JSON.stringify({ clarifying_question: "Which Kotlin topic do you mean?" });
+  return "plain local answer";
+};
+const ragDeps = (counter = { searches: 0 }) => ({
+  search: async () => {
+    counter.searches += 1;
+    return KB.map((c) => ({ ...c }));
+  },
+  rerankScores: async (_q, passages) => passages.map(() => 0.9),
+  log: () => {},
+});
 
-  res = await call("POST", "/chat", { message: "What is KMP?", sessionId, agent: "knowledge", llm: "local:qwen3.5:9b", ragMode: "plain" });
+test("Knowledge with RAG on a local model: router, answer and verification all local, nothing to Claude (Day 28)", async (t) => {
+  const ollama = fakeOllama(Array.from({ length: 12 }, () => ragReply));
+  const { claude, store, call } = await serve(t, { ollama, ragDeps: ragDeps(), env: { LOCAL_MODELS: "qwen3.5:9b,gemma4:12b", LOCAL_RAG_NUM_CTX: "12288" } });
+  const sessionId = id();
+  let res = await call("POST", "/chat", { message: "Is CMP for iOS stable?", sessionId, agent: "knowledge", llm: "local:qwen3.5:9b", ragMode: "rag", rerank: true });
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  assert.equal(res.body.meta.provider, "local");
+  assert.equal(res.body.meta.model, "qwen3.5:9b");
+  assert.equal(res.body.meta.rag.mode, "rag");
+  assert.equal(res.body.meta.rag.label, "rag+rerank");
+  assert.equal(res.body.meta.rag.status, "answered");
+  assert.equal(res.body.meta.rag.verification.firstAttemptValid, true);
+  assert.equal(res.body.meta.rag.citations[0].chunk_id, "cmp:3");
+  assert.equal(res.body.meta.route.routerProvider, "local");
+  assert.ok(res.body.meta.localMetrics.ttftMs > 0);
+  // Two calls (router + answer), both JSON-schema, both with the RAG window.
+  assert.equal(ollama.chats().length, 2);
+  assert.ok(ollama.chats().every((b) => b.model === "qwen3.5:9b" && b.format && b.options.num_ctx === 12288));
+  assert.deepEqual(claude.calls, []);
+
+  // The follow-up names no model or mode: the stored ones hold, and the term the router stored is in the memory.
+  res = await call("POST", "/chat", { message: "And Ktor?", sessionId, agent: "knowledge" });
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  assert.equal(res.body.meta.provider, "local");
+  assert.equal(res.body.meta.rag.mode, "rag");
+  assert.match(ollama.chats().at(-1).messages.at(-1).content, /'CMP' = Compose Multiplatform/);
+  assert.deepEqual(claude.calls, []);
+  const record = await store.load(sessionId);
+  assert.equal(record.llm, "local:qwen3.5:9b");
+  assert.equal(record.ragMode, "rag");
+  assert.ok(record.messages.filter((m) => m.role === "assistant").every((m) => m.provider === "local"));
+});
+
+test("Knowledge with RAG, Ollama down: a readable error, and no Claude answer in its place", async (t) => {
+  const down = { fetch: async () => { throw new TypeError("fetch failed", { cause: { code: "ECONNREFUSED" } }); }, chats: () => [] };
+  const { claude, store, call } = await serve(t, { ollama: down, ragDeps: ragDeps() });
+  const sessionId = id();
+  const res = await call("POST", "/chat", { message: "Is CMP for iOS stable?", sessionId, agent: "knowledge", llm: "local:qwen3.5:9b", ragMode: "rag" });
+  assert.equal(res.status, 500);
+  assert.match(res.body.error, /ollama serve/);
+  assert.deepEqual(claude.calls, []);
+  assert.equal((await store.load(sessionId))?.messages.length ?? 0, 0);
+});
+
+test("Knowledge Without RAG on a local model still works as on Day 27", async (t) => {
+  const { claude, ollama, call } = await serve(t);
+  const res = await call("POST", "/chat", { message: "What is KMP?", sessionId: id(), agent: "knowledge", llm: "local:qwen3.5:9b", ragMode: "plain" });
   assert.equal(res.status, 200, JSON.stringify(res.body));
   assert.equal(res.body.meta.provider, "local");
   assert.equal(res.body.meta.rag.mode, "plain");
   assert.equal(ollama.chats().length, 1);
+  assert.equal(ollama.chats()[0].format, undefined);
   assert.deepEqual(claude.calls, []);
+});
 
-  // The stored choice holds when the next message names no model or mode.
-  res = await call("POST", "/chat", { message: "And Compose?", sessionId, agent: "knowledge" });
-  assert.equal(res.status, 200);
-  assert.equal(res.body.meta.provider, "local");
-  assert.equal((await call("GET", `/conversations/${sessionId}`)).body.llm, "local:qwen3.5:9b");
-  assert.deepEqual(claude.calls, []);
+test("Compare, Claude vs local: one retrieval, both answer from the same chunks", async (t) => {
+  const counter = { searches: 0 };
+  const ollama = fakeOllama(Array.from({ length: 4 }, () => ragReply));
+  const { claude, call } = await serve(t, { ollama, ragDeps: ragDeps(counter) });
+  const res = await call("POST", "/rag/compare", { question: "Is CMP for iOS stable?", versus: "models", llm: "local:qwen3.5:9b", rerank: true, rewrite: true });
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  assert.equal(counter.searches, 1, "retrieval ran once");
+  assert.equal(res.body.local.provider, "local");
+  assert.equal(res.body.local.status, "answered");
+  assert.equal(res.body.claude.provider, "fake");
+  assert.equal(res.body.claude.rewrite, false, "no Rewrite stage in a Claude vs local comparison");
+  assert.deepEqual(res.body.local.chunks.map((c) => c.chunk_id), res.body.claude.chunks.map((c) => c.chunk_id));
+  // Claude's prompt carried the same chunk ids as the local one.
+  const claudePrompt = String(claude.calls.at(-1).messages.at(-1).content);
+  for (const chunk of res.body.local.chunks) assert.match(claudePrompt, new RegExp(`chunk_id="${chunk.chunk_id}"`));
+  for (const side of [res.body.claude, res.body.local]) {
+    assert.equal(typeof side.compareTimings.retrieveMs, "number");
+    assert.equal(typeof side.compareTimings.rerankMs, "number");
+    assert.equal(typeof side.compareTimings.totalMs, "number");
+  }
+  assert.equal(res.body.local.compareTimings.ttftMs, 1000);
+  assert.equal(res.body.local.compareTimings.generationMs, 2000);
+});
+
+test("Compare, Claude vs local with the local model failing: that side is an error, never Claude's answer", async (t) => {
+  const ollama = fakeOllama([], { installed: ["gemma4:12b"] });
+  const { call } = await serve(t, { ollama, ragDeps: ragDeps() });
+  const res = await call("POST", "/rag/compare", { question: "Is CMP for iOS stable?", versus: "models", llm: "local:qwen3.5:9b", rerank: true });
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  assert.match(res.body.local.error, /ollama pull qwen3\.5:9b/);
+  assert.equal(res.body.local.answer, undefined);
+  assert.equal(res.body.claude.status, "answered");
 });
 
 test("Claude-only agents refuse a local model and keep answering with Claude", async (t) => {

@@ -1632,6 +1632,7 @@
   .rag-local-note[hidden] { display: none; }
   .rag-toggle button:disabled, .rag-controls #rag-compare:disabled { opacity: 0.45; cursor: not-allowed; }
   .mode-badge.local { color: #3a9a5b; border-color: color-mix(in srgb, #3a9a5b 55%, transparent); cursor: help; }
+  .mode-badge.truncation { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 55%, transparent); cursor: help; }
   .bubble .elapsed { margin-left: 8px; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 0.9em; }
   .cite-chip {
     display: inline-block;
@@ -1741,8 +1742,8 @@
         <button type="button" data-stage="rewrite" aria-pressed="false" title="One model call turns the question into 1–3 short search queries (one per part); each is searched and the results merged. The answer still uses your original question.">Rewrite</button>
       </div>
       <span class="rag-idk-note" id="rag-idk-note" hidden title="The low-relevance rule needs the rerank score. With Rerank off, only the model's own dont_know produces &quot;I don't know&quot;.">IDK: model only (Rerank off)</span>
-      <span class="rag-local-note" id="rag-local-note" hidden title="A local model answers Without RAG only. Retrieval with a local model is the next step.">local + RAG: Day 28</span>
-      <button type="button" id="rag-compare" title="Ask one question in both modes, side by side. Nothing is saved.">Compare</button>
+      <span class="rag-local-note" id="rag-local-note" hidden title="With a local model every call of the turn (router, answer, clarification) runs under Ollama. The Rewrite stage only ever ran in Compare, and stays Claude's.">all local · no Rewrite</span>
+      <button type="button" id="rag-compare" title="Ask one question side by side: With RAG vs without, or Claude vs the local model. Nothing is saved.">Compare</button>
       <a href="/rag-report" target="_blank" rel="noopener">Eval results ↗</a>
     </div>
     <button id="new-conversation" type="button" title="Start a new conversation with this agent"><span class="full">New conversation</span><span class="short">New</span></button>
@@ -1881,13 +1882,21 @@
 
 <dialog class="compare" id="rag-compare-dialog">
   <div class="head">
-    <h2>With RAG vs without</h2>
-    <span class="note">Same model, same settings; only the documents differ. Nothing here is saved to the chat.</span>
+    <h2 id="rag-compare-title">With RAG vs without</h2>
+    <span class="note" id="rag-compare-note">Same model, same settings; only the documents differ. Nothing here is saved to the chat.</span>
     <button id="rag-compare-close" type="button">Close</button>
   </div>
   <div class="setup">
     <textarea id="rag-compare-question" rows="2" placeholder="One question, answered both ways…"></textarea>
-    <div class="who"><span class="spacer"></span><button id="rag-compare-run" type="button">Ask both</button></div>
+    <div class="who">
+      <label>Compare
+        <select id="rag-compare-versus">
+          <option value="modes">With RAG vs without</option>
+          <option value="models">Claude vs local</option>
+        </select>
+      </label>
+      <span class="spacer"></span><button id="rag-compare-run" type="button">Ask both</button>
+    </div>
   </div>
   <div class="results" id="rag-compare-results">
     <p class="placeholder">Type a question and press Ask both.</p>
@@ -2278,8 +2287,9 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
         ? userMetaLine(meta)
         : agentMetaLine(meta, turn)
       : "";
-    if (who !== "user" && !error && meta?.rag) line.prepend(modeBadge(meta.rag.label ?? meta.rag.mode));
+    if (who !== "user" && !error && meta?.rag && meta?.provider !== "local") line.prepend(modeBadge(meta.rag.label ?? meta.rag.mode));
     if (who !== "user" && !error && meta?.provider === "local") line.prepend(localBadge(meta));
+    if (who !== "user" && !error && meta?.possible_truncation) line.prepend(truncationChip());
     if (who === "user" && meta?.route) line.prepend(intentBadge(meta.route));
     // Forking is offered on the message, not in a dialogue box: "what if I had
     // said something else here" is a question about one specific message.
@@ -2323,21 +2333,42 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
     return box;
   }
 
-  /** Day 27: "local · qwen3.5:9b" on a local reply; hovering shows Ollama's numbers for it. */
+  /**
+   * Day 27/28: "qwen3.5:9b · rag+rerank" on a local reply (the model, then the
+   * mode that produced it); hovering shows Ollama's numbers for it, and on a
+   * RAG turn the router's and the retrieval's too.
+   */
   function localBadge(meta) {
     const badge = document.createElement("span");
     badge.className = "mode-badge local";
-    badge.textContent = "local · " + (meta.model ?? "?");
+    const label = meta.rag ? (String(meta.rag.label ?? meta.rag.mode).startsWith("rag") ? meta.rag.label ?? "rag" : "no RAG") : meta.stopReason === "routed" ? "routed" : null;
+    badge.textContent = (meta.model ?? "?") + (label ? " · " + label : "");
     const m = meta.localMetrics ?? {};
     const sec = (ms) => (typeof ms === "number" ? (ms / 1000).toFixed(2) + " s" : "?");
+    const t = meta.rag?.timings;
+    const r = meta.route?.routerMetrics;
+    const g = meta.rag?.generation;
     badge.title = [
       `${meta.model} via Ollama, on this machine`,
       `time to first token: ${sec(m.ttftMs)}`,
       `generation: ${m.genTps ?? "?"} tok/s`,
-      `model latency: ${sec(m.totalMs)} (whole turn: ${sec(meta.ms)})`,
-      `tokens: ${m.promptTokens ?? "?"} prompt · ${m.outputTokens ?? "?"} output`,
-    ].join("\n");
+      `model latency: ${sec(m.totalMs)}${m.calls > 1 ? ` over ${m.calls} calls` : ""} (whole turn: ${sec(meta.ms)})`,
+      `tokens: ${m.promptTokens ?? "?"} prompt · ${m.outputTokens ?? "?"} output${m.numCtx ? ` · num_ctx ${m.numCtx}` : ""}`,
+      r ? `router: ${sec(r.totalMs)} (${r.promptTokens ?? "?"} prompt tokens)` : null,
+      t && meta.rag.mode === "rag" ? `retrieval ${sec(t.retrieveMs)} · rerank ${sec(t.rerankMs)} (local)` : null,
+      g?.invalidJson ? `invalid JSON replies: ${g.invalidJson} (retried)` : null,
+      meta.possible_truncation ? "⚠ possible truncation: the prompt came within 10% of num_ctx" : null,
+    ].filter(Boolean).join("\n");
     return badge;
+  }
+
+  /** Day 28: the prompt came within 10% of the local model's num_ctx, so Ollama may have cut it without saying so. */
+  function truncationChip() {
+    const chip = document.createElement("span");
+    chip.className = "mode-badge truncation";
+    chip.textContent = "⚠ possible truncation";
+    chip.title = "The prompt used at least 90% of the local model's context window (LOCAL_RAG_NUM_CTX). Ollama drops what does not fit without an error, so part of the documents or history may not have been read.";
+    return chip;
   }
 
   /** `rag`, `rag+rerank`, `rag+rewrite+rerank`, or `no RAG`: what produced this reply, whatever the switches say now. */
@@ -5091,8 +5122,11 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
       add("p", mode === "rag"
         ? `With RAG: each message first goes to the router (${s?.routerModel ?? "Haiku"}, one forced call): search, memory or chat, a standalone question with references resolved, 1–3 search queries, and a patch to the task memory. A search turn retrieves with those queries, reranks against the standalone question, and answers through a forced submit_answer call: a [cN] marker after every claim, each a verbatim quote from a chunk that was sent, checked in code. If nothing relevant is found it is \"I don't know\" with a clarifying question, which goes into the open questions so your next message can answer it.`
         : chatIsLocal()
-          ? `Without RAG, on ${currentLlm().slice(6)} under Ollama: no documents, no router or task memory, nothing sent to the cloud. (Local + RAG is Day 28.)`
+          ? `Without RAG, on ${currentLlm().slice(6)} under Ollama: no documents, no router or task memory, nothing sent to the cloud.`
           : "Without RAG: the same model and settings, no documents, no router or task memory.");
+      if (mode === "rag" && chatIsLocal()) {
+        add("p", `On ${currentLlm().slice(6)} under Ollama: the router, the answer and the clarifying question are all local, as JSON-schema replies (the tool's schema as Ollama's format, validated, retried once if invalid). The citation contract is the same as Claude's: markers, chunk_ids, verbatim quotes of 4–60 words, one retry, then drop or downgrade. Context window: num_ctx ${ragStatus?.localRagNumCtx ?? "…"} (LOCAL_RAG_NUM_CTX). Nothing is sent to the cloud.`);
+      }
       if (mode === "rag") {
         add("p", [
           "Queries: written by the router (the Rewrite stage is not used).",
@@ -5115,10 +5149,10 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
       add("h3", "Answering");
       const list2 = add("dl", "");
       const row2 = (label, value) => { add("dt", label, list2); add("dd", value, list2); };
-      row2("model", chatIsLocal() ? `${currentLlm().slice(6)} (local, Ollama)` : s?.model ?? "…");
+      row2("model", chatIsLocal() ? `${currentLlm().slice(6)} (local, Ollama${mode === "rag" ? `, num_ctx ${s?.localRagNumCtx ?? "…"}` : ""})` : s?.model ?? "…");
       row2("both modes", s ? `temperature 0, max ${s.maxTokens} tokens` : "…");
       row2("history", mode === "rag" ? `last ${s?.historyTurns ?? 6} messages (router: earlier answers cut to ~300 chars) + task memory` : "last 6 messages; no digest, profile or rules");
-      if (mode === "rag") row2("router", s?.routerModel ?? "…");
+      if (mode === "rag") row2("router", chatIsLocal() ? `${currentLlm().slice(6)} (local)` : s?.routerModel ?? "…");
       const link = document.createElement("a");
       link.href = "/rag-report";
       link.target = "_blank";
@@ -5139,18 +5173,19 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
 
   /** The switches, drawn from `ragMode` and `ragStages`. The stages show only while RAG is on. */
   function renderRagToggle() {
-    // Day 27: a local model answers Without RAG only, so the switch shows off and is disabled.
+    // Day 28: a local model answers in both modes; only the Rewrite stage stays Claude's.
     const local = chatIsLocal();
-    const shown = local ? "plain" : ragMode;
+    const shown = ragMode;
     for (const button of document.querySelectorAll(".rag-toggle button")) {
       button.setAttribute("aria-pressed", String(button.dataset.mode === shown));
-      button.disabled = local;
+      button.disabled = false;
     }
-    document.getElementById("rag-local-note").hidden = !local;
-    document.getElementById("rag-compare").disabled = local;
-    document.getElementById("rag-compare").title = local
-      ? "Compare runs both modes with Claude, so it is off for a local chat."
-      : "Ask one question in both modes, side by side. Nothing is saved.";
+    document.getElementById("rag-local-note").hidden = !(local && shown === "rag");
+    const rewrite = document.querySelector('.rag-stages button[data-stage="rewrite"]');
+    rewrite.disabled = local;
+    rewrite.title = local
+      ? "Rewrite is a Claude call and is not used with a local model. (In a RAG chat the router writes the queries anyway.)"
+      : "One model call turns the question into 1–3 short search queries (one per part); each is searched and the results merged. The answer still uses your original question.";
     document.getElementById("rag-stages").hidden = shown !== "rag";
     // The low-relevance "I don't know" needs the rerank score; say so when it is off.
     document.getElementById("rag-idk-note").hidden = shown !== "rag" || ragStages.rerank;
@@ -5180,7 +5215,7 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
 
   for (const button of document.querySelectorAll(".rag-toggle button")) {
     button.addEventListener("click", async () => {
-      if (pending || chatIsLocal() || button.dataset.mode === ragMode) return;
+      if (pending || button.dataset.mode === ragMode) return;
       ragMode = button.dataset.mode;
       renderRagToggle();
       renderPanel();
@@ -5197,13 +5232,33 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
     });
   }
 
-  // ---- compare: one question, both modes ----------------------------------
+  // ---- compare: one question, both modes — or (Day 28) Claude vs the local model ----
   const ragCompareDialog = document.getElementById("rag-compare-dialog");
   const ragCompareQuestion = document.getElementById("rag-compare-question");
   const ragCompareResults = document.getElementById("rag-compare-results");
   const ragCompareRun = document.getElementById("rag-compare-run");
+  const ragCompareVersus = document.getElementById("rag-compare-versus");
+  /** The local model Claude is compared with: this chat's, else the default one. */
+  const compareLocalModel = () => (isLocalLlm(currentLlm()) ? currentLlm() : localStatus?.defaultModel ? "local:" + localStatus.defaultModel : null);
+  function renderCompareHead() {
+    const models = ragCompareVersus.value === "models";
+    const local = compareLocalModel();
+    const option = ragCompareVersus.querySelector('option[value="models"]');
+    option.disabled = !local || Boolean(localStatus && !localStatus.claudeAvailable);
+    option.textContent = "Claude vs " + (local ? local.slice(6) : "local") + (localStatus && !localStatus.claudeAvailable ? " (no API key)" : "");
+    document.getElementById("rag-compare-title").textContent = models ? "Claude vs local" : "With RAG vs without";
+    document.getElementById("rag-compare-note").textContent = models
+      ? `One retrieval and rerank (${ragStages.rerank ? "rag+rerank" : "rag"}), both models answer from the same chunks through the same contract. No Rewrite. Nothing is saved to the chat.`
+      : `Same model (${chatIsLocal() ? currentLlm().slice(6) : "Claude"}), same settings; only the documents differ. Nothing here is saved to the chat.`;
+  }
+  ragCompareVersus.addEventListener("change", renderCompareHead);
   document.getElementById("rag-compare").addEventListener("click", () => {
     if (input.value.trim()) ragCompareQuestion.value = input.value.trim();
+    // A local chat opens on the comparison it is most likely after.
+    if (chatIsLocal() && localStatus?.claudeAvailable) ragCompareVersus.value = "models";
+    renderCompareHead();
+    if (ragCompareVersus.selectedOptions[0]?.disabled) ragCompareVersus.value = "modes";
+    renderCompareHead();
     ragCompareDialog.showModal();
     ragCompareQuestion.focus();
   });
@@ -5219,16 +5274,46 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
     }
   });
 
+  const secs = (ms) => (typeof ms === "number" ? (ms / 1000).toFixed(ms < 10000 ? 2 : 1) + " s" : "—");
+
+  /** One side of a comparison: the answer with its citation chips, verification badge and sources. */
+  function compareArm(result, { heading, badge, who }) {
+    const arm = document.createElement("div");
+    arm.className = "arm";
+    const title = document.createElement("h3");
+    title.append(badge, heading);
+    const line = document.createElement("div");
+    line.className = "who";
+    line.textContent = who;
+    const body = document.createElement("div");
+    body.className = "rag-answer bubble md";
+    arm.append(title, line, body);
+    if (result.status === "dont_know") {
+      body.classList.remove("md");
+      fillDontKnow(body, result);
+      if (result.verification) arm.appendChild(verifyBadge(result.verification));
+    } else body.innerHTML = renderMarkdown(result.answer);
+    if (result.mode === "rag" && result.status === "answered") arm.appendChild(contractBlock(body, result));
+    if (result.mode === "rag") arm.appendChild(sourcesList(result));
+    return arm;
+  }
+
   async function runRagCompare() {
     const question = ragCompareQuestion.value.trim();
     if (!question || ragCompareRun.disabled) return;
+    const versus = ragCompareVersus.value;
     ragCompareRun.disabled = true;
-    ragCompareResults.innerHTML = '<p class="placeholder">Asking both… (the first RAG question also loads the embedding model)</p>';
+    ragCompareResults.innerHTML = `<p class="placeholder">${versus === "models" ? "Retrieving once, then asking Claude and " + (compareLocalModel()?.slice(6) ?? "the local model") + "… (a local answer takes tens of seconds)" : "Asking both… (the first RAG question also loads the embedding model)"}</p>`;
     try {
       const res = await fetch("/rag/compare", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ question, ...ragStages }),
+        body: JSON.stringify({
+          question,
+          ...ragStages,
+          versus,
+          ...(versus === "models" ? { llm: compareLocalModel() } : chatIsLocal() ? { llm: currentLlm() } : {}),
+        }),
       });
       const data = await res.json().catch(() => ({}));
       ragCompareResults.innerHTML = "";
@@ -5239,34 +5324,52 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
         ragCompareResults.appendChild(p);
         return;
       }
+      if (data.versus === "models") {
+        for (const key of ["claude", "local"]) {
+          const result = data[key];
+          if (result.error) {
+            const arm = document.createElement("div");
+            arm.className = "arm";
+            const h = document.createElement("h3");
+            h.textContent = key === "claude" ? "Claude" : data.llm.slice(6);
+            const p = document.createElement("div");
+            p.className = "rag-answer error";
+            p.textContent = result.error;
+            arm.append(h, p);
+            ragCompareResults.appendChild(arm);
+            continue;
+          }
+          const t = result.compareTimings;
+          const badge = key === "local" ? localBadge({ ...result, localMetrics: result.localMetrics, rag: { label: result.label, mode: "rag", timings: result.timings, generation: result.generation }, ms: t.totalMs }) : modeBadge(result.label);
+          const m = result.generation?.metrics ?? {};
+          const who = [
+            `retrieval ${secs(t.retrieveMs)} · rerank ${secs(t.rerankMs)} (shared)`,
+            `TTFT ${secs(t.ttftMs)} · generation ${secs(t.generationMs)}${m.genTps ? ` (${m.genTps} tok/s)` : ""}`,
+            `total ${secs(t.totalMs)}`,
+            `${formatTokens(result.usage?.inputTokens ?? 0)} in · ${formatTokens(result.usage?.outputTokens ?? 0)} out`,
+            result.cost != null ? formatCost(result.cost) : key === "local" ? "free (local)" : null,
+            result.generation?.invalidJson ? `${result.generation.invalidJson} invalid JSON (retried)` : null,
+            result.possible_truncation ? "⚠ possible truncation" : null,
+          ].filter(Boolean).join(" · ");
+          const heading = key === "claude" ? `Claude · ${shortModel(result.model)}` : `${data.llm.slice(6)} · local`;
+          ragCompareResults.appendChild(compareArm(result, { heading, badge, who }));
+        }
+        return;
+      }
       for (const mode of ["rag", "plain"]) {
         const result = data[mode];
-        const arm = document.createElement("div");
-        arm.className = "arm";
-        const title = document.createElement("h3");
-        title.append(modeBadge(result.label ?? mode), mode === "rag" ? "With RAG" : "Without RAG");
-        const who = document.createElement("div");
-        who.className = "who";
-        who.textContent = [
+        const t = result.compareTimings;
+        const who = [
           formatTokens(result.usage?.inputTokens ?? 0) + " in",
           formatTokens(result.usage?.outputTokens ?? 0) + " out",
           result.cost != null ? formatCost(result.cost) : null,
-          (Object.values(result.timings).reduce((a, b) => a + (b ?? 0), 0) / 1000).toFixed(1) + "s" +
+          secs(t.totalMs) +
             (mode === "rag"
-              ? ` (${[["rewrite", result.timings.rewriteMs], ["retrieval", result.timings.retrieveMs], ["rerank", result.timings.rerankMs]].filter(([, v]) => v).map(([k, v]) => `${k} ${(v / 1000).toFixed(1)}s`).join(", ")})`
+              ? ` (${[["rewrite", t.rewriteMs], ["retrieval", t.retrieveMs], ["rerank", t.rerankMs]].filter(([, v]) => v).map(([k, v]) => `${k} ${secs(v)}`).join(", ")})`
               : ""),
-          shortModel(result.model),
+          result.provider === "local" ? `${result.model} (local)` : shortModel(result.model),
         ].filter(Boolean).join(" · ");
-        const body = document.createElement("div");
-        body.className = "rag-answer bubble md";
-        arm.append(title, who, body);
-        if (mode === "rag" && result.status === "dont_know") {
-          body.classList.remove("md");
-          fillDontKnow(body, result);
-        } else body.innerHTML = renderMarkdown(result.answer);
-        if (mode === "rag" && result.status === "answered") arm.appendChild(contractBlock(body, result));
-        if (mode === "rag") arm.appendChild(sourcesList(result));
-        ragCompareResults.appendChild(arm);
+        ragCompareResults.appendChild(compareArm(result, { heading: mode === "rag" ? "With RAG" : "Without RAG", badge: modeBadge(result.label ?? mode), who }));
       }
     } catch (err) {
       ragCompareResults.innerHTML = '<p class="placeholder">Could not reach the server.</p>';
@@ -5707,7 +5810,7 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
           project: projectId,
           contextMessages: Number(contextInput.value),
           maxTokens: Number(maxTokensSelect.value),
-          ...(chatKind === "knowledge" ? { ragMode: chatIsLocal() ? "plain" : ragMode, ...ragStages } : {}),
+          ...(chatKind === "knowledge" ? { ragMode, ...ragStages } : {}),
           // Day 27: the Model switch, for the agents that have one.
           ...(agentIsLocal() && currentLlm() ? { llm: currentLlm() } : {}),
         }),
