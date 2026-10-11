@@ -1,0 +1,187 @@
+{
+  "id": "33455337-c879-4f6b-93b6-93b3da872e32",
+  "title": "What is the most recent version of Kotl…",
+  "createdAt": "2026-10-11T14:02:34.326Z",
+  "updatedAt": "2026-10-11T14:06:03.998Z",
+  "usage": {
+    "totalInputTokens": 953,
+    "totalOutputTokens": 1247,
+    "totalCostUsd": 0,
+    "turnCount": 3,
+    "overheadInputTokens": 0,
+    "overheadOutputTokens": 0,
+    "overheadCostUsd": 0,
+    "overheadCalls": 0
+  },
+  "project": "default",
+  "agentId": "knowledge",
+  "forkedFrom": null,
+  "ragMode": "rag",
+  "ragOptions": {
+    "rerank": true,
+    "rewrite": false
+  },
+  "llm": "local:gemma4:12b",
+  "memory": {},
+  "messages": [
+    {
+      "role": "user",
+      "content": "What is the most recent version of Kotlin?",
+      "id": "m1"
+    },
+    {
+      "role": "assistant",
+      "content": "As of my current knowledge, the most recent stable version of Kotlin is **Kotlin 2.0.0**.\n\nReleased in May 2024, this version introduced the **Kotlin K2 compiler**, which improves compilation speeds and provides better support for complex language features.",
+      "id": "m2",
+      "tokens": {
+        "input": 60,
+        "output": 56,
+        "total": 116
+      },
+      "cost": {
+        "input": null,
+        "output": null,
+        "total": null
+      },
+      "model": "gemma4:12b",
+      "provider": "local",
+      "localMetrics": {
+        "ttftMs": 7672.9,
+        "genTps": 13,
+        "totalMs": 11998.5,
+        "wallMs": 12003.6,
+        "loadMs": 6638.6,
+        "promptTokens": 60,
+        "cachedPromptTokens": 0,
+        "outputTokens": 56,
+        "promptTps": 58
+      },
+      "ms": 12004,
+      "stopReason": "end_turn",
+      "rag": {
+        "mode": "plain",
+        "label": "plain",
+        "rerank": false,
+        "rewrite": false,
+        "queries": [],
+        "candidates": [],
+        "chunks": [],
+        "declined": false,
+        "rejected": [],
+        "timings": {
+          "rewriteMs": 0,
+          "retrieveMs": 0,
+          "rerankMs": 0,
+          "clarifyMs": 0,
+          "llmMs": 12002
+        }
+      }
+    },
+    {
+      "role": "user",
+      "content": "Top 5 most popular chess openings",
+      "id": "m3"
+    },
+    {
+      "role": "assistant",
+      "content": "While \"popularity\" can be measured by the number of games played or the number of Grandmasters who use them, these five openings are widely considered the most popular and foundational in chess.\n\n### 1. The Ruy Lopez (Spanish Opening)\nThis is one of the oldest and most deeply studied openings. It occurs after the moves **1. e4 e5 2. Nf3 Nc6 3. Bb5**.\n*   **Why it’s popular:** It puts immediate pressure on the center and leads to rich, strategic, and tactical positions. It is a staple of high-level classical chess.\n\n### 2. The Sicilian Defense\nThe most popular and highest-scoring response to White's **1. e4**. The moves are **1. e4 c5**.\n*   **Why it’s popular:** It creates an asymmetrical position where Black fights for the initiative. It is incredibly sharp, complex, and offers a wide variety of attacking possibilities for both sides.\n\n### 3. The Queen’s Gambit\nA cornerstone of \"closed\" games, starting with **1. d4 d5 2. c4**.\n*   **Why it’s popular:** White offers a \"gambit\" (the c-pawn) to gain control of the center and more space. It leads to positional battles where players fight for small advantages over many moves.\n\n### 4. The Italian Game\nA very common opening for beginners and club players, starting with **1. e4 e5 2. Nf3 Nc6 3. Bc4**.\n*   **Why it’s popular:** It is straightforward and focuses on rapid development. It allows players to get their pieces into active positions quickly while maintaining a solid structure.\n\n### 5. The French Defense\nA popular response to **1. e4**, starting with **1. e4 e6 2. d4 d5**.\n*   **Why it’s popular:** It leads to a \"closed\" game where the center is locked. It is favored by players who enjoy maneuvering, solid defensive structures, and counter-attacking opportunities.\n\n***\n\n**Summary Table**\n\n| Opening | First Moves | Style |\n| :--- | :--- | :--- |\n| **Ruy Lopez** | 1. e4 e5 2. Nf3 Nc6 3. Bb5 | Strategic & Classical |\n| **Sicilian Defense** | 1. e4 c5 | Sharp & Aggressive |\n| **Queen's Gambit** | 1. d4 d5 2. c4 | Positional & Solid |\n| **Italian Game** | 1. e4 e5 2. Nf3 Nc6 3. Bc4 | Development-focused |\n| **French Defense** | 1. e4 e6 2. d4 d5 | Maneuvering & Solid |",
+      "id": "m4",
+      "tokens": {
+        "input": 133,
+        "output": 610,
+        "total": 743
+      },
+      "cost": {
+        "input": null,
+        "output": null,
+        "total": null
+      },
+      "model": "gemma4:12b",
+      "provider": "local",
+      "localMetrics": {
+        "ttftMs": 1564.3,
+        "genTps": 12.1,
+        "totalMs": 52177,
+        "wallMs": 52216.8,
+        "loadMs": 26,
+        "promptTokens": 133,
+        "cachedPromptTokens": 56,
+        "outputTokens": 610,
+        "promptTps": 50.1
+      },
+      "ms": 52226,
+      "stopReason": "end_turn",
+      "rag": {
+        "mode": "plain",
+        "label": "plain",
+        "rerank": false,
+        "rewrite": false,
+        "queries": [],
+        "candidates": [],
+        "chunks": [],
+        "declined": false,
+        "rejected": [],
+        "timings": {
+          "rewriteMs": 0,
+          "retrieveMs": 0,
+          "rerankMs": 0,
+          "clarifyMs": 0,
+          "llmMs": 52223
+        }
+      }
+    },
+    {
+      "role": "user",
+      "content": "is the french defense any good?",
+      "id": "m5"
+    },
+    {
+      "role": "assistant",
+      "content": "The short answer is: **Yes, the French Defense is an excellent opening.** It is a staple of high-level chess and is used by many of the world's strongest Grandmasters.\n\nHowever, it is not an opening for everyone. It has a very specific \"personality\" that makes it great for some players and frustrating for others.\n\n### Why it is good (The Pros)\n*   **Solid Structure:** The French is known for being \"rock solid.\" It creates a very sturdy pawn chain (d5 and e6), which provides a safe haven for Black to develop their pieces.\n*   **Counter-attacking Opportunities:** Because the center is often \"closed\" (blocked by pawns), the game becomes a battle of maneuvering. Black often finds great chances to strike back once White overextends.\n*   **Forcing a Specific Type of Game:** If you don't like wide-open, tactical \"fireworks\" (like the Sicilian), the French forces the game into a more strategic, maneuvering battle where your understanding of positioning matters more than raw calculation.\n*   **The \"French Bishop\":** One of the main themes of the French is the \"bad\" light-squared bishop on c8. Learning how to maneuver your other pieces to compensate for this and eventually find a way to activate that bishop is a masterclass in chess strategy.\n\n### The Challenges (The Cons)\n*   **Space Disadvantage:** Because White usually occupies more space in the center, Black can feel \"cramped.\" You have to be comfortable playing with less room to move.\n*   **Theoretical Depth:** The French is very \"theoretical.\" There are many specific lines and \"traps\" that you need to know to avoid falling into early trouble.\n*   **Slow Development:** It is not an explosive opening. If you are a player who likes to attack immediately and win the game in 15 moves, the French may feel frustratingly slow.\n\n### Who is it for?\nThe French Defense is perfect for you if:\n1.  **You enjoy \"grinding\" games:** You like games that are won by small, incremental advantages rather than one-move blunders.\n2.  **You want to improve your positional sense:** It teaches you how to play with a cramped position and how to navigate complex pawn structures.\n3.  **You want a reliable response to 1. e4:** It provides a very different experience than the Sicilian or the Italian, giving you a unique \"weapon\" in your repertoire.\n\n**Verdict:** It is a **top-tier opening** for players who want to develop a sophisticated, strategic style of play. It won't give you a \"free win\" easily, but it will give you a very respectable and sturdy position to fight from.",
+      "id": "m6",
+      "tokens": {
+        "input": 760,
+        "output": 581,
+        "total": 1341
+      },
+      "cost": {
+        "input": null,
+        "output": null,
+        "total": null
+      },
+      "model": "gemma4:12b",
+      "provider": "local",
+      "localMetrics": {
+        "ttftMs": 10973.3,
+        "genTps": 9,
+        "totalMs": 75795.7,
+        "wallMs": 75805.5,
+        "loadMs": 30.7,
+        "promptTokens": 760,
+        "cachedPromptTokens": 129,
+        "outputTokens": 581,
+        "promptTps": 57.7
+      },
+      "ms": 75807,
+      "stopReason": "end_turn",
+      "rag": {
+        "mode": "plain",
+        "label": "plain",
+        "rerank": false,
+        "rewrite": false,
+        "queries": [],
+        "candidates": [],
+        "chunks": [],
+        "declined": false,
+        "rejected": [],
+        "timings": {
+          "rewriteMs": 0,
+          "retrieveMs": 0,
+          "rerankMs": 0,
+          "clarifyMs": 0,
+          "llmMs": 75806
+        }
+      }
+    }
+  ]
+}

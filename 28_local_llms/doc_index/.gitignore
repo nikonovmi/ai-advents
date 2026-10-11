@@ -1,0 +1,7 @@
+node_modules/
+data/
+corpus/raw/
+.env
+.DS_Store
+.scratch/
+knowledge_database/

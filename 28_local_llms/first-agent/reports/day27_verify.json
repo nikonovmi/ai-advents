@@ -1,0 +1,419 @@
+{
+  "ranAt": "2026-10-11T14:00:23.616Z",
+  "ollama": {
+    "version": "0.40.2",
+    "url": "http://localhost:11434"
+  },
+  "settings": {
+    "url": "http://localhost:11434",
+    "numCtx": 8192,
+    "numPredict": 1024,
+    "timeoutMs": 180000,
+    "dir": "/Users/michael/Documents/ai-advents/27_local_llms/local_llm"
+  },
+  "passed": true,
+  "outbound": [],
+  "localRequests": 40,
+  "summary": [
+    {
+      "model": "gemma4:12b",
+      "loadMs": 6820.6,
+      "turns": 6,
+      "checksPassed": 20,
+      "checks": 20,
+      "contextOk": 2,
+      "conversations": 2,
+      "meanTtftMs": 4365.433333333333,
+      "meanGenTps": 11.383333333333335,
+      "meanModelMs": 17619.133333333335,
+      "meanTurnMs": 38232.666666666664,
+      "outbound": 0
+    },
+    {
+      "model": "qwen3.5:9b",
+      "loadMs": 6450.2,
+      "turns": 6,
+      "checksPassed": 20,
+      "checks": 20,
+      "contextOk": 2,
+      "conversations": 2,
+      "meanTtftMs": 3160.0000000000005,
+      "meanGenTps": 15.416666666666666,
+      "meanModelMs": 9228.983333333332,
+      "meanTurnMs": 21427.833333333332,
+      "outbound": 0
+    }
+  ],
+  "results": [
+    {
+      "model": "gemma4:12b",
+      "loadMs": 6820.6,
+      "conversations": [
+        {
+          "agent": "first-agent",
+          "label": "first-agent (memory chat)",
+          "recall": [
+            "/\\bmira\\b/i",
+            "/lisbon/i",
+            "/\\b(five|5)\\b/i"
+          ],
+          "storedLlm": "local:gemma4:12b",
+          "storedLocalReplies": 3,
+          "turns": [
+            {
+              "message": "Hi! I'm Mira, and I'm planning a five-day trip to Lisbon in May.",
+              "status": 200,
+              "reply": "Hi Mira! I'd love to help you plan your trip to Lisbon.\n\nTo make sure I build the right itinerary for you, I need a bit more information:\n\n1. What is your preferred pace? (e.g., packed with sightseeing, relaxed and leisurely, or a mix?)\n2. Do you have any specific interests, such as food/wine, history, nightlife, or day trips to nearby places like Sintra?\n\n**Assumptions:**\n* I will assume a moderate budget unless you specify otherwise.\n* I will assume you are interested in both the historic Alfama/Baixa areas and the trendy neighborhoods like Bairro Alto.",
+              "provider": "local",
+              "model": "gemma4:12b",
+              "turnMs": 77828,
+              "metrics": {
+                "ttftMs": 7853.3,
+                "genTps": 10.8,
+                "totalMs": 20484.7,
+                "wallMs": 20511.7,
+                "loadMs": 25.8,
+                "promptTokens": 513,
+                "cachedPromptTokens": 0,
+                "outputTokens": 136,
+                "promptTps": 65.5
+              },
+              "overheadCalls": 1,
+              "checks": {
+                "ok": true,
+                "local": true,
+                "nonEmpty": true
+              }
+            },
+            {
+              "message": "Suggest two neighbourhoods to stay in there, one line each.",
+              "status": 200,
+              "reply": "**Alfama** is perfect for a traditional, historic experience with narrow streets and easy access to the water.\n\n**Bairro Alto** is ideal if you prefer a vibrant atmosphere with many bars and a lively nightlife scene.",
+              "provider": "local",
+              "model": "gemma4:12b",
+              "turnMs": 67521,
+              "metrics": {
+                "ttftMs": 3521.4,
+                "genTps": 11.8,
+                "totalMs": 7326.3,
+                "wallMs": 7353.2,
+                "loadMs": 74.2,
+                "promptTokens": 683,
+                "cachedPromptTokens": 474,
+                "outputTokens": 45,
+                "promptTps": 60.6
+              },
+              "overheadCalls": 1,
+              "checks": {
+                "ok": true,
+                "local": true,
+                "nonEmpty": true
+              }
+            },
+            {
+              "message": "Remind me: what's my name, which city am I visiting, and for how many days?",
+              "status": 200,
+              "reply": "Your name is Mira, you are visiting Lisbon, and your trip is for five days.",
+              "provider": "local",
+              "model": "gemma4:12b",
+              "turnMs": 9206,
+              "metrics": {
+                "ttftMs": 1523.9,
+                "genTps": 11.3,
+                "totalMs": 3124.7,
+                "wallMs": 3132.5,
+                "loadMs": 12.5,
+                "promptTokens": 760,
+                "cachedPromptTokens": 679,
+                "outputTokens": 18,
+                "promptTps": 53.6
+              },
+              "overheadCalls": 1,
+              "checks": {
+                "ok": true,
+                "local": true,
+                "nonEmpty": true,
+                "context": true
+              }
+            }
+          ]
+        },
+        {
+          "agent": "knowledge",
+          "label": "Knowledge, Without RAG",
+          "recall": [
+            "/tidepool/i",
+            "/android/i",
+            "/\\bios\\b/i"
+          ],
+          "storedLlm": "local:gemma4:12b",
+          "storedLocalReplies": 3,
+          "turns": [
+            {
+              "message": "I'm building a Kotlin Multiplatform app called Tidepool that targets Android and iOS.",
+              "status": 200,
+              "reply": "That sounds like an exciting project! Building a Kotlin Multiplatform (KMP) app is a great way to share logic while maintaining a native feel on both Android and iOS.\n\nSince you are starting out with **Tidepool**, here is a quick roadmap of the core concepts and tools you will likely be interacting with:\n\n### 1. The Core Architecture\nIn a KMP project, your code is typically divided into three layers:\n*   **Shared Module:** This is where your \"Source of Truth\" lives. It contains the business logic, data models, networking (Ktor), and database (SQLDelight).\n*   **Android App:** A standard Android project using Jetpack Compose.\n*   **iOS App:** A native project (Swift/SwiftUI) that consumes the shared logic.\n\n### 2. Key Technologies to Use\nTo make Tidepool successful, you will likely want to use these industry-standard KMP libraries:\n*   **Networking:** [Ktor](https://ktor.io/) (The standard for making API calls).\n*   **Database:** [SQLDelight](https://sqldelight.github.io/) (Type-safe SQL database).\n*   **Dependency Injection:** [Koin](https://insert-koin.io/) (Very popular in the KMP ecosystem).\n*   **Serialization:** [Kotlinx.serialization](https://github.com/Kotlin/kotlinx.serialization) (For converting JSON to Kotlin objects).\n*   **Image Loading:** [Coil3](https://coil-dev.com/) (Now supports KMP).\n\n### 3. UI Strategy\nYou have two main choices for how to handle the user interface:\n1.  **Compose Multiplatform:** You write your UI in Kotlin for *both* platforms. This is the fastest way to develop if you want a consistent look.\n2.  **Native UI:** You write the UI in **Jetpack Compose** (Android) and **SwiftUI** (iOS), but they both call the same shared logic. This is better if you need very specific, platform-native behaviors.\n\n### 4. Pro-Tips for Success\n*   **Expect/Actual:** This is the core mechanism of KMP. Use it when you need to access platform-specific APIs (like getting the device's battery level or unique ID).\n*   **Keep Logic Pure:** Try to keep as much as possible in the `commonMain` source set. The more code you can write without using `expect/actual`, the easier your life will be.\n*   **Use a Good IDE:** Ensure you have **Android Studio** installed and the **Kotlin Multiplatform Mobile** plugin configured.\n\n**How can I help you specifically today?**\n*   Are you looking for help setting up the initial project structure?\n*   Do you need help choosing a specific library for a feature (like authentication or local storage)?\n*   Are you stuck on a specific `expect/actual` implementation?",
+              "provider": "local",
+              "model": "gemma4:12b",
+              "turnMs": 53122,
+              "metrics": {
+                "ttftMs": 1030.5,
+                "genTps": 12.1,
+                "totalMs": 53090,
+                "wallMs": 53103.6,
+                "loadMs": 28.3,
+                "promptTokens": 69,
+                "cachedPromptTokens": 7,
+                "outputTokens": 630,
+                "promptTps": 61.9
+              },
+              "overheadCalls": 0,
+              "checks": {
+                "ok": true,
+                "local": true,
+                "nonEmpty": true
+              }
+            },
+            {
+              "message": "Which library would you use for HTTP networking in it? One short paragraph.",
+              "status": 200,
+              "reply": "I would recommend **Ktor** because it is the industry standard for Kotlin Multiplatform. It is developed by JetBrains, provides a multiplatform-first approach, and integrates seamlessly with **Kotlinx.serialization** for handling JSON data. It allows you to write your networking logic once in the `commonMain` source set while automatically handling the underlying platform-specific engines (like OkHttp for Android and Darwin for iOS).",
+              "provider": "local",
+              "model": "gemma4:12b",
+              "turnMs": 17887,
+              "metrics": {
+                "ttftMs": 10157.3,
+                "genTps": 11,
+                "totalMs": 17869,
+                "wallMs": 17877.8,
+                "loadMs": 35.6,
+                "promptTokens": 724,
+                "cachedPromptTokens": 65,
+                "outputTokens": 85,
+                "promptTps": 65.1
+              },
+              "overheadCalls": 0,
+              "checks": {
+                "ok": true,
+                "local": true,
+                "nonEmpty": true
+              }
+            },
+            {
+              "message": "What's my app called, and which two platforms does it target?",
+              "status": 200,
+              "reply": "Your app is called **Tidepool**, and it targets **Android** and **iOS**.",
+              "provider": "local",
+              "model": "gemma4:12b",
+              "turnMs": 3832,
+              "metrics": {
+                "ttftMs": 2106.2,
+                "genTps": 11.3,
+                "totalMs": 3820.1,
+                "wallMs": 3825.8,
+                "loadMs": 25.9,
+                "promptTokens": 834,
+                "cachedPromptTokens": 720,
+                "outputTokens": 19,
+                "promptTps": 54.8
+              },
+              "overheadCalls": 0,
+              "checks": {
+                "ok": true,
+                "local": true,
+                "nonEmpty": true,
+                "context": true
+              }
+            }
+          ]
+        }
+      ],
+      "outbound": []
+    },
+    {
+      "model": "qwen3.5:9b",
+      "loadMs": 6450.2,
+      "conversations": [
+        {
+          "agent": "first-agent",
+          "label": "first-agent (memory chat)",
+          "recall": [
+            "/\\bmira\\b/i",
+            "/lisbon/i",
+            "/\\b(five|5)\\b/i"
+          ],
+          "storedLlm": "local:qwen3.5:9b",
+          "storedLocalReplies": 3,
+          "turns": [
+            {
+              "message": "Hi! I'm Mira, and I'm planning a five-day trip to Lisbon in May.",
+              "status": 200,
+              "reply": "Hi Mira! That sounds like a wonderful plan. Lisbon in May is perfect for exploring.\n\nTo get started on your itinerary, could you tell me:\n1. **Do you prefer a mix of sightseeing, food, and culture, or are you leaning more towards relaxation?**\n2. **Will this be a solo trip, with a partner, or a group?**\n\nOnce I have those details, I can start sketching out a day-by-day plan for you!",
+              "provider": "local",
+              "model": "qwen3.5:9b",
+              "turnMs": 45411,
+              "metrics": {
+                "ttftMs": 5148.1,
+                "genTps": 15.1,
+                "totalMs": 11556.1,
+                "wallMs": 11561.3,
+                "loadMs": 15.2,
+                "promptTokens": 486,
+                "cachedPromptTokens": 0,
+                "outputTokens": 97,
+                "promptTps": 94.7
+              },
+              "overheadCalls": 1,
+              "checks": {
+                "ok": true,
+                "local": true,
+                "nonEmpty": true
+              }
+            },
+            {
+              "message": "Suggest two neighbourhoods to stay in there, one line each.",
+              "status": 200,
+              "reply": "Here are two great options:\n*   **Bairro Alto:** Perfect for nightlife and vibrant energy, though it gets very crowded on weekends.\n*   **Alfama:** Ideal for history and quiet mornings, but expect narrow, winding streets.\n\nEverything's clear — we can switch to execution now. Or add more details if you want to refine it first.",
+              "provider": "local",
+              "model": "qwen3.5:9b",
+              "turnMs": 39546,
+              "metrics": {
+                "ttftMs": 1295,
+                "genTps": 15.4,
+                "totalMs": 6167.2,
+                "wallMs": 6172.1,
+                "loadMs": 14,
+                "promptTokens": 607,
+                "cachedPromptTokens": 481,
+                "outputTokens": 75,
+                "promptTps": 98.4
+              },
+              "overheadCalls": 1,
+              "checks": {
+                "ok": true,
+                "local": true,
+                "nonEmpty": true
+              }
+            },
+            {
+              "message": "Remind me: what's my name, which city am I visiting, and for how many days?",
+              "status": 200,
+              "reply": "*   **Name:** Mira\n*   **City:** Lisbon\n*   **Duration:** 5 days",
+              "provider": "local",
+              "model": "qwen3.5:9b",
+              "turnMs": 14739,
+              "metrics": {
+                "ttftMs": 7390.1,
+                "genTps": 15.3,
+                "totalMs": 8828.4,
+                "wallMs": 8832.6,
+                "loadMs": 13,
+                "promptTokens": 724,
+                "cachedPromptTokens": 3,
+                "outputTokens": 22,
+                "promptTps": 97.7
+              },
+              "overheadCalls": 1,
+              "checks": {
+                "ok": true,
+                "local": true,
+                "nonEmpty": true,
+                "context": true
+              }
+            }
+          ]
+        },
+        {
+          "agent": "knowledge",
+          "label": "Knowledge, Without RAG",
+          "recall": [
+            "/tidepool/i",
+            "/android/i",
+            "/\\bios\\b/i"
+          ],
+          "storedLlm": "local:qwen3.5:9b",
+          "storedLocalReplies": 3,
+          "turns": [
+            {
+              "message": "I'm building a Kotlin Multiplatform app called Tidepool that targets Android and iOS.",
+              "status": 200,
+              "reply": "That sounds like an exciting project! Building a **Kotlin Multiplatform (KMP)** app named **Tidepool** for both Android and iOS is a great choice, as it allows you to share up to 90% of your business logic while maintaining native UIs.\n\nTo help you get started or solve specific challenges, here are a few common areas where KMP shines:\n\n*   **Shared Code**: You can write core features (like data models, networking, and business logic) in Kotlin that run on both platforms.\n*   **UI Strategy**: Since you're targeting native Android and iOS, you likely have separate UI codebases (Jetpack Compose for Android, SwiftUI or UIKit for iOS), while sharing the underlying logic.\n*   **Dependencies**: Managing shared libraries with Gradle (Android) and CocoaPods/Carthage (iOS).\n\n**How can I assist you?**\n*   Do you need help setting up the project structure?\n*   Are you looking for best practices on how to share specific modules (e.g., Room database, Retrofit networking)?\n*   Do you have questions about handling platform-specific differences?",
+              "provider": "local",
+              "model": "qwen3.5:9b",
+              "turnMs": 16140,
+              "metrics": {
+                "ttftMs": 656.2,
+                "genTps": 15.3,
+                "totalMs": 16114.2,
+                "wallMs": 16133.5,
+                "loadMs": 11.7,
+                "promptTokens": 68,
+                "cachedPromptTokens": 3,
+                "outputTokens": 237,
+                "promptTps": 100.9
+              },
+              "overheadCalls": 0,
+              "checks": {
+                "ok": true,
+                "local": true,
+                "nonEmpty": true
+              }
+            },
+            {
+              "message": "Which library would you use for HTTP networking in it? One short paragraph.",
+              "status": 200,
+              "reply": "For a Kotlin Multiplatform app targeting both Android and iOS, **Ktor** is the most widely recommended choice because it offers a single, unified API that works seamlessly across all platforms without requiring platform-specific wrappers. While **OkHttp** is excellent for Android, it lacks native iOS support, and **URLSession** is native to iOS but not Kotlin Multiplatform; Ktor bridges this gap by providing a consistent client implementation (often using OkHttp on Android and URLSession on iOS internally) that lets you write one networking layer for the entire app.",
+              "provider": "local",
+              "model": "qwen3.5:9b",
+              "turnMs": 9959,
+              "metrics": {
+                "ttftMs": 2911.7,
+                "genTps": 15.5,
+                "totalMs": 9946.2,
+                "wallMs": 9952.5,
+                "loadMs": 28.9,
+                "promptTokens": 330,
+                "cachedPromptTokens": 63,
+                "outputTokens": 109,
+                "promptTps": 92.6
+              },
+              "overheadCalls": 0,
+              "checks": {
+                "ok": true,
+                "local": true,
+                "nonEmpty": true
+              }
+            },
+            {
+              "message": "What's my app called, and which two platforms does it target?",
+              "status": 200,
+              "reply": "Your app is called **Tidepool**, and it targets **Android** and **iOS**.",
+              "provider": "local",
+              "model": "qwen3.5:9b",
+              "turnMs": 2772,
+              "metrics": {
+                "ttftMs": 1558.9,
+                "genTps": 15.9,
+                "totalMs": 2761.8,
+                "wallMs": 2767,
+                "loadMs": 14.2,
+                "promptTokens": 463,
+                "cachedPromptTokens": 325,
+                "outputTokens": 19,
+                "promptTps": 89.3
+              },
+              "overheadCalls": 0,
+              "checks": {
+                "ok": true,
+                "local": true,
+                "nonEmpty": true,
+                "context": true
+              }
+            }
+          ]
+        }
+      ],
+      "outbound": []
+    }
+  ]
+}

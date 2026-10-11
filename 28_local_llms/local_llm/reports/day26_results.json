@@ -1,0 +1,459 @@
+{
+  "started_at": "2026-10-11T12:56:08.446Z",
+  "finished_at": "2026-10-11T12:57:47.991Z",
+  "ollama_url": "http://localhost:11434",
+  "ollama_version": "0.40.2",
+  "machine": {
+    "chip": "Apple M2",
+    "ram_gb": 16,
+    "cpus": 8,
+    "os": "macOS 26.6.2",
+    "arch": "arm64"
+  },
+  "settings": {
+    "temperature": 0,
+    "seed": 42,
+    "think": false
+  },
+  "models": [
+    {
+      "name": "gemma4:12b",
+      "digest": "c7597fc90b86",
+      "size_gb": 7.7,
+      "family": "gemma4_unified",
+      "parameter_size": "12.4B",
+      "quantization": "nvfp4",
+      "format": "safetensors",
+      "runner": "mlx",
+      "capabilities": [
+        "completion",
+        "vision",
+        "audio",
+        "tools",
+        "thinking"
+      ],
+      "warmup": {
+        "text": "OK.",
+        "metrics": {
+          "total_ms": 7756.7,
+          "load_ms": 6719,
+          "prompt_eval_ms": 656.4,
+          "eval_ms": 380.4,
+          "ttft_ms": 7375.3,
+          "prompt_tokens": 16,
+          "cached_prompt_tokens": 0,
+          "gen_tokens": 2,
+          "prompt_tps": 24.4,
+          "gen_tps": 5.3,
+          "wall_ms": 7761.9
+        }
+      }
+    },
+    {
+      "name": "qwen3.5:9b",
+      "digest": "d63f830f28d5",
+      "size_gb": 7.6,
+      "family": "qwen3_5",
+      "parameter_size": "9.7B",
+      "quantization": "nvfp4",
+      "format": "safetensors",
+      "runner": "mlx",
+      "capabilities": [
+        "completion",
+        "vision",
+        "tools",
+        "thinking"
+      ],
+      "warmup": {
+        "text": "OK",
+        "metrics": {
+          "total_ms": 6483.2,
+          "load_ms": 5929.5,
+          "prompt_eval_ms": 360.2,
+          "eval_ms": 192.6,
+          "ttft_ms": 6289.7,
+          "prompt_tokens": 15,
+          "cached_prompt_tokens": 0,
+          "gen_tokens": 1,
+          "prompt_tps": 41.6,
+          "gen_tps": 5.2,
+          "wall_ms": 6487.1
+        }
+      }
+    }
+  ],
+  "results": [
+    {
+      "request": "simple",
+      "type": "simple",
+      "model": "gemma4:12b",
+      "think": false,
+      "text": "Canberra",
+      "done_reason": "stop",
+      "check": {
+        "pass": true,
+        "detail": "contains Canberra"
+      },
+      "metrics": {
+        "total_ms": 865.5,
+        "load_ms": 30.3,
+        "prompt_eval_ms": 544.2,
+        "eval_ms": 289.6,
+        "ttft_ms": 574.5,
+        "prompt_tokens": 27,
+        "cached_prompt_tokens": 4,
+        "gen_tokens": 2,
+        "prompt_tps": 42.3,
+        "gen_tps": 6.9,
+        "wall_ms": 871.5
+      },
+      "timings": {
+        "total_duration": 865454875,
+        "load_duration": 30303333,
+        "prompt_eval_count": 27,
+        "prompt_eval_cached_count": 4,
+        "prompt_eval_duration": 544177000,
+        "eval_count": 2,
+        "eval_duration": 289560250
+      }
+    },
+    {
+      "request": "reasoning",
+      "type": "reasoning",
+      "model": "gemma4:12b",
+      "think": false,
+      "text": "To find the number of boxes the bakery can fill, we will calculate the number of cookies remaining after each period of the day.\n\n**Step 1: Calculate the number of cookies sold in the morning.**\nThe bakery starts with 240 cookies.\nThe fraction sold in the morning is $\\frac{3}{8}$.\n$\\text{Morning sales} = 240 \\times \\frac{3}{8}$\n$240 \\div 8 = 30$\n$30 \\times 3 = 90$ cookies.\n\n**Step 2: Calculate the cookies remaining after the morning.**\n$\\text{Remaining} = 240 - 90 = 150$ cookies.\n\n**Step 3: Calculate the number of cookies sold in the afternoon.**\nThe bakery sells 40% of the cookies that were left (150).\n$\\text{Afternoon sales} = 150 \\times 0.40$\n$150 \\times 0.4 = 60$ cookies.\n\n**Step 4: Calculate the cookies remaining after the afternoon.**\n$\\text{Remaining} = 150 - 60 = 90$ cookies.\n\n**Step 5: Calculate the number of boxes filled in the evening.**\nThe remaining 90 cookies are packed into boxes of 12.\n$\\text{Number of boxes} = 90 \\div 12$\n$90 \\div 12 = 7.5$\n\nSince the question asks how many boxes it can fill **completely**, we take the whole number.\n$12 \\times 7 = 84$\n$12 \\times 8 = 96$\nTherefore, 7 boxes can be filled completely, with 6 cookies left over.\n\nAnswer: 7",
+      "done_reason": "stop",
+      "check": {
+        "pass": true,
+        "detail": "answer 7"
+      },
+      "metrics": {
+        "total_ms": 28047.6,
+        "load_ms": 9.6,
+        "prompt_eval_ms": 1537.8,
+        "eval_ms": 26498.9,
+        "ttft_ms": 1547.4,
+        "prompt_tokens": 98,
+        "cached_prompt_tokens": 4,
+        "gen_tokens": 399,
+        "prompt_tps": 61.1,
+        "gen_tps": 15.1,
+        "wall_ms": 28108.9
+      },
+      "timings": {
+        "total_duration": 28047587000,
+        "load_duration": 9559417,
+        "prompt_eval_count": 98,
+        "prompt_eval_cached_count": 4,
+        "prompt_eval_duration": 1537826375,
+        "eval_count": 399,
+        "eval_duration": 26498866833
+      }
+    },
+    {
+      "request": "structured",
+      "type": "structured",
+      "model": "gemma4:12b",
+      "think": false,
+      "text": "{\"order_id\": \"A-1043\", \"customer\": \"Maria Lopez\", \"date\": \"2026-03-14\", \"product\": \"USB-C docks\", \"quantity\": 3, \"unit_price\": 89.50, \"currency\": \"EUR\", \"city\": \"Lisbon\", \"express\": true}",
+      "done_reason": "stop",
+      "check": {
+        "pass": true,
+        "detail": "valid JSON, schema ok, all values match"
+      },
+      "metrics": {
+        "total_ms": 7250.7,
+        "load_ms": 69.4,
+        "prompt_eval_ms": 1453.9,
+        "eval_ms": 5630.3,
+        "ttft_ms": 1523.4,
+        "prompt_tokens": 101,
+        "cached_prompt_tokens": 4,
+        "gen_tokens": 80,
+        "prompt_tps": 66.7,
+        "gen_tps": 14.2,
+        "wall_ms": 7268.8
+      },
+      "timings": {
+        "total_duration": 7250737375,
+        "load_duration": 69402875,
+        "prompt_eval_count": 101,
+        "prompt_eval_cached_count": 4,
+        "prompt_eval_duration": 1453948125,
+        "eval_count": 80,
+        "eval_duration": 5630289834
+      }
+    },
+    {
+      "request": "grounded-answerable",
+      "type": "grounded",
+      "model": "gemma4:12b",
+      "think": false,
+      "text": "Compose Multiplatform adds only ~9 MB to the size of an iOS app compared to a fully native SwiftUI app with the same UI logic and assets.",
+      "done_reason": "stop",
+      "check": {
+        "pass": true,
+        "detail": "contains 9 mb | 9mb | 9 megabytes"
+      },
+      "metrics": {
+        "total_ms": 6307.6,
+        "load_ms": 9.7,
+        "prompt_eval_ms": 4398.3,
+        "eval_ms": 1898.4,
+        "ttft_ms": 4408,
+        "prompt_tokens": 278,
+        "cached_prompt_tokens": 2,
+        "gen_tokens": 30,
+        "prompt_tps": 62.8,
+        "gen_tps": 15.8,
+        "wall_ms": 6313.8
+      },
+      "timings": {
+        "total_duration": 6307560917,
+        "load_duration": 9741875,
+        "prompt_eval_count": 278,
+        "prompt_eval_cached_count": 2,
+        "prompt_eval_duration": 4398267208,
+        "eval_count": 30,
+        "eval_duration": 1898406625
+      }
+    },
+    {
+      "request": "grounded-unanswerable",
+      "type": "grounded",
+      "model": "gemma4:12b",
+      "think": false,
+      "text": "I don't know",
+      "done_reason": "stop",
+      "check": {
+        "pass": true,
+        "detail": "declined"
+      },
+      "metrics": {
+        "total_ms": 1039.1,
+        "load_ms": 11,
+        "prompt_eval_ms": 557.3,
+        "eval_ms": 469.4,
+        "ttft_ms": 568.2,
+        "prompt_tokens": 281,
+        "cached_prompt_tokens": 254,
+        "gen_tokens": 5,
+        "prompt_tps": 48.4,
+        "gen_tps": 10.7,
+        "wall_ms": 1042.4
+      },
+      "timings": {
+        "total_duration": 1039126167,
+        "load_duration": 10966875,
+        "prompt_eval_count": 281,
+        "prompt_eval_cached_count": 254,
+        "prompt_eval_duration": 557280208,
+        "eval_count": 5,
+        "eval_duration": 469434458
+      }
+    },
+    {
+      "request": "simple",
+      "type": "simple",
+      "model": "qwen3.5:9b",
+      "think": false,
+      "text": "Canberra",
+      "done_reason": "stop",
+      "check": {
+        "pass": true,
+        "detail": "contains Canberra"
+      },
+      "metrics": {
+        "total_ms": 608.2,
+        "load_ms": 31.1,
+        "prompt_eval_ms": 359.3,
+        "eval_ms": 216.7,
+        "ttft_ms": 390.4,
+        "prompt_tokens": 26,
+        "cached_prompt_tokens": 0,
+        "gen_tokens": 2,
+        "prompt_tps": 72.4,
+        "gen_tps": 9.2,
+        "wall_ms": 613.5
+      },
+      "timings": {
+        "total_duration": 608169792,
+        "load_duration": 31090292,
+        "prompt_eval_count": 26,
+        "prompt_eval_cached_count": 0,
+        "prompt_eval_duration": 359341959,
+        "eval_count": 2,
+        "eval_duration": 216696542
+      }
+    },
+    {
+      "request": "reasoning",
+      "type": "reasoning",
+      "model": "qwen3.5:9b",
+      "think": false,
+      "text": "Here is the step-by-step solution:\n\n**Step 1: Calculate the number of cookies sold in the morning.**\nThe bakery starts with 240 cookies. In the morning, it sells $\\frac{3}{8}$ of them.\n$$ \\text{Morning Sales} = 240 \\times \\frac{3}{8} $$\n$$ \\text{Morning Sales} = \\frac{720}{8} = 90 \\text{ cookies} $$\n\n**Step 2: Calculate the number of cookies remaining after the morning.**\nSubtract the morning sales from the total.\n$$ \\text{Remaining (Morning)} = 240 - 90 = 150 \\text{ cookies} $$\n\n**Step 3: Calculate the number of cookies sold in the afternoon.**\nIn the afternoon, it sells 40% of the *remaining* cookies (which is 150).\n$$ \\text{Afternoon Sales} = 150 \\times 40\\% $$\n$$ \\text{Afternoon Sales} = 150 \\times 0.40 = 60 \\text{ cookies} $$\n\n**Step 4: Calculate the number of cookies remaining after the afternoon.**\nSubtract the afternoon sales from the morning remainder.\n$$ \\text{Remaining (Evening)} = 150 - 60 = 90 \\text{ cookies} $$\n\n**Step 5: Calculate the number of boxes filled in the evening.**\nThe remaining 90 cookies are packed into boxes of 12. We divide the total remaining cookies by the box size.\n$$ \\text{Number of Boxes} = \\frac{90}{12} $$\n$$ \\text{Number of Boxes} = 7.5 $$\n\nSince the question asks how many boxes can be filled **completely**, we must take only the whole number part (we cannot count a half-filled box as a completely filled one).\n$$ \\text{Complete Boxes} = 7 $$\n\nAnswer: 7",
+      "done_reason": "stop",
+      "check": {
+        "pass": true,
+        "detail": "answer 7"
+      },
+      "metrics": {
+        "total_ms": 26001.3,
+        "load_ms": 32.4,
+        "prompt_eval_ms": 986.9,
+        "eval_ms": 24980.6,
+        "ttft_ms": 1019.3,
+        "prompt_tokens": 96,
+        "cached_prompt_tokens": 2,
+        "gen_tokens": 439,
+        "prompt_tps": 95.3,
+        "gen_tps": 17.6,
+        "wall_ms": 26007.3
+      },
+      "timings": {
+        "total_duration": 26001299125,
+        "load_duration": 32430708,
+        "prompt_eval_count": 96,
+        "prompt_eval_cached_count": 2,
+        "prompt_eval_duration": 986876042,
+        "eval_count": 439,
+        "eval_duration": 24980552416
+      }
+    },
+    {
+      "request": "structured",
+      "type": "structured",
+      "model": "qwen3.5:9b",
+      "think": false,
+      "text": "{\n  \"order_id\": \"A-1043\",\n  \"customer\": \"Maria Lopez\",\n  \"date\": \"2026-03-14\",\n  \"product\": \"USB-C dock\",\n  \"quantity\": 3,\n  \"unit_price\": 89.50,\n  \"currency\": \"EUR\",\n  \"city\": \"Lisbon\",\n  \"express\": true\n}",
+      "done_reason": "stop",
+      "check": {
+        "pass": true,
+        "detail": "valid JSON, schema ok, all values match"
+      },
+      "metrics": {
+        "total_ms": 6908.3,
+        "load_ms": 14,
+        "prompt_eval_ms": 960.3,
+        "eval_ms": 5933.1,
+        "ttft_ms": 974.3,
+        "prompt_tokens": 96,
+        "cached_prompt_tokens": 2,
+        "gen_tokens": 98,
+        "prompt_tps": 97.9,
+        "gen_tps": 16.5,
+        "wall_ms": 6913.1
+      },
+      "timings": {
+        "total_duration": 6908292875,
+        "load_duration": 14020209,
+        "prompt_eval_count": 96,
+        "prompt_eval_cached_count": 2,
+        "prompt_eval_duration": 960273833,
+        "eval_count": 98,
+        "eval_duration": 5933107625
+      }
+    },
+    {
+      "request": "grounded-answerable",
+      "type": "grounded",
+      "model": "qwen3.5:9b",
+      "think": false,
+      "text": "Compose Multiplatform adds only ~9 MB to the size of an iOS app compared to a fully native SwiftUI app with the same UI logic and assets.",
+      "done_reason": "stop",
+      "check": {
+        "pass": true,
+        "detail": "contains 9 mb | 9mb | 9 megabytes"
+      },
+      "metrics": {
+        "total_ms": 4706.7,
+        "load_ms": 11.9,
+        "prompt_eval_ms": 2848,
+        "eval_ms": 1845.5,
+        "ttft_ms": 2859.9,
+        "prompt_tokens": 275,
+        "cached_prompt_tokens": 0,
+        "gen_tokens": 30,
+        "prompt_tps": 96.6,
+        "gen_tps": 16.3,
+        "wall_ms": 4709
+      },
+      "timings": {
+        "total_duration": 4706716916,
+        "load_duration": 11927791,
+        "prompt_eval_count": 275,
+        "prompt_eval_cached_count": 0,
+        "prompt_eval_duration": 2847989583,
+        "eval_count": 30,
+        "eval_duration": 1845468875
+      }
+    },
+    {
+      "request": "grounded-unanswerable",
+      "type": "grounded",
+      "model": "qwen3.5:9b",
+      "think": false,
+      "text": "I don't know",
+      "done_reason": "stop",
+      "check": {
+        "pass": true,
+        "detail": "declined"
+      },
+      "metrics": {
+        "total_ms": 3353.7,
+        "load_ms": 11.8,
+        "prompt_eval_ms": 2918.3,
+        "eval_ms": 422.5,
+        "ttft_ms": 2930.2,
+        "prompt_tokens": 278,
+        "cached_prompt_tokens": 0,
+        "gen_tokens": 4,
+        "prompt_tps": 95.3,
+        "gen_tps": 9.5,
+        "wall_ms": 3358.5
+      },
+      "timings": {
+        "total_duration": 3353711500,
+        "load_duration": 11825042,
+        "prompt_eval_count": 278,
+        "prompt_eval_cached_count": 0,
+        "prompt_eval_duration": 2918337959,
+        "eval_count": 4,
+        "eval_duration": 422461959
+      }
+    }
+  ],
+  "summary": [
+    {
+      "model": "gemma4:12b",
+      "quantization": "nvfp4",
+      "parameter_size": "12.4B",
+      "passed": 5,
+      "total": 5,
+      "load_ms": 6719,
+      "mean_ttft_ms": 1724.3,
+      "mean_prompt_tps": 56.260000000000005,
+      "mean_gen_tps": 12.540000000000001,
+      "mean_total_ms": 8702.099999999999,
+      "gen_tokens": 516,
+      "overall_gen_tps": 14.8,
+      "overall_prompt_tps": 60.9
+    },
+    {
+      "model": "qwen3.5:9b",
+      "quantization": "nvfp4",
+      "parameter_size": "9.7B",
+      "passed": 5,
+      "total": 5,
+      "load_ms": 5929.5,
+      "mean_ttft_ms": 1634.82,
+      "mean_prompt_tps": 91.50000000000001,
+      "mean_gen_tps": 13.819999999999999,
+      "mean_total_ms": 8315.64,
+      "gen_tokens": 573,
+      "overall_gen_tps": 17.2,
+      "overall_prompt_tps": 95
+    }
+  ]
+}
