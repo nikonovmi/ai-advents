@@ -179,16 +179,17 @@ test("createLlms: defaults from what is installed, Claude off without a key, sta
   const claude = { complete: async () => assert.fail("Claude must not be called") };
   const ollama = fakeOllama([], { installed: ["llama3:8b", "qwen3.5:9b", "gemma4:12b", "qwen3.5:27b"], loaded: ["qwen3.5:9b"] });
   const keyless = createLlms({ claude, claudeAvailable: false, env: {}, fetch: ollama.fetch });
-  assert.deepEqual(await keyless.localModels(), ["gemma4:12b", "qwen3.5:9b"]);
-  assert.equal(await keyless.defaultChoice(), "local:gemma4:12b");
+  // Day 29: gemma is installed but no longer offered by default — only qwen3.5:9b.
+  assert.deepEqual(await keyless.localModels(), ["qwen3.5:9b"]);
+  assert.equal(await keyless.defaultChoice(), "local:qwen3.5:9b");
   const status = await keyless.status();
   assert.equal(status.reachable, true);
   assert.equal(status.version, "0.40.2");
   assert.deepEqual(status.loaded, ["qwen3.5:9b"]);
-  assert.deepEqual(status.models, [
-    { name: "gemma4:12b", installed: true, loaded: false },
-    { name: "qwen3.5:9b", installed: true, loaded: true },
-  ]);
+  assert.deepEqual(status.models, [{ name: "qwen3.5:9b", installed: true, loaded: true }]);
+  // Named explicitly, it is still offered.
+  const both = createLlms({ claude, claudeAvailable: false, env: { LOCAL_MODELS: "qwen3.5:9b,gemma4:12b" }, fetch: ollama.fetch });
+  assert.deepEqual(await both.localModels(), ["qwen3.5:9b", "gemma4:12b"]);
   assert.equal(status.claudeAvailable, false);
 
   const keyed = createLlms({ claude, claudeAvailable: true, env: { LOCAL_MODELS: "qwen3.5:9b" }, fetch: ollama.fetch });

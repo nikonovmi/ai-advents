@@ -16,7 +16,7 @@ import { LOCAL_PROVIDER, OllamaProvider, fromOllamaError, loadOllamaModule, loca
  *
  * | env | default | |
  * | --- | --- | --- |
- * | `LOCAL_MODELS` | installed `gemma4:*` tags + `qwen3.5:9b` | the models the switch offers (comma list) |
+ * | `LOCAL_MODELS` | `qwen3.5:9b`, if installed | the models the switch offers (comma list) |
  * | `LOCAL_DEFAULT_MODEL` | the first of them | the local model new chats start on; setting it also makes local the default with a key |
  *
  * Plus the provider's own (`OLLAMA_URL`, `LOCAL_NUM_CTX`, …) in `ollama.js`.
@@ -46,10 +46,15 @@ export function isLocalChoice(value) {
 export const localChoice = (model) => `${LOCAL_PREFIX}${model}`;
 export const localModelOf = (choice) => (isLocalChoice(choice) ? choice.slice(LOCAL_PREFIX.length) : null);
 
-/** Day 26's default families, narrowed to what this machine runs: every gemma4 tag, and qwen3.5:9b. */
+/**
+ * What this machine runs: qwen3.5:9b. Day 29 dropped gemma4 from the default —
+ * Day 28 showed gemma4:12b doesn't fit a 16 GB Air next to the reranker; name
+ * it in LOCAL_MODELS to offer it anyway.
+ */
+export const DEFAULT_LOCAL_MODELS = ["qwen3.5:9b"];
 export function defaultLocalModels(installed) {
   const names = installed.map((m) => m.name ?? m.model).filter(Boolean);
-  return names.filter((n) => n.startsWith("gemma4:") || n === "qwen3.5:9b").sort();
+  return names.filter((n) => DEFAULT_LOCAL_MODELS.includes(n)).sort();
 }
 
 /**
@@ -58,8 +63,9 @@ export function defaultLocalModels(installed) {
  * @param {boolean} params.claudeAvailable - False without ANTHROPIC_API_KEY: the switch disables Claude.
  * @param {NodeJS.ProcessEnv} [params.env]
  * @param {typeof fetch} [params.fetch] - Passed to every Ollama call (tests, and the verify script's guard).
+ * @param {(r: object) => void} [params.onLocalResponse] - Day 29: every local response's model, num_ctx and load time (reload counting)
  */
-export function createLlms({ claude, claudeAvailable, env = process.env, fetch } = {}) {
+export function createLlms({ claude, claudeAvailable, env = process.env, fetch, onLocalResponse } = {}) {
   const settings = localSettings(env);
   const configured = String(env.LOCAL_MODELS ?? "")
     .split(",")
@@ -71,7 +77,7 @@ export function createLlms({ claude, claudeAvailable, env = process.env, fetch }
   let lastInstalled = null;
 
   const local = (model) => {
-    if (!providers.has(model)) providers.set(model, new OllamaProvider({ model, settings, fetch }));
+    if (!providers.has(model)) providers.set(model, new OllamaProvider({ model, settings, fetch, onResponse: onLocalResponse }));
     return providers.get(model);
   };
   /**
@@ -83,7 +89,7 @@ export function createLlms({ claude, claudeAvailable, env = process.env, fetch }
   const ragSettingsOf = { ...settings, numCtx: settings.ragNumCtx, numPredict: settings.ragNumPredict };
   const localRag = (model) => {
     const key = `${model} (rag)`;
-    if (!providers.has(key)) providers.set(key, new OllamaProvider({ model, settings: ragSettingsOf, fetch }));
+    if (!providers.has(key)) providers.set(key, new OllamaProvider({ model, settings: ragSettingsOf, fetch, onResponse: onLocalResponse }));
     return providers.get(key);
   };
 
@@ -141,7 +147,7 @@ export function createLlms({ claude, claudeAvailable, env = process.env, fetch }
      * server is a state the page draws.
      */
     async status() {
-      const base = { url: settings.url, numCtx: settings.numCtx, ragNumCtx: settings.ragNumCtx, numPredict: settings.numPredict, timeoutMs: settings.timeoutMs, claudeAvailable };
+      const base = { url: settings.url, numCtx: settings.numCtx, ragNumCtx: settings.ragNumCtx, numPredict: settings.numPredict, timeoutMs: settings.timeoutMs, promptVariant: settings.promptVariant, claudeAvailable };
       try {
         const c = await client();
         const [version, installed, running] = await Promise.all([c.version(), c.list(), c.running()]);

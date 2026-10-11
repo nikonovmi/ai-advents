@@ -1,3 +1,38 @@
+# Day 29 — Optimizing a local LLM
+
+**Day 29:** [`first-agent`](first-agent)'s Knowledge RAG chat drops gemma4:12b and tunes
+qwen3.5:9b. `npm run opt:local` runs three variants in order with a 180 s cooldown, each on the
+10 citation questions (Day 28's cached retrieval, judged by Claude Haiku 4.5) and on the 3-turn
+local RAG chat: the Day 28 **baseline** (RAG num_ctx 16384); **ctx8k** (8192 on every call); and
+**ctx8k+prompt** (8192 plus `LOCAL_PROMPT_VARIANT=v2`, contract and router prompts with worked
+examples, never longer than v1, never sent to Claude)
+([report](first-agent/reports/local_opt_report.md), [notes](first-agent/reports/local_opt_notes.md),
+[docs](first-agent/README.md#optimization-day-29)):
+
+| | baseline | ctx8k | ctx8k+prompt | Claude (Day 28) |
+| --- | ---: | ---: | ---: | ---: |
+| answerable questions answered (of 7) | 5 | 5 | 4 | 6 |
+| correct "I don't know" (of 3) · false IDK | 3 · 2 | 3 · 2 | 3 · 3 | 3 · 1 |
+| fabricated quotes, first attempt | 1 of 13 | 1 of 13 | 2 of 15 | 2 of 15 |
+| retries · dropped citations · downgrades | 1 · 1 · 0 | 1 · 1 · 0 | 6 · 4 · 2 | 2 · 0 · 0 |
+| faithfulness · mean fact score | 0.53 · 0.52 | 0.53 · 0.66 | 0.81 · 0.54 | 0.86 · 0.76 |
+| turn 2 writes the task memory | no | no | yes | — |
+| time to first token · generation | 15.4 s · 15.7 tok/s | 16.2 s · 15.1 tok/s | 16.1 s · 15.4 tok/s | 0.71 s · 129 tok/s |
+| answer latency, mean · max | 29.5 s · 52.4 s | 31.3 s · 51.9 s | 43.9 s · 80.9 s | 3.9 s · 8.0 s |
+| memory after the eval · reloads · truncations | 10.1 GB · 0 · 0 | 9.9 GB · 0 · 0 | 11.4 GB · 0 · 0 | — |
+
+**Adopted: ctx8k** (`LOCAL_RAG_NUM_CTX` now defaults to 8192). It gave the same answers to all 10
+questions with no truncation, but it is a simplification rather than a speed-up: qwen's cache is
+small (~0.2 GB saved) and Ollama never reloaded the model on a `num_ctx` change. **v2 is not
+adopted:** it fixed q06's two-line quote and was the only router to write the task memory, but
+retries went from 1 to 6 and q15 became a false "I don't know". The fact score moves by one
+question's worth on judge noise alone: the baseline came out 0.52 against Day 28's 0.66 for the
+same "I don't know" on q12, and ctx8k's 0.66 is that question graded the other way. verify:local
+still ends FAIL in every variant (turn 3 doesn't read "CMP" from the task memory), with 0
+non-localhost requests. Not tried: q8 (doesn't fit 16 GB beside the reranker), fewer chunks,
+and temperature 0 / qwen's default presence_penalty 1.5, which may be what breaks its verbatim
+quotes.
+
 # Day 28 — Local LLM + RAG
 
 **Day 28:** a [`first-agent`](first-agent) Knowledge chat **With RAG** now runs fully on this

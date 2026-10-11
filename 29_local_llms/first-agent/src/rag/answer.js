@@ -2,7 +2,7 @@ import { combineMetrics } from "../llm/ollama.js";
 import { clarifyQuestion } from "./clarify.js";
 import { RAG_CONTRACT_MAX_TOKENS, RAG_MAX_TOKENS, ragSettings } from "./config.js";
 import { answerWithContract, dontKnowText } from "./contract.js";
-import { BASE_SYSTEM, RAG_SYSTEM, buildRagPrompt } from "./prompt.js";
+import { BASE_SYSTEM, buildRagPrompt, promptVariantOf, ragSystemFor } from "./prompt.js";
 import { sharedReranker } from "./reranker.js";
 import { RetrievalError, readableRetrievalError, sharedRetriever } from "./retriever.js";
 import { rewriteQuery } from "./rewrite.js";
@@ -232,7 +232,7 @@ function generationOf(calls) {
  * @param {(line: string) => void} [options.log]
  * @param {string[]} [options.queries] - Day 25: the search queries, given (the router's); no rewrite call
  * @param {string} [options.rerankQuestion] - Day 25: what the reranker and the clarifying call see (the standalone question); default `question`
- * @param {string} [options.system] - Day 25: the answering system prompt; default `RAG_SYSTEM`
+ * @param {string} [options.system] - Day 25: the answering system prompt; default `RAG_SYSTEM` (Day 29: `ragSystemFor(provider)`, `v2` on a local model set to it)
  * @param {(chunks: object[]) => string} [options.buildPrompt] - Day 25: the latest user message; default `buildRagPrompt(question, chunks)`
  * @param {Awaited<ReturnType<typeof retrieveForQuestion>>} [options.retrieval] - Day 28: retrieval already done (shared by several
  *   generators); no rewrite, search or rerank runs, and its timings are reported as they were
@@ -246,7 +246,7 @@ export async function answerQuestion(question, options = {}) {
     maxTokens = RAG_MAX_TOKENS,
     log = console.log,
     rerankQuestion = question,
-    system = RAG_SYSTEM,
+    system = ragSystemFor(provider),
     buildPrompt = (chunks) => buildRagPrompt(question, chunks),
     retrieval: given,
   } = options;
@@ -337,6 +337,8 @@ export async function answerQuestion(question, options = {}) {
     // Day 27: who answered, and a local model's timings for the badge.
     provider: answeredBy,
     localMetrics: answeredBy === "local" ? (generation?.metrics ?? null) : null,
+    // Day 29: which contract prompt the provider got (`v2` only on a local model set to it).
+    promptVariant: promptVariantOf(provider),
     // Day 28: every generation call's timings and JSON record, and the flag for a prompt that may not have fit.
     generation,
     ...(generation?.possible_truncation ? { possible_truncation: true } : {}),

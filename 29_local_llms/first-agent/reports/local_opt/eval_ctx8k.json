@@ -1,0 +1,2385 @@
+{
+  "variant": "ctx8k",
+  "description": "Experiment 1: num_ctx 8192 on every local call; v1 prompts",
+  "startedAt": "2026-10-11T20:00:53.003Z",
+  "finishedAt": "2026-10-11T20:06:40.638Z",
+  "settings": {
+    "kFinal": 5,
+    "kRetrieve": 20,
+    "rerankThreshold": 0.02,
+    "strategy": "structural",
+    "collections": [],
+    "minScore": null,
+    "mode": "rag+rerank",
+    "judgeModel": "claude-haiku-4-5-20251001",
+    "numCtx": 8192,
+    "ragNumCtx": 8192,
+    "ragNumPredict": 2048,
+    "promptVariant": "v1"
+  },
+  "environment": {
+    "machine": "Apple M2, 16 GB RAM",
+    "ollamaVersion": "0.40.2",
+    "node": "v26.8.1"
+  },
+  "questions": [
+    {
+      "id": "q02",
+      "type": "corpus",
+      "question": "Is Compose Multiplatform for iOS production-ready yet, and how much does it add to app size compared with a pure SwiftUI app?"
+    },
+    {
+      "id": "q04",
+      "type": "corpus",
+      "question": "Can an AI coding agent work with my running Compose app through hot reload? What exactly can it do there?"
+    },
+    {
+      "id": "q06",
+      "type": "corpus",
+      "question": "Which compiler flags turn on context parameters and context-sensitive resolution in Kotlin 2.2.0, and is there a Kotlin/Native switch that reduces string memory?"
+    },
+    {
+      "id": "q10",
+      "type": "unanswerable",
+      "question": "What were the headline features of Compose Multiplatform 1.9.0?",
+      "expect_decline": true
+    },
+    {
+      "id": "q12",
+      "type": "near_miss",
+      "question": "Can I ship a Compose Multiplatform web app to production yet, or is the web target still experimental?"
+    },
+    {
+      "id": "q13",
+      "type": "off_topic",
+      "question": "How long should I proof sourdough bread in the fridge overnight, and at what temperature?",
+      "expect_decline": true
+    },
+    {
+      "id": "q14",
+      "type": "paraphrased",
+      "question": "In JetBrains' cross-platform UI toolkit, can people using my app on a Windows or Mac computer grab an element with the mouse, carry it across and let go of it over another element? Which version brought that, and what do I attach to the two elements?"
+    },
+    {
+      "id": "q15",
+      "type": "messy",
+      "question": "hi! ok so long story — we're rewriting our notes app and my coworker insists we keep our hand-rolled ID generator in the shared module because \"kotlin doesn't have UUIDs in common code\", which sounds wrong to me?? we're on kotlin 2.4 btw, just upgraded last sprint. anyway: is there a stable UUID type in common code now or do we still need a library, and can we generate v4/v7 ones without opting into anything? thanks, sorry for the wall of text lol"
+    },
+    {
+      "id": "q16",
+      "type": "multi_part",
+      "question": "Which Compose Multiplatform release added type-safe navigation, and which one brought Navigation 3? What does each give me?"
+    },
+    {
+      "id": "q17",
+      "type": "ambiguous",
+      "question": "How does it work?",
+      "expect_decline": true
+    }
+  ],
+  "generators": [
+    {
+      "id": "qwen3.5:9b",
+      "label": "qwen3.5:9b",
+      "where": "local",
+      "model": "qwen3.5:9b",
+      "rows": [
+        {
+          "id": "q02",
+          "type": "corpus",
+          "question": "Is Compose Multiplatform for iOS production-ready yet, and how much does it add to app size compared with a pure SwiftUI app?",
+          "expected_facts": [
+            "Compose Multiplatform 1.8.0 made Compose for iOS Stable",
+            "It adds only about 9 MB to an iOS app compared with a native SwiftUI app",
+            "Over 96% of teams using it on iOS report no major performance concerns"
+          ],
+          "generator": "qwen3.5:9b",
+          "order": 1,
+          "startedAt": "2026-10-11T20:00:59.601Z",
+          "wallMs": 35466,
+          "error": null,
+          "run": {
+            "answer": "Compose Multiplatform for iOS is now stable and production-ready [c2]. Compared to a fully native SwiftUI app with the same UI logic and assets, Compose Multiplatform adds only about 9 MB to the size of an iOS app [c1].",
+            "mode": "rag",
+            "label": "rag+rerank",
+            "rerank": true,
+            "rewrite": false,
+            "queries": [
+              "Is Compose Multiplatform for iOS production-ready yet, and how much does it add to app size compared with a pure SwiftUI app?"
+            ],
+            "declined": false,
+            "status": "answered",
+            "citations": [
+              {
+                "id": "c1",
+                "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:3",
+                "quote": "Compose Multiplatform adds only ~9 MB to the size of an iOS app compared to a fully native SwiftUI app with the same UI logic and assets.",
+                "n": 1,
+                "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+                "section": "Performance that’s ready for production",
+                "start": 463,
+                "end": 600
+              },
+              {
+                "id": "c2",
+                "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:0",
+                "quote": "Today marks a major milestone in the Kotlin Multiplatform journey: the release of Compose Multiplatform 1.8.0, which brings Compose for iOS to Stable.",
+                "n": 2,
+                "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+                "section": "",
+                "start": 115,
+                "end": 265
+              }
+            ],
+            "sources": [
+              {
+                "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:0",
+                "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+                "section": "",
+                "title": "Compose Multiplatform 1.8.0 Released: Compose Multiplatform for iOS Is Stable and Production-Ready",
+                "n": 2,
+                "label": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html · kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:0",
+                "citations": [
+                  "c2"
+                ]
+              },
+              {
+                "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:3",
+                "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+                "section": "Performance that’s ready for production",
+                "title": "Compose Multiplatform 1.8.0 Released: Compose Multiplatform for iOS Is Stable and Production-Ready",
+                "n": 1,
+                "label": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html › Performance that’s ready for production · kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:3",
+                "citations": [
+                  "c1"
+                ]
+              }
+            ],
+            "clarifyingQuestion": "",
+            "dontKnow": null,
+            "verification": {
+              "firstAttemptValid": true,
+              "retried": false,
+              "droppedCitations": [],
+              "droppedClaims": [],
+              "downgraded": false,
+              "firstAttemptCitations": 2,
+              "firstAttemptErrors": [],
+              "fabricatedFirstAttempt": [],
+              "finalErrors": []
+            },
+            "usage": {
+              "inputTokens": 1974,
+              "outputTokens": 271
+            },
+            "model": "qwen3.5:9b",
+            "provider": "local",
+            "localMetrics": {
+              "ttftMs": 19770.9,
+              "genTps": 17.4,
+              "totalMs": 35389,
+              "wallMs": 35421.6,
+              "loadMs": 15.3,
+              "promptTokens": 1974,
+              "cachedPromptTokens": 0,
+              "outputTokens": 271,
+              "promptTps": 99.9,
+              "promptEvalMs": 19755.6,
+              "evalMs": 15608.1,
+              "numCtx": 8192
+            },
+            "promptVariant": "v1",
+            "generation": {
+              "calls": [
+                {
+                  "attempt": 1,
+                  "provider": "local",
+                  "metrics": {
+                    "ttftMs": 19770.9,
+                    "genTps": 17.4,
+                    "totalMs": 35389,
+                    "wallMs": 35421.6,
+                    "loadMs": 15.3,
+                    "promptTokens": 1974,
+                    "cachedPromptTokens": 0,
+                    "outputTokens": 271,
+                    "promptTps": 99.9,
+                    "promptEvalMs": 19755.6,
+                    "evalMs": 15608.1,
+                    "numCtx": 8192
+                  },
+                  "structured": {
+                    "tool": "submit_answer",
+                    "attempts": 1,
+                    "invalid": 0,
+                    "errors": []
+                  }
+                }
+              ],
+              "metrics": {
+                "ttftMs": 19770.9,
+                "genTps": 17.4,
+                "totalMs": 35389,
+                "wallMs": 35421.6,
+                "loadMs": 15.3,
+                "promptTokens": 1974,
+                "cachedPromptTokens": 0,
+                "outputTokens": 271,
+                "promptTps": 99.9,
+                "promptEvalMs": 19755.6,
+                "evalMs": 15608.1,
+                "numCtx": 8192
+              },
+              "invalidJson": 0,
+              "schemaFailures": 0,
+              "possible_truncation": false
+            },
+            "retrievalShared": true,
+            "stopReason": "tool_use",
+            "timings": {
+              "rewriteMs": 0,
+              "retrieveMs": 1394,
+              "rerankMs": 4098,
+              "clarifyMs": 0,
+              "llmMs": 35464
+            },
+            "chunkIds": [
+              "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:3",
+              "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:0",
+              "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:5",
+              "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:1",
+              "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:2"
+            ]
+          },
+          "faithfulness": {
+            "claims": [
+              {
+                "claim": "Compose Multiplatform for iOS is now stable and production-ready.",
+                "markers": [
+                  "c2"
+                ],
+                "quotes": [
+                  {
+                    "id": "c2",
+                    "quote": "Today marks a major milestone in the Kotlin Multiplatform journey: the release of Compose Multiplatform 1.8.0, which brings Compose for iOS to Stable.",
+                    "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+                    "section": ""
+                  }
+                ],
+                "verdict": "supported",
+                "note": "Quote states Compose for iOS is now Stable"
+              },
+              {
+                "claim": "Compared to a fully native SwiftUI app with the same UI logic and assets, Compose Multiplatform adds only about 9 MB to the size of an iOS app.",
+                "markers": [
+                  "c1"
+                ],
+                "quotes": [
+                  {
+                    "id": "c1",
+                    "quote": "Compose Multiplatform adds only ~9 MB to the size of an iOS app compared to a fully native SwiftUI app with the same UI logic and assets.",
+                    "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+                    "section": "Performance that’s ready for production"
+                  }
+                ],
+                "verdict": "supported",
+                "note": "Quote matches the claim exactly"
+              }
+            ],
+            "uncitedClaims": [],
+            "supported": 2,
+            "partial": 0,
+            "unsupported": 0,
+            "faithfulness": 1,
+            "usage": {
+              "inputTokens": 1222,
+              "outputTokens": 128,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "model": "claude-haiku-4-5-20251001"
+          },
+          "grade": {
+            "facts": [
+              {
+                "fact": "Compose Multiplatform 1.8.0 made Compose for iOS Stable",
+                "grade": "partial",
+                "note": "Answer states Compose for iOS is now stable and production-ready, but does not mention version 1.8.0 specifically."
+              },
+              {
+                "fact": "It adds only about 9 MB to an iOS app compared with a native SwiftUI app",
+                "grade": "present",
+                "note": "Directly stated: 'adds only about 9 MB to the size of an iOS app' compared to SwiftUI."
+              },
+              {
+                "fact": "Over 96% of teams using it on iOS report no major performance concerns",
+                "grade": "missing",
+                "note": "This statistic is not mentioned in the answer."
+              }
+            ],
+            "score": 0.5,
+            "hallucination": false,
+            "hallucinationNote": "",
+            "declined": false,
+            "usage": {
+              "inputTokens": 1498,
+              "outputTokens": 272,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "model": "claude-haiku-4-5-20251001"
+          },
+          "checks": {
+            "sources": true,
+            "citations": true,
+            "quotes": true,
+            "faithful": true,
+            "idk": true
+          }
+        },
+        {
+          "id": "q04",
+          "type": "corpus",
+          "question": "Can an AI coding agent work with my running Compose app through hot reload? What exactly can it do there?",
+          "expected_facts": [
+            "Compose Hot Reload ships an experimental MCP (Model Context Protocol) server for AI agents",
+            "The agent can trigger reloads and take screenshots",
+            "It can inspect the semantic tree and simulate clicks and text input",
+            "It can read the application logs"
+          ],
+          "generator": "qwen3.5:9b",
+          "order": 2,
+          "startedAt": "2026-10-11T20:01:35.068Z",
+          "wallMs": 41721,
+          "error": null,
+          "run": {
+            "answer": "Yes, an AI coding agent can work with a running Compose app through hot reload using an experimental Model Context Protocol (MCP) server. [c1] Through this MCP server, the agent can trigger reloads, take screenshots, inspect the semantic tree, simulate clicks and text input, and read application logs. [c2][c3] In practice, this allows the agent to verify the results of its own edits by confirming that a reload succeeded, inspecting the rendered UI, catching runtime exceptions, and iterating without needing a description of what is on screen. [c4]",
+            "mode": "rag",
+            "label": "rag+rerank",
+            "rerank": true,
+            "rewrite": false,
+            "queries": [
+              "Can an AI coding agent work with my running Compose app through hot reload? What exactly can it do there?"
+            ],
+            "declined": false,
+            "status": "answered",
+            "citations": [
+              {
+                "id": "c1",
+                "chunk_id": "kb/compose-multiplatform-1.12.0-released-the-jetbrains-blog.html:structural:1",
+                "quote": "Compose Hot Reload now ships with an experimental Model Context Protocol (MCP) server that connects AI coding agents to your running application.",
+                "n": 1,
+                "source": "knowledge_database/Compose Multiplatform 1.12.0 Released - The JetBrains Blog.html",
+                "section": "MCP server for AI agents in Compose Hot Reload",
+                "start": 48,
+                "end": 193
+              },
+              {
+                "id": "c2",
+                "chunk_id": "kb/compose-multiplatform-1.12.0-released-the-jetbrains-blog.html:structural:1",
+                "quote": "Using the MCP server, an agent can trigger reloads, take screenshots, inspect the semantic tree, simulate clicks and text input, and read application logs.",
+                "n": 1,
+                "source": "knowledge_database/Compose Multiplatform 1.12.0 Released - The JetBrains Blog.html",
+                "section": "MCP server for AI agents in Compose Hot Reload",
+                "start": 195,
+                "end": 350
+              },
+              {
+                "id": "c3",
+                "chunk_id": "kb/compose-multiplatform-1.12.0-released-the-jetbrains-blog.html:structural:1",
+                "quote": "In practice, this means the agent can verify the results of its own edits.",
+                "n": 1,
+                "source": "knowledge_database/Compose Multiplatform 1.12.0 Released - The JetBrains Blog.html",
+                "section": "MCP server for AI agents in Compose Hot Reload",
+                "start": 351,
+                "end": 425
+              },
+              {
+                "id": "c4",
+                "chunk_id": "kb/compose-multiplatform-1.12.0-released-the-jetbrains-blog.html:structural:1",
+                "quote": "It can confirm that the reload succeeded, inspect the rendered UI, catch a runtime exception, and iterate – all without you describing what’s on screen.",
+                "n": 1,
+                "source": "knowledge_database/Compose Multiplatform 1.12.0 Released - The JetBrains Blog.html",
+                "section": "MCP server for AI agents in Compose Hot Reload",
+                "start": 426,
+                "end": 578
+              }
+            ],
+            "sources": [
+              {
+                "chunk_id": "kb/compose-multiplatform-1.12.0-released-the-jetbrains-blog.html:structural:1",
+                "source": "knowledge_database/Compose Multiplatform 1.12.0 Released - The JetBrains Blog.html",
+                "section": "MCP server for AI agents in Compose Hot Reload",
+                "title": "Compose Multiplatform 1.12.0 Released",
+                "n": 1,
+                "label": "knowledge_database/Compose Multiplatform 1.12.0 Released - The JetBrains Blog.html › MCP server for AI agents in Compose Hot Reload · kb/compose-multiplatform-1.12.0-released-the-jetbrains-blog.html:structural:1",
+                "citations": [
+                  "c1",
+                  "c2",
+                  "c3",
+                  "c4"
+                ]
+              }
+            ],
+            "clarifyingQuestion": "",
+            "dontKnow": null,
+            "verification": {
+              "firstAttemptValid": true,
+              "retried": false,
+              "droppedCitations": [],
+              "droppedClaims": [],
+              "downgraded": false,
+              "firstAttemptCitations": 4,
+              "firstAttemptErrors": [],
+              "fabricatedFirstAttempt": [],
+              "finalErrors": []
+            },
+            "usage": {
+              "inputTokens": 1647,
+              "outputTokens": 462
+            },
+            "model": "qwen3.5:9b",
+            "provider": "local",
+            "localMetrics": {
+              "ttftMs": 16473.7,
+              "genTps": 18.3,
+              "totalMs": 41709.3,
+              "wallMs": 41716,
+              "loadMs": 19,
+              "promptTokens": 1647,
+              "cachedPromptTokens": 0,
+              "outputTokens": 462,
+              "promptTps": 100.1,
+              "promptEvalMs": 16454.7,
+              "evalMs": 25233.4,
+              "numCtx": 8192
+            },
+            "promptVariant": "v1",
+            "generation": {
+              "calls": [
+                {
+                  "attempt": 1,
+                  "provider": "local",
+                  "metrics": {
+                    "ttftMs": 16473.7,
+                    "genTps": 18.3,
+                    "totalMs": 41709.3,
+                    "wallMs": 41716,
+                    "loadMs": 19,
+                    "promptTokens": 1647,
+                    "cachedPromptTokens": 0,
+                    "outputTokens": 462,
+                    "promptTps": 100.1,
+                    "promptEvalMs": 16454.7,
+                    "evalMs": 25233.4,
+                    "numCtx": 8192
+                  },
+                  "structured": {
+                    "tool": "submit_answer",
+                    "attempts": 1,
+                    "invalid": 0,
+                    "errors": []
+                  }
+                }
+              ],
+              "metrics": {
+                "ttftMs": 16473.7,
+                "genTps": 18.3,
+                "totalMs": 41709.3,
+                "wallMs": 41716,
+                "loadMs": 19,
+                "promptTokens": 1647,
+                "cachedPromptTokens": 0,
+                "outputTokens": 462,
+                "promptTps": 100.1,
+                "promptEvalMs": 16454.7,
+                "evalMs": 25233.4,
+                "numCtx": 8192
+              },
+              "invalidJson": 0,
+              "schemaFailures": 0,
+              "possible_truncation": false
+            },
+            "retrievalShared": true,
+            "stopReason": "tool_use",
+            "timings": {
+              "rewriteMs": 0,
+              "retrieveMs": 1504,
+              "rerankMs": 5578,
+              "clarifyMs": 0,
+              "llmMs": 41721
+            },
+            "chunkIds": [
+              "kb/compose-multiplatform-1.12.0-released-the-jetbrains-blog.html:structural:1",
+              "kb/compose-multiplatform-1.12.0-released-the-jetbrains-blog.html:structural:0",
+              "kb/compose-multiplatform-1.10.0-unified-preview-navigation-3-and-stable-compose-hot-reload-the-jetbrains-blog.html:structural:3",
+              "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:4",
+              "kb/what-s-next-for-kotlin-multiplatform-and-compose-multiplatform-august-2025-update-the-jetbrains-blog.html:structural:6"
+            ]
+          },
+          "faithfulness": {
+            "claims": [
+              {
+                "claim": "Yes, an AI coding agent can work with a running Compose app through hot reload using an experimental Model Context Protocol (MCP) server.",
+                "markers": [
+                  "c1"
+                ],
+                "quotes": [
+                  {
+                    "id": "c1",
+                    "quote": "Compose Hot Reload now ships with an experimental Model Context Protocol (MCP) server that connects AI coding agents to your running application.",
+                    "source": "knowledge_database/Compose Multiplatform 1.12.0 Released - The JetBrains Blog.html",
+                    "section": "MCP server for AI agents in Compose Hot Reload"
+                  }
+                ],
+                "verdict": "supported",
+                "note": ""
+              },
+              {
+                "claim": "Through this MCP server, the agent can trigger reloads, take screenshots, inspect the semantic tree, simulate clicks and text input, and read application logs.",
+                "markers": [
+                  "c2",
+                  "c3"
+                ],
+                "quotes": [
+                  {
+                    "id": "c2",
+                    "quote": "Using the MCP server, an agent can trigger reloads, take screenshots, inspect the semantic tree, simulate clicks and text input, and read application logs.",
+                    "source": "knowledge_database/Compose Multiplatform 1.12.0 Released - The JetBrains Blog.html",
+                    "section": "MCP server for AI agents in Compose Hot Reload"
+                  },
+                  {
+                    "id": "c3",
+                    "quote": "In practice, this means the agent can verify the results of its own edits.",
+                    "source": "knowledge_database/Compose Multiplatform 1.12.0 Released - The JetBrains Blog.html",
+                    "section": "MCP server for AI agents in Compose Hot Reload"
+                  }
+                ],
+                "verdict": "supported",
+                "note": ""
+              },
+              {
+                "claim": "In practice, this allows the agent to verify the results of its own edits by confirming that a reload succeeded, inspecting the rendered UI, catching runtime exceptions, and iterating without needing a description of what is on screen.",
+                "markers": [
+                  "c4"
+                ],
+                "quotes": [
+                  {
+                    "id": "c4",
+                    "quote": "It can confirm that the reload succeeded, inspect the rendered UI, catch a runtime exception, and iterate – all without you describing what’s on screen.",
+                    "source": "knowledge_database/Compose Multiplatform 1.12.0 Released - The JetBrains Blog.html",
+                    "section": "MCP server for AI agents in Compose Hot Reload"
+                  }
+                ],
+                "verdict": "partial",
+                "note": "c4 says 'catch a runtime exception' (singular), not 'catching runtime exceptions' (plural); also c4 doesn't explicitly mention 'confirming that a reload succeeded' as part of verifying results, it's stated separately."
+              }
+            ],
+            "uncitedClaims": [],
+            "supported": 2,
+            "partial": 1,
+            "unsupported": 0,
+            "faithfulness": 0.6666666666666666,
+            "usage": {
+              "inputTokens": 1325,
+              "outputTokens": 180,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "model": "claude-haiku-4-5-20251001"
+          },
+          "grade": {
+            "facts": [
+              {
+                "fact": "Compose Hot Reload ships an experimental MCP (Model Context Protocol) server for AI agents",
+                "grade": "present",
+                "note": "Explicitly stated: 'experimental Model Context Protocol (MCP) server'"
+              },
+              {
+                "fact": "The agent can trigger reloads and take screenshots",
+                "grade": "present",
+                "note": "Both capabilities mentioned: 'trigger reloads, take screenshots'"
+              },
+              {
+                "fact": "It can inspect the semantic tree and simulate clicks and text input",
+                "grade": "present",
+                "note": "All three capabilities stated: 'inspect the semantic tree, simulate clicks and text input'"
+              },
+              {
+                "fact": "It can read the application logs",
+                "grade": "present",
+                "note": "Explicitly stated: 'read application logs'"
+              }
+            ],
+            "score": 1,
+            "hallucination": false,
+            "hallucinationNote": "",
+            "declined": false,
+            "usage": {
+              "inputTokens": 1539,
+              "outputTokens": 284,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "model": "claude-haiku-4-5-20251001"
+          },
+          "checks": {
+            "sources": true,
+            "citations": true,
+            "quotes": true,
+            "faithful": false,
+            "idk": true
+          }
+        },
+        {
+          "id": "q06",
+          "type": "corpus",
+          "question": "Which compiler flags turn on context parameters and context-sensitive resolution in Kotlin 2.2.0, and is there a Kotlin/Native switch that reduces string memory?",
+          "expected_facts": [
+            "Context parameters are enabled with -Xcontext-parameters",
+            "Context-sensitive resolution is enabled with -Xcontext-sensitive-resolution",
+            "kotlin.native.binary.latin1Strings=true enables Latin-1 strings on Kotlin/Native",
+            "Latin-1 strings use about 50% less memory"
+          ],
+          "generator": "qwen3.5:9b",
+          "order": 3,
+          "startedAt": "2026-10-11T20:02:16.791Z",
+          "wallMs": 51862,
+          "error": null,
+          "run": {
+            "answer": "For Kotlin/Native, enabling Latin-1 string optimization via the kotlin.native.binary.latin1Strings switch reduces memory usage by approximately 30% for text-heavy operations in shared code [c5].",
+            "mode": "rag",
+            "label": "rag+rerank",
+            "rerank": true,
+            "rewrite": false,
+            "queries": [
+              "Which compiler flags turn on context parameters and context-sensitive resolution in Kotlin 2.2.0, and is there a Kotlin/Native switch that reduces string memory?"
+            ],
+            "declined": false,
+            "status": "answered",
+            "citations": [
+              {
+                "id": "c5",
+                "chunk_id": "kb/kotlin-2.2.0-game-changing-features-that-will-transform-your-development-workflow-by-praveen-sharma-medium.html:structural:12",
+                "quote": "In a recent Kotlin Multiplatform project with iOS targets, enabling these optimizations reduced memory usage by approximately 30% for text-heavy operations in the shared Kotlin/Native code.",
+                "n": 5,
+                "source": "knowledge_database/Kotlin 2.2.0_ Game-Changing Features That Will Transform Your Development Workflow _ by praveen sharma _ Medium.html",
+                "section": "🚀 Kotlin/Native Gets Serious: LLVM 19 and Memory Improvements › Latin-1 String Optimization",
+                "start": 484,
+                "end": 673
+              }
+            ],
+            "sources": [
+              {
+                "chunk_id": "kb/kotlin-2.2.0-game-changing-features-that-will-transform-your-development-workflow-by-praveen-sharma-medium.html:structural:12",
+                "source": "knowledge_database/Kotlin 2.2.0_ Game-Changing Features That Will Transform Your Development Workflow _ by praveen sharma _ Medium.html",
+                "section": "🚀 Kotlin/Native Gets Serious: LLVM 19 and Memory Improvements › Latin-1 String Optimization",
+                "title": "Kotlin 2.2.0: Game-Changing Features That Will Transform Your Development Workflow",
+                "n": 5,
+                "label": "knowledge_database/Kotlin 2.2.0_ Game-Changing Features That Will Transform Your Development Workflow _ by praveen sharma _ Medium.html › 🚀 Kotlin/Native Gets Serious: LLVM 19 and Memory Improvements › Latin-1 String Optimization · kb/kotlin-2.2.0-game-changing-features-that-will-transform-your-development-workflow-by-praveen-sharma-medium.html:structural:12",
+                "citations": [
+                  "c5"
+                ]
+              }
+            ],
+            "clarifyingQuestion": "",
+            "dontKnow": null,
+            "verification": {
+              "firstAttemptValid": false,
+              "retried": true,
+              "droppedCitations": [
+                {
+                  "id": "c2",
+                  "chunk_id": "kb/kotlin-2.2.0-game-changing-features-that-will-transform-your-development-workflow-by-praveen-sharma-medium.html:structural:18",
+                  "quote": "Enable context parameters with -Xcontext-parameters\n\nTry context-sensitive resolution with -Xcontext-sensitive-resolution",
+                  "reason": "fabricated quote"
+                }
+              ],
+              "droppedClaims": [
+                "To enable context parameters, use the -Xcontext-parameters flag, and to enable context-sensitive resolution, use the -Xcontext-sensitive-resolution flag."
+              ],
+              "downgraded": false,
+              "firstAttemptCitations": 2,
+              "firstAttemptErrors": [
+                "Rule 4: citation c2's quote is not in chunk \"kb/kotlin-2.2.0-game-changing-features-that-will-transform-your-development-workflow-by-praveen-sharma-medium.html:structural:18\": \"Enable context parameters with -Xcontext-parameters\\n\\nTry context-sensitive resolution with -Xcontext-sensitive-resolution\". Copy the sentence exactly as it appears in that document."
+              ],
+              "fabricatedFirstAttempt": [
+                {
+                  "id": "c2",
+                  "chunk_id": "kb/kotlin-2.2.0-game-changing-features-that-will-transform-your-development-workflow-by-praveen-sharma-medium.html:structural:18",
+                  "quote": "Enable context parameters with -Xcontext-parameters\\n\\nTry context-sensitive resolution with -Xcontext-sensitive-resolution"
+                }
+              ],
+              "finalErrors": [
+                "Rule 4: citation c2's quote is not in chunk \"kb/kotlin-2.2.0-game-changing-features-that-will-transform-your-development-workflow-by-praveen-sharma-medium.html:structural:18\": \"Enable context parameters with -Xcontext-parameters\n\nTry context-sensitive resolution with -Xcontext-sensitive-resolution\". Copy the sentence exactly as it appears in that document."
+              ]
+            },
+            "usage": {
+              "inputTokens": 4367,
+              "outputTokens": 498
+            },
+            "model": "qwen3.5:9b",
+            "provider": "local",
+            "localMetrics": {
+              "ttftMs": 20108.9,
+              "genTps": 17.9,
+              "totalMs": 51822.4,
+              "wallMs": 51849.8,
+              "loadMs": 52.2,
+              "promptTokens": 4367,
+              "cachedPromptTokens": 1990,
+              "outputTokens": 498,
+              "promptTps": 99.3,
+              "promptEvalMs": 23964.8,
+              "evalMs": 27798.1,
+              "numCtx": 8192,
+              "calls": 2
+            },
+            "promptVariant": "v1",
+            "generation": {
+              "calls": [
+                {
+                  "attempt": 1,
+                  "provider": "local",
+                  "metrics": {
+                    "ttftMs": 20108.9,
+                    "genTps": 17.1,
+                    "totalMs": 35552.5,
+                    "wallMs": 35566.1,
+                    "loadMs": 16,
+                    "promptTokens": 1995,
+                    "cachedPromptTokens": 0,
+                    "outputTokens": 264,
+                    "promptTps": 99.3,
+                    "promptEvalMs": 20093,
+                    "evalMs": 15440.3,
+                    "numCtx": 8192
+                  },
+                  "structured": {
+                    "tool": "submit_answer",
+                    "attempts": 1,
+                    "invalid": 0,
+                    "errors": []
+                  }
+                },
+                {
+                  "attempt": 2,
+                  "provider": "local",
+                  "metrics": {
+                    "ttftMs": 3908,
+                    "genTps": 18.9,
+                    "totalMs": 16269.9,
+                    "wallMs": 16283.7,
+                    "loadMs": 36.2,
+                    "promptTokens": 2372,
+                    "cachedPromptTokens": 1990,
+                    "outputTokens": 234,
+                    "promptTps": 98.7,
+                    "promptEvalMs": 3871.8,
+                    "evalMs": 12357.8,
+                    "numCtx": 8192
+                  },
+                  "structured": {
+                    "tool": "submit_answer",
+                    "attempts": 1,
+                    "invalid": 0,
+                    "errors": []
+                  }
+                }
+              ],
+              "metrics": {
+                "ttftMs": 20108.9,
+                "genTps": 17.9,
+                "totalMs": 51822.4,
+                "wallMs": 51849.8,
+                "loadMs": 52.2,
+                "promptTokens": 4367,
+                "cachedPromptTokens": 1990,
+                "outputTokens": 498,
+                "promptTps": 99.3,
+                "promptEvalMs": 23964.8,
+                "evalMs": 27798.1,
+                "numCtx": 8192,
+                "calls": 2
+              },
+              "invalidJson": 0,
+              "schemaFailures": 0,
+              "possible_truncation": false
+            },
+            "retrievalShared": true,
+            "stopReason": "tool_use",
+            "timings": {
+              "rewriteMs": 0,
+              "retrieveMs": 102,
+              "rerankMs": 2842,
+              "clarifyMs": 0,
+              "llmMs": 51862
+            },
+            "chunkIds": [
+              "kb/kotlin-2.2.0-game-changing-features-that-will-transform-your-development-workflow-by-praveen-sharma-medium.html:structural:2",
+              "kb/kotlin-2.2.0-game-changing-features-that-will-transform-your-development-workflow-by-praveen-sharma-medium.html:structural:18",
+              "kb/kotlin-2.0.0-a-new-era-in-kotlin-development-by-halil-ozel-medium.html:structural:1",
+              "kb/kotlin-2.2.0-game-changing-features-that-will-transform-your-development-workflow-by-praveen-sharma-medium.html:structural:17",
+              "kb/kotlin-2.2.0-game-changing-features-that-will-transform-your-development-workflow-by-praveen-sharma-medium.html:structural:12"
+            ]
+          },
+          "faithfulness": {
+            "claims": [
+              {
+                "claim": "For Kotlin/Native, enabling Latin-1 string optimization via the kotlin.native.binary.latin1Strings switch reduces memory usage by approximately 30% for text-heavy operations in shared code.",
+                "markers": [
+                  "c5"
+                ],
+                "quotes": [
+                  {
+                    "id": "c5",
+                    "quote": "In a recent Kotlin Multiplatform project with iOS targets, enabling these optimizations reduced memory usage by approximately 30% for text-heavy operations in the shared Kotlin/Native code.",
+                    "source": "knowledge_database/Kotlin 2.2.0_ Game-Changing Features That Will Transform Your Development Workflow _ by praveen sharma _ Medium.html",
+                    "section": "🚀 Kotlin/Native Gets Serious: LLVM 19 and Memory Improvements › Latin-1 String Optimization"
+                  }
+                ],
+                "verdict": "partial",
+                "note": "Quote mentions 30% memory reduction for text-heavy operations in shared Kotlin/Native code, but does not specifically mention the 'kotlin.native.binary.latin1Strings switch' or attribute the optimization to Latin-1 string optimization."
+              }
+            ],
+            "uncitedClaims": [],
+            "supported": 0,
+            "partial": 1,
+            "unsupported": 0,
+            "faithfulness": 0,
+            "usage": {
+              "inputTokens": 1163,
+              "outputTokens": 123,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "model": "claude-haiku-4-5-20251001"
+          },
+          "grade": {
+            "facts": [
+              {
+                "fact": "Context parameters are enabled with -Xcontext-parameters",
+                "grade": "missing",
+                "note": "The answer does not mention this compiler flag at all."
+              },
+              {
+                "fact": "Context-sensitive resolution is enabled with -Xcontext-sensitive-resolution",
+                "grade": "missing",
+                "note": "The answer does not mention this compiler flag at all."
+              },
+              {
+                "fact": "kotlin.native.binary.latin1Strings=true enables Latin-1 strings on Kotlin/Native",
+                "grade": "partial",
+                "note": "The answer mentions 'kotlin.native.binary.latin1Strings switch' but does not explicitly state the '=true' value or that it enables Latin-1 strings."
+              },
+              {
+                "fact": "Latin-1 strings use about 50% less memory",
+                "grade": "contradicted",
+                "note": "The answer states approximately 30% memory reduction, which contradicts the expected 50% reduction."
+              }
+            ],
+            "score": 0.125,
+            "hallucination": true,
+            "hallucinationNote": "The answer claims Latin-1 strings reduce memory by 'approximately 30%' when the expected fact states about 50% less memory. Additionally, the answer adds an unsupported detail about 'text-heavy operations in shared code' that is not mentioned in the expected facts.",
+            "declined": false,
+            "usage": {
+              "inputTokens": 1501,
+              "outputTokens": 402,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "model": "claude-haiku-4-5-20251001"
+          },
+          "checks": {
+            "sources": true,
+            "citations": true,
+            "quotes": false,
+            "faithful": false,
+            "idk": true
+          }
+        },
+        {
+          "id": "q10",
+          "type": "unanswerable",
+          "question": "What were the headline features of Compose Multiplatform 1.9.0?",
+          "expect_decline": true,
+          "expected_facts": [
+            "Says the available information does not cover Compose Multiplatform 1.9.0",
+            "Does not present a list of 1.9.0 features as fact"
+          ],
+          "generator": "qwen3.5:9b",
+          "order": 4,
+          "startedAt": "2026-10-11T20:03:08.654Z",
+          "wallMs": 20859,
+          "error": null,
+          "run": {
+            "answer": "I don't know. The provided documents only cover Compose Multiplatform versions 1.7.0 and 1.8.0, detailing their features such as stable APIs, type-safe navigation, and performance improvements on iOS. There is no information about version 1.9.0 or its headline features.",
+            "mode": "rag",
+            "label": "rag+rerank",
+            "rerank": true,
+            "rewrite": false,
+            "queries": [
+              "What were the headline features of Compose Multiplatform 1.9.0?"
+            ],
+            "declined": false,
+            "status": "dont_know",
+            "citations": [],
+            "sources": [],
+            "clarifyingQuestion": "The provided documents only cover Compose Multiplatform versions 1.7.0 and 1.8.0, detailing their features such as stable APIs, type-safe navigation, and performance improvements on iOS. There is no information about version 1.9.0 or its headline features.",
+            "dontKnow": {
+              "reason": "model"
+            },
+            "verification": {
+              "firstAttemptValid": true,
+              "retried": false,
+              "droppedCitations": [],
+              "droppedClaims": [],
+              "downgraded": false,
+              "firstAttemptCitations": 0,
+              "firstAttemptErrors": [],
+              "fabricatedFirstAttempt": [],
+              "finalErrors": []
+            },
+            "usage": {
+              "inputTokens": 1939,
+              "outputTokens": 77
+            },
+            "model": "qwen3.5:9b",
+            "provider": "local",
+            "localMetrics": {
+              "ttftMs": 15269.5,
+              "genTps": 13.8,
+              "totalMs": 20838.7,
+              "wallMs": 20856.7,
+              "loadMs": 40.8,
+              "promptTokens": 1939,
+              "cachedPromptTokens": 427,
+              "outputTokens": 77,
+              "promptTps": 99.3,
+              "promptEvalMs": 15228.7,
+              "evalMs": 5562.7,
+              "numCtx": 8192
+            },
+            "promptVariant": "v1",
+            "generation": {
+              "calls": [
+                {
+                  "attempt": 1,
+                  "provider": "local",
+                  "metrics": {
+                    "ttftMs": 15269.5,
+                    "genTps": 13.8,
+                    "totalMs": 20838.7,
+                    "wallMs": 20856.7,
+                    "loadMs": 40.8,
+                    "promptTokens": 1939,
+                    "cachedPromptTokens": 427,
+                    "outputTokens": 77,
+                    "promptTps": 99.3,
+                    "promptEvalMs": 15228.7,
+                    "evalMs": 5562.7,
+                    "numCtx": 8192
+                  },
+                  "structured": {
+                    "tool": "submit_answer",
+                    "attempts": 1,
+                    "invalid": 0,
+                    "errors": []
+                  }
+                }
+              ],
+              "metrics": {
+                "ttftMs": 15269.5,
+                "genTps": 13.8,
+                "totalMs": 20838.7,
+                "wallMs": 20856.7,
+                "loadMs": 40.8,
+                "promptTokens": 1939,
+                "cachedPromptTokens": 427,
+                "outputTokens": 77,
+                "promptTps": 99.3,
+                "promptEvalMs": 15228.7,
+                "evalMs": 5562.7,
+                "numCtx": 8192
+              },
+              "invalidJson": 0,
+              "schemaFailures": 0,
+              "possible_truncation": false
+            },
+            "retrievalShared": true,
+            "stopReason": "tool_use",
+            "timings": {
+              "rewriteMs": 0,
+              "retrieveMs": 90,
+              "rerankMs": 2143,
+              "clarifyMs": 0,
+              "llmMs": 20858
+            },
+            "chunkIds": [
+              "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:1",
+              "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:2",
+              "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:5",
+              "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:6",
+              "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:0"
+            ]
+          },
+          "faithfulness": null,
+          "grade": null,
+          "checks": {
+            "sources": null,
+            "citations": null,
+            "quotes": null,
+            "faithful": null,
+            "idk": true
+          }
+        },
+        {
+          "id": "q12",
+          "type": "near_miss",
+          "question": "Can I ship a Compose Multiplatform web app to production yet, or is the web target still experimental?",
+          "expected_facts": [
+            "Compose Multiplatform for Web is being released as a Beta (not Stable)",
+            "With the Beta, most essential APIs are available so early adopters can move to production with the existing feature set",
+            "After the Beta, JetBrains keeps working on the remaining Compose APIs and performance"
+          ],
+          "generator": "qwen3.5:9b",
+          "order": 5,
+          "startedAt": "2026-10-11T20:03:29.513Z",
+          "wallMs": 21892,
+          "error": null,
+          "run": {
+            "answer": "I don't know. The documents state that Compose Multiplatform for Web has reached a Beta version with essential APIs available for early adopters to move to production, but they do not explicitly confirm if shipping to production is currently allowed or if the target remains experimental. The documents mention that after the Beta release, work will continue on remaining APIs and performance improvements.",
+            "mode": "rag",
+            "label": "rag+rerank",
+            "rerank": true,
+            "rewrite": false,
+            "queries": [
+              "Can I ship a Compose Multiplatform web app to production yet, or is the web target still experimental?"
+            ],
+            "declined": false,
+            "status": "dont_know",
+            "citations": [],
+            "sources": [],
+            "clarifyingQuestion": "The documents state that Compose Multiplatform for Web has reached a Beta version with essential APIs available for early adopters to move to production, but they do not explicitly confirm if shipping to production is currently allowed or if the target remains experimental. The documents mention that after the Beta release, work will continue on remaining APIs and performance improvements.",
+            "dontKnow": {
+              "reason": "model"
+            },
+            "verification": {
+              "firstAttemptValid": true,
+              "retried": false,
+              "droppedCitations": [],
+              "droppedClaims": [],
+              "downgraded": false,
+              "firstAttemptCitations": 0,
+              "firstAttemptErrors": [],
+              "fabricatedFirstAttempt": [],
+              "finalErrors": []
+            },
+            "usage": {
+              "inputTokens": 1940,
+              "outputTokens": 101
+            },
+            "model": "qwen3.5:9b",
+            "provider": "local",
+            "localMetrics": {
+              "ttftMs": 14981,
+              "genTps": 14.7,
+              "totalMs": 21867.7,
+              "wallMs": 21890.5,
+              "loadMs": 34.4,
+              "promptTokens": 1940,
+              "cachedPromptTokens": 452,
+              "outputTokens": 101,
+              "promptTps": 99.6,
+              "promptEvalMs": 14946.6,
+              "evalMs": 6879.2,
+              "numCtx": 8192
+            },
+            "promptVariant": "v1",
+            "generation": {
+              "calls": [
+                {
+                  "attempt": 1,
+                  "provider": "local",
+                  "metrics": {
+                    "ttftMs": 14981,
+                    "genTps": 14.7,
+                    "totalMs": 21867.7,
+                    "wallMs": 21890.5,
+                    "loadMs": 34.4,
+                    "promptTokens": 1940,
+                    "cachedPromptTokens": 452,
+                    "outputTokens": 101,
+                    "promptTps": 99.6,
+                    "promptEvalMs": 14946.6,
+                    "evalMs": 6879.2,
+                    "numCtx": 8192
+                  },
+                  "structured": {
+                    "tool": "submit_answer",
+                    "attempts": 1,
+                    "invalid": 0,
+                    "errors": []
+                  }
+                }
+              ],
+              "metrics": {
+                "ttftMs": 14981,
+                "genTps": 14.7,
+                "totalMs": 21867.7,
+                "wallMs": 21890.5,
+                "loadMs": 34.4,
+                "promptTokens": 1940,
+                "cachedPromptTokens": 452,
+                "outputTokens": 101,
+                "promptTps": 99.6,
+                "promptEvalMs": 14946.6,
+                "evalMs": 6879.2,
+                "numCtx": 8192
+              },
+              "invalidJson": 0,
+              "schemaFailures": 0,
+              "possible_truncation": false
+            },
+            "retrievalShared": true,
+            "stopReason": "tool_use",
+            "timings": {
+              "rewriteMs": 0,
+              "retrieveMs": 61,
+              "rerankMs": 2590,
+              "clarifyMs": 0,
+              "llmMs": 21891
+            },
+            "chunkIds": [
+              "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:6",
+              "kb/what-s-next-for-kotlin-multiplatform-and-compose-multiplatform-august-2025-update-the-jetbrains-blog.html:structural:2",
+              "kb/what-s-next-for-kotlin-multiplatform-and-compose-multiplatform-august-2025-update-the-jetbrains-blog.html:structural:1",
+              "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:1",
+              "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:5"
+            ]
+          },
+          "faithfulness": null,
+          "grade": {
+            "facts": [
+              {
+                "fact": "Compose Multiplatform for Web is being released as a Beta (not Stable)",
+                "grade": "present",
+                "note": "The answer correctly states that Compose Multiplatform for Web has reached Beta version."
+              },
+              {
+                "fact": "With the Beta, most essential APIs are available so early adopters can move to production with the existing feature set",
+                "grade": "present",
+                "note": "The answer states 'essential APIs available for early adopters to move to production.'"
+              },
+              {
+                "fact": "After the Beta, JetBrains keeps working on the remaining Compose APIs and performance",
+                "grade": "present",
+                "note": "The answer mentions 'work will continue on remaining APIs and performance improvements.'"
+              }
+            ],
+            "score": 1,
+            "hallucination": false,
+            "hallucinationNote": "",
+            "declined": true,
+            "usage": {
+              "inputTokens": 1516,
+              "outputTokens": 263,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "model": "claude-haiku-4-5-20251001"
+          },
+          "checks": {
+            "sources": false,
+            "citations": false,
+            "quotes": null,
+            "faithful": null,
+            "idk": false
+          }
+        },
+        {
+          "id": "q13",
+          "type": "off_topic",
+          "question": "How long should I proof sourdough bread in the fridge overnight, and at what temperature?",
+          "expect_decline": true,
+          "expected_facts": [
+            "Says the available information does not cover baking or sourdough",
+            "Does not present proofing times or temperatures as coming from the documents"
+          ],
+          "generator": "qwen3.5:9b",
+          "order": 6,
+          "startedAt": "2026-10-11T20:03:51.406Z",
+          "wallMs": 8112,
+          "error": null,
+          "run": {
+            "answer": "I don't know. The documents cover Kotlin, Kotlin Multiplatform, and Compose Multiplatform topics. Did you mean to ask about sourdough bread proofing, or are you looking for information on a specific Kotlin topic?",
+            "mode": "rag",
+            "label": "rag+rerank",
+            "rerank": true,
+            "rewrite": false,
+            "queries": [
+              "How long should I proof sourdough bread in the fridge overnight, and at what temperature?"
+            ],
+            "declined": true,
+            "status": "dont_know",
+            "citations": [],
+            "sources": [],
+            "clarifyingQuestion": "The documents cover Kotlin, Kotlin Multiplatform, and Compose Multiplatform topics. Did you mean to ask about sourdough bread proofing, or are you looking for information on a specific Kotlin topic?",
+            "dontKnow": {
+              "reason": "low_relevance"
+            },
+            "verification": null,
+            "usage": {
+              "inputTokens": 447,
+              "outputTokens": 52
+            },
+            "model": "qwen3.5:9b",
+            "provider": "local",
+            "localMetrics": {
+              "ttftMs": 4443.3,
+              "genTps": 14.3,
+              "totalMs": 8086.5,
+              "wallMs": 8102.2,
+              "loadMs": 28.7,
+              "promptTokens": 447,
+              "cachedPromptTokens": 0,
+              "outputTokens": 52,
+              "promptTps": 101.3,
+              "promptEvalMs": 4414.6,
+              "evalMs": 3636.3,
+              "numCtx": 8192
+            },
+            "promptVariant": "v1",
+            "generation": {
+              "calls": [
+                {
+                  "attempt": 1,
+                  "provider": "local",
+                  "metrics": {
+                    "ttftMs": 4443.3,
+                    "genTps": 14.3,
+                    "totalMs": 8086.5,
+                    "wallMs": 8102.2,
+                    "loadMs": 28.7,
+                    "promptTokens": 447,
+                    "cachedPromptTokens": 0,
+                    "outputTokens": 52,
+                    "promptTps": 101.3,
+                    "promptEvalMs": 4414.6,
+                    "evalMs": 3636.3,
+                    "numCtx": 8192
+                  },
+                  "structured": {
+                    "tool": "submit_clarification",
+                    "attempts": 1,
+                    "invalid": 0,
+                    "errors": []
+                  }
+                }
+              ],
+              "metrics": {
+                "ttftMs": 4443.3,
+                "genTps": 14.3,
+                "totalMs": 8086.5,
+                "wallMs": 8102.2,
+                "loadMs": 28.7,
+                "promptTokens": 447,
+                "cachedPromptTokens": 0,
+                "outputTokens": 52,
+                "promptTps": 101.3,
+                "promptEvalMs": 4414.6,
+                "evalMs": 3636.3,
+                "numCtx": 8192
+              },
+              "invalidJson": 0,
+              "schemaFailures": 0,
+              "possible_truncation": false,
+              "model": "qwen3.5:9b",
+              "provider": "local"
+            },
+            "retrievalShared": true,
+            "stopReason": "declined",
+            "timings": {
+              "rewriteMs": 0,
+              "retrieveMs": 56,
+              "rerankMs": 5350,
+              "clarifyMs": 8112,
+              "llmMs": 0
+            },
+            "chunkIds": []
+          },
+          "faithfulness": null,
+          "grade": null,
+          "checks": {
+            "sources": null,
+            "citations": null,
+            "quotes": null,
+            "faithful": null,
+            "idk": true
+          }
+        },
+        {
+          "id": "q14",
+          "type": "paraphrased",
+          "question": "In JetBrains' cross-platform UI toolkit, can people using my app on a Windows or Mac computer grab an element with the mouse, carry it across and let go of it over another element? Which version brought that, and what do I attach to the two elements?",
+          "expected_facts": [
+            "Compose Multiplatform 1.7.0 added drag and drop on desktop",
+            "The dragAndDropSource modifier marks the composable where a drag starts",
+            "The dragAndDropTarget modifier marks the composable that accepts the dropped data"
+          ],
+          "generator": "qwen3.5:9b",
+          "order": 7,
+          "startedAt": "2026-10-11T20:03:59.518Z",
+          "wallMs": 11568,
+          "error": null,
+          "run": {
+            "answer": "I don't know. The provided documents describe Compose Multiplatform 1.7.0, which includes Material3 adaptive support, type-safe navigation, and iOS performance improvements, but they do not contain information about drag-and-drop functionality on Windows or Mac, the specific version that introduced it, or how to attach elements for this feature.",
+            "mode": "rag",
+            "label": "rag+rerank",
+            "rerank": true,
+            "rewrite": false,
+            "queries": [
+              "In JetBrains' cross-platform UI toolkit, can people using my app on a Windows or Mac computer grab an element with the mouse, carry it across and let go of it over another element? Which version brought that, and what do I attach to the two elements?"
+            ],
+            "declined": false,
+            "status": "dont_know",
+            "citations": [],
+            "sources": [],
+            "clarifyingQuestion": "The provided documents describe Compose Multiplatform 1.7.0, which includes Material3 adaptive support, type-safe navigation, and iOS performance improvements, but they do not contain information about drag-and-drop functionality on Windows or Mac, the specific version that introduced it, or how to attach elements for this feature.",
+            "dontKnow": {
+              "reason": "model"
+            },
+            "verification": {
+              "firstAttemptValid": true,
+              "retried": false,
+              "droppedCitations": [],
+              "droppedClaims": [],
+              "downgraded": false,
+              "firstAttemptCitations": 0,
+              "firstAttemptErrors": [],
+              "fabricatedFirstAttempt": [],
+              "finalErrors": []
+            },
+            "usage": {
+              "inputTokens": 931,
+              "outputTokens": 97
+            },
+            "model": "qwen3.5:9b",
+            "provider": "local",
+            "localMetrics": {
+              "ttftMs": 5067.2,
+              "genTps": 14.9,
+              "totalMs": 11558.5,
+              "wallMs": 11566.8,
+              "loadMs": 16.8,
+              "promptTokens": 931,
+              "cachedPromptTokens": 427,
+              "outputTokens": 97,
+              "promptTps": 99.8,
+              "promptEvalMs": 5050.4,
+              "evalMs": 6488.3,
+              "numCtx": 8192
+            },
+            "promptVariant": "v1",
+            "generation": {
+              "calls": [
+                {
+                  "attempt": 1,
+                  "provider": "local",
+                  "metrics": {
+                    "ttftMs": 5067.2,
+                    "genTps": 14.9,
+                    "totalMs": 11558.5,
+                    "wallMs": 11566.8,
+                    "loadMs": 16.8,
+                    "promptTokens": 931,
+                    "cachedPromptTokens": 427,
+                    "outputTokens": 97,
+                    "promptTps": 99.8,
+                    "promptEvalMs": 5050.4,
+                    "evalMs": 6488.3,
+                    "numCtx": 8192
+                  },
+                  "structured": {
+                    "tool": "submit_answer",
+                    "attempts": 1,
+                    "invalid": 0,
+                    "errors": []
+                  }
+                }
+              ],
+              "metrics": {
+                "ttftMs": 5067.2,
+                "genTps": 14.9,
+                "totalMs": 11558.5,
+                "wallMs": 11566.8,
+                "loadMs": 16.8,
+                "promptTokens": 931,
+                "cachedPromptTokens": 427,
+                "outputTokens": 97,
+                "promptTps": 99.8,
+                "promptEvalMs": 5050.4,
+                "evalMs": 6488.3,
+                "numCtx": 8192
+              },
+              "invalidJson": 0,
+              "schemaFailures": 0,
+              "possible_truncation": false
+            },
+            "retrievalShared": true,
+            "stopReason": "tool_use",
+            "timings": {
+              "rewriteMs": 0,
+              "retrieveMs": 1741,
+              "rerankMs": 4331,
+              "clarifyMs": 0,
+              "llmMs": 11568
+            },
+            "chunkIds": [
+              "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:0",
+              "kb/know-kotlin-ship-it-everywhere-and-win-at-shipaton-2026-the-jetbrains-blog.html:structural:1"
+            ]
+          },
+          "faithfulness": null,
+          "grade": {
+            "facts": [
+              {
+                "fact": "Compose Multiplatform 1.7.0 added drag and drop on desktop",
+                "grade": "missing",
+                "note": ""
+              },
+              {
+                "fact": "The dragAndDropSource modifier marks the composable where a drag starts",
+                "grade": "missing",
+                "note": ""
+              },
+              {
+                "fact": "The dragAndDropTarget modifier marks the composable that accepts the dropped data",
+                "grade": "missing",
+                "note": ""
+              }
+            ],
+            "score": 0,
+            "hallucination": false,
+            "hallucinationNote": "",
+            "declined": true,
+            "usage": {
+              "inputTokens": 1539,
+              "outputTokens": 182,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "model": "claude-haiku-4-5-20251001"
+          },
+          "checks": {
+            "sources": false,
+            "citations": false,
+            "quotes": null,
+            "faithful": null,
+            "idk": false
+          }
+        },
+        {
+          "id": "q15",
+          "type": "messy",
+          "question": "hi! ok so long story — we're rewriting our notes app and my coworker insists we keep our hand-rolled ID generator in the shared module because \"kotlin doesn't have UUIDs in common code\", which sounds wrong to me?? we're on kotlin 2.4 btw, just upgraded last sprint. anyway: is there a stable UUID type in common code now or do we still need a library, and can we generate v4/v7 ones without opting into anything? thanks, sorry for the wall of text lol",
+          "expected_facts": [
+            "Kotlin 2.4 has a stable kotlin.uuid.Uuid usable in common code",
+            "The V4/V7 generation functions are still experimental (need an opt-in)"
+          ],
+          "generator": "qwen3.5:9b",
+          "order": 8,
+          "startedAt": "2026-10-11T20:04:11.086Z",
+          "wallMs": 25416,
+          "error": null,
+          "run": {
+            "answer": "In Kotlin 2.4, there is now a stable UUID type available in common code via `kotlin.uuid.Uuid`, which can be used for offline-first Room entities and multiplatform IDs [c1]. However, V4/V7 generation functions remain experimental and are not yet stable [c1].",
+            "mode": "rag",
+            "label": "rag+rerank",
+            "rerank": true,
+            "rewrite": false,
+            "queries": [
+              "hi! ok so long story — we're rewriting our notes app and my coworker insists we keep our hand-rolled ID generator in the shared module because \"kotlin doesn't have UUIDs in common code\", which sounds wrong to me?? we're on kotlin 2.4 btw, just upgraded last sprint. anyway: is there a stable UUID type in common code now or do we still need a library, and can we generate v4/v7 ones without opting into anything? thanks, sorry for the wall of text lol"
+            ],
+            "declined": false,
+            "status": "answered",
+            "citations": [
+              {
+                "id": "c1",
+                "chunk_id": "kb/kotlin-2.4-10-new-features-android-developers-should-know-medium.html:structural:4",
+                "quote": "kotlin.uuid.Uuid Common code has a stable Uuid, used for offline-first Room entities and multiplatform IDs. V4/V7 generation functions remain experimental.",
+                "n": 1,
+                "source": "knowledge_database/Kotlin 2.4_ 10 New Features Android Developers Should Know _ Medium.html",
+                "section": "4. Stable UUID API",
+                "start": 20,
+                "end": 175
+              }
+            ],
+            "sources": [
+              {
+                "chunk_id": "kb/kotlin-2.4-10-new-features-android-developers-should-know-medium.html:structural:4",
+                "source": "knowledge_database/Kotlin 2.4_ 10 New Features Android Developers Should Know _ Medium.html",
+                "section": "4. Stable UUID API",
+                "title": "Kotlin 2.4: 10 New Features Android Developers Should Know",
+                "n": 1,
+                "label": "knowledge_database/Kotlin 2.4_ 10 New Features Android Developers Should Know _ Medium.html › 4. Stable UUID API · kb/kotlin-2.4-10-new-features-android-developers-should-know-medium.html:structural:4",
+                "citations": [
+                  "c1"
+                ]
+              }
+            ],
+            "clarifyingQuestion": "",
+            "dontKnow": null,
+            "verification": {
+              "firstAttemptValid": true,
+              "retried": false,
+              "droppedCitations": [],
+              "droppedClaims": [],
+              "downgraded": false,
+              "firstAttemptCitations": 1,
+              "firstAttemptErrors": [],
+              "fabricatedFirstAttempt": [],
+              "finalErrors": []
+            },
+            "usage": {
+              "inputTokens": 1851,
+              "outputTokens": 178
+            },
+            "model": "qwen3.5:9b",
+            "provider": "local",
+            "localMetrics": {
+              "ttftMs": 14417.6,
+              "genTps": 16.2,
+              "totalMs": 25393.7,
+              "wallMs": 25413.2,
+              "loadMs": 34.7,
+              "promptTokens": 1851,
+              "cachedPromptTokens": 420,
+              "outputTokens": 178,
+              "promptTps": 99.5,
+              "promptEvalMs": 14382.8,
+              "evalMs": 10972.1,
+              "numCtx": 8192
+            },
+            "promptVariant": "v1",
+            "generation": {
+              "calls": [
+                {
+                  "attempt": 1,
+                  "provider": "local",
+                  "metrics": {
+                    "ttftMs": 14417.6,
+                    "genTps": 16.2,
+                    "totalMs": 25393.7,
+                    "wallMs": 25413.2,
+                    "loadMs": 34.7,
+                    "promptTokens": 1851,
+                    "cachedPromptTokens": 420,
+                    "outputTokens": 178,
+                    "promptTps": 99.5,
+                    "promptEvalMs": 14382.8,
+                    "evalMs": 10972.1,
+                    "numCtx": 8192
+                  },
+                  "structured": {
+                    "tool": "submit_answer",
+                    "attempts": 1,
+                    "invalid": 0,
+                    "errors": []
+                  }
+                }
+              ],
+              "metrics": {
+                "ttftMs": 14417.6,
+                "genTps": 16.2,
+                "totalMs": 25393.7,
+                "wallMs": 25413.2,
+                "loadMs": 34.7,
+                "promptTokens": 1851,
+                "cachedPromptTokens": 420,
+                "outputTokens": 178,
+                "promptTps": 99.5,
+                "promptEvalMs": 14382.8,
+                "evalMs": 10972.1,
+                "numCtx": 8192
+              },
+              "invalidJson": 0,
+              "schemaFailures": 0,
+              "possible_truncation": false
+            },
+            "retrievalShared": true,
+            "stopReason": "tool_use",
+            "timings": {
+              "rewriteMs": 0,
+              "retrieveMs": 126,
+              "rerankMs": 4241,
+              "clarifyMs": 0,
+              "llmMs": 25416
+            },
+            "chunkIds": [
+              "kb/kotlin-2.4-10-new-features-android-developers-should-know-medium.html:structural:4",
+              "kb/kotlin-2.2.0-game-changing-features-that-will-transform-your-development-workflow-by-praveen-sharma-medium.html:structural:8",
+              "kb/kotlin-2.4-vs-kotlin-2.3-what-actually-changed-medium.html:structural:4",
+              "kb/kotlin-2.4-vs-kotlin-2.3-what-actually-changed-medium.html:structural:0",
+              "kb/kotlin-2.4-vs-kotlin-2.3-what-actually-changed-medium.html:structural:7"
+            ]
+          },
+          "faithfulness": {
+            "claims": [
+              {
+                "claim": "In Kotlin 2.4, there is now a stable UUID type available in common code via `kotlin.uuid.Uuid`, which can be used for offline-first Room entities and multiplatform IDs.",
+                "markers": [
+                  "c1"
+                ],
+                "quotes": [
+                  {
+                    "id": "c1",
+                    "quote": "kotlin.uuid.Uuid Common code has a stable Uuid, used for offline-first Room entities and multiplatform IDs. V4/V7 generation functions remain experimental.",
+                    "source": "knowledge_database/Kotlin 2.4_ 10 New Features Android Developers Should Know _ Medium.html",
+                    "section": "4. Stable UUID API"
+                  }
+                ],
+                "verdict": "supported",
+                "note": "Quote confirms stable Uuid in common code for Room entities and multiplatform IDs"
+              },
+              {
+                "claim": "However, V4/V7 generation functions remain experimental and are not yet stable.",
+                "markers": [
+                  "c1"
+                ],
+                "quotes": [
+                  {
+                    "id": "c1",
+                    "quote": "kotlin.uuid.Uuid Common code has a stable Uuid, used for offline-first Room entities and multiplatform IDs. V4/V7 generation functions remain experimental.",
+                    "source": "knowledge_database/Kotlin 2.4_ 10 New Features Android Developers Should Know _ Medium.html",
+                    "section": "4. Stable UUID API"
+                  }
+                ],
+                "verdict": "supported",
+                "note": "Quote explicitly states V4/V7 generation functions remain experimental"
+              }
+            ],
+            "uncitedClaims": [],
+            "supported": 2,
+            "partial": 0,
+            "unsupported": 0,
+            "faithfulness": 1,
+            "usage": {
+              "inputTokens": 1231,
+              "outputTokens": 143,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "model": "claude-haiku-4-5-20251001"
+          },
+          "grade": {
+            "facts": [
+              {
+                "fact": "Kotlin 2.4 has a stable kotlin.uuid.Uuid usable in common code",
+                "grade": "present",
+                "note": "Answer explicitly states 'In Kotlin 2.4, there is now a stable UUID type available in common code via `kotlin.uuid.Uuid`'"
+              },
+              {
+                "fact": "The V4/V7 generation functions are still experimental (need an opt-in)",
+                "grade": "present",
+                "note": "Answer states 'V4/V7 generation functions remain experimental and are not yet stable'"
+              }
+            ],
+            "score": 1,
+            "hallucination": false,
+            "hallucinationNote": "",
+            "declined": false,
+            "usage": {
+              "inputTokens": 1574,
+              "outputTokens": 218,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "model": "claude-haiku-4-5-20251001"
+          },
+          "checks": {
+            "sources": true,
+            "citations": true,
+            "quotes": true,
+            "faithful": true,
+            "idk": true
+          }
+        },
+        {
+          "id": "q16",
+          "type": "multi_part",
+          "question": "Which Compose Multiplatform release added type-safe navigation, and which one brought Navigation 3? What does each give me?",
+          "expected_facts": [
+            "Compose Multiplatform 1.7.0 added type-safe navigation, with compile-time safety in navigation graphs",
+            "It follows Jetpack Compose's type-safe approach to passing objects along a navigation route",
+            "Compose Multiplatform 1.10.0 added support for Navigation 3",
+            "Navigation 3 lets you manipulate the navigation stack directly"
+          ],
+          "generator": "qwen3.5:9b",
+          "order": 9,
+          "startedAt": "2026-10-11T20:04:36.503Z",
+          "wallMs": 48667,
+          "error": null,
+          "run": {
+            "answer": "Compose Multiplatform 1.7.0 added type-safe navigation, which provides compile-time safety for your navigation graph by adopting Jetpack Compose's approach to passing objects along a navigation route [c1][c2]. Compose Multiplatform 1.10.0 brought Navigation 3, a new library that allows you to manipulate your navigation stack directly, making tasks like adding or removing destinations more straightforward [c3][c4].",
+            "mode": "rag",
+            "label": "rag+rerank",
+            "rerank": true,
+            "rewrite": false,
+            "queries": [
+              "Which Compose Multiplatform release added type-safe navigation, and which one brought Navigation 3? What does each give me?"
+            ],
+            "declined": false,
+            "status": "answered",
+            "citations": [
+              {
+                "id": "c1",
+                "chunk_id": "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:0",
+                "quote": "Compose Multiplatform now provides compile-time safety for your navigation graph.",
+                "n": 1,
+                "source": "knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html",
+                "section": "",
+                "start": 522,
+                "end": 603
+              },
+              {
+                "id": "c2",
+                "chunk_id": "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:2",
+                "quote": "You can now rely on Compose Multiplatform for compile-time safety in navigation graphs. To ensure type safety, we adopted Jetpack Compose's type-safe approach to passing objects along a navigation route.",
+                "n": 3,
+                "source": "knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html",
+                "section": "Type-safe navigation",
+                "start": 22,
+                "end": 225
+              },
+              {
+                "id": "c3",
+                "chunk_id": "kb/compose-multiplatform-1.10.0-unified-preview-navigation-3-and-stable-compose-hot-reload-the-jetbrains-blog.html:structural:0",
+                "quote": "Navigation 3 is available on non-Android targets",
+                "n": 2,
+                "source": "knowledge_database/Compose Multiplatform 1.10.0_ Unified @Preview, Navigation 3, and Stable Compose Hot Reload - The JetBrains Blog.html",
+                "section": "",
+                "start": 384,
+                "end": 432
+              },
+              {
+                "id": "c4",
+                "chunk_id": "kb/compose-multiplatform-1.10.0-unified-preview-navigation-3-and-stable-compose-hot-reload-the-jetbrains-blog.html:structural:2",
+                "quote": "We've introduced support for Navigation 3, a new library for managing navigation. With Navigation 3, you can manipulate your navigation stack directly, making tasks like adding or removing destinations more straightforward.",
+                "n": 5,
+                "source": "knowledge_database/Compose Multiplatform 1.10.0_ Unified @Preview, Navigation 3, and Stable Compose Hot Reload - The JetBrains Blog.html",
+                "section": "Navigation 3",
+                "start": 14,
+                "end": 237
+              }
+            ],
+            "sources": [
+              {
+                "chunk_id": "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:0",
+                "source": "knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html",
+                "section": "",
+                "title": "Compose Multiplatform 1.7.0 Released",
+                "n": 1,
+                "label": "knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html · kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:0",
+                "citations": [
+                  "c1"
+                ]
+              },
+              {
+                "chunk_id": "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:2",
+                "source": "knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html",
+                "section": "Type-safe navigation",
+                "title": "Compose Multiplatform 1.7.0 Released",
+                "n": 3,
+                "label": "knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html › Type-safe navigation · kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:2",
+                "citations": [
+                  "c2"
+                ]
+              },
+              {
+                "chunk_id": "kb/compose-multiplatform-1.10.0-unified-preview-navigation-3-and-stable-compose-hot-reload-the-jetbrains-blog.html:structural:0",
+                "source": "knowledge_database/Compose Multiplatform 1.10.0_ Unified @Preview, Navigation 3, and Stable Compose Hot Reload - The JetBrains Blog.html",
+                "section": "",
+                "title": "Compose Multiplatform 1.10.0: Unified @Preview, Navigation 3, and Stable Compose Hot Reload",
+                "n": 2,
+                "label": "knowledge_database/Compose Multiplatform 1.10.0_ Unified @Preview, Navigation 3, and Stable Compose Hot Reload - The JetBrains Blog.html · kb/compose-multiplatform-1.10.0-unified-preview-navigation-3-and-stable-compose-hot-reload-the-jetbrains-blog.html:structural:0",
+                "citations": [
+                  "c3"
+                ]
+              },
+              {
+                "chunk_id": "kb/compose-multiplatform-1.10.0-unified-preview-navigation-3-and-stable-compose-hot-reload-the-jetbrains-blog.html:structural:2",
+                "source": "knowledge_database/Compose Multiplatform 1.10.0_ Unified @Preview, Navigation 3, and Stable Compose Hot Reload - The JetBrains Blog.html",
+                "section": "Navigation 3",
+                "title": "Compose Multiplatform 1.10.0: Unified @Preview, Navigation 3, and Stable Compose Hot Reload",
+                "n": 5,
+                "label": "knowledge_database/Compose Multiplatform 1.10.0_ Unified @Preview, Navigation 3, and Stable Compose Hot Reload - The JetBrains Blog.html › Navigation 3 · kb/compose-multiplatform-1.10.0-unified-preview-navigation-3-and-stable-compose-hot-reload-the-jetbrains-blog.html:structural:2",
+                "citations": [
+                  "c4"
+                ]
+              }
+            ],
+            "clarifyingQuestion": "",
+            "dontKnow": null,
+            "verification": {
+              "firstAttemptValid": true,
+              "retried": false,
+              "droppedCitations": [],
+              "droppedClaims": [],
+              "downgraded": false,
+              "firstAttemptCitations": 4,
+              "firstAttemptErrors": [],
+              "fabricatedFirstAttempt": [],
+              "finalErrors": []
+            },
+            "usage": {
+              "inputTokens": 1679,
+              "outputTokens": 408
+            },
+            "model": "qwen3.5:9b",
+            "provider": "local",
+            "localMetrics": {
+              "ttftMs": 13914.6,
+              "genTps": 11.8,
+              "totalMs": 48587.8,
+              "wallMs": 48635.2,
+              "loadMs": 35.3,
+              "promptTokens": 1679,
+              "cachedPromptTokens": 427,
+              "outputTokens": 408,
+              "promptTps": 90.2,
+              "promptEvalMs": 13879.2,
+              "evalMs": 34669.1,
+              "numCtx": 8192
+            },
+            "promptVariant": "v1",
+            "generation": {
+              "calls": [
+                {
+                  "attempt": 1,
+                  "provider": "local",
+                  "metrics": {
+                    "ttftMs": 13914.6,
+                    "genTps": 11.8,
+                    "totalMs": 48587.8,
+                    "wallMs": 48635.2,
+                    "loadMs": 35.3,
+                    "promptTokens": 1679,
+                    "cachedPromptTokens": 427,
+                    "outputTokens": 408,
+                    "promptTps": 90.2,
+                    "promptEvalMs": 13879.2,
+                    "evalMs": 34669.1,
+                    "numCtx": 8192
+                  },
+                  "structured": {
+                    "tool": "submit_answer",
+                    "attempts": 1,
+                    "invalid": 0,
+                    "errors": []
+                  }
+                }
+              ],
+              "metrics": {
+                "ttftMs": 13914.6,
+                "genTps": 11.8,
+                "totalMs": 48587.8,
+                "wallMs": 48635.2,
+                "loadMs": 35.3,
+                "promptTokens": 1679,
+                "cachedPromptTokens": 427,
+                "outputTokens": 408,
+                "promptTps": 90.2,
+                "promptEvalMs": 13879.2,
+                "evalMs": 34669.1,
+                "numCtx": 8192
+              },
+              "invalidJson": 0,
+              "schemaFailures": 0,
+              "possible_truncation": false
+            },
+            "retrievalShared": true,
+            "stopReason": "tool_use",
+            "timings": {
+              "rewriteMs": 0,
+              "retrieveMs": 65,
+              "rerankMs": 2434,
+              "clarifyMs": 0,
+              "llmMs": 48666
+            },
+            "chunkIds": [
+              "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:0",
+              "kb/compose-multiplatform-1.10.0-unified-preview-navigation-3-and-stable-compose-hot-reload-the-jetbrains-blog.html:structural:0",
+              "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:2",
+              "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:1",
+              "kb/compose-multiplatform-1.10.0-unified-preview-navigation-3-and-stable-compose-hot-reload-the-jetbrains-blog.html:structural:2"
+            ]
+          },
+          "faithfulness": {
+            "claims": [
+              {
+                "claim": "Compose Multiplatform 1.7.0 added type-safe navigation, which provides compile-time safety for your navigation graph by adopting Jetpack Compose's approach to passing objects along a navigation route.",
+                "markers": [
+                  "c1",
+                  "c2"
+                ],
+                "quotes": [
+                  {
+                    "id": "c1",
+                    "quote": "Compose Multiplatform now provides compile-time safety for your navigation graph.",
+                    "source": "knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html",
+                    "section": ""
+                  },
+                  {
+                    "id": "c2",
+                    "quote": "You can now rely on Compose Multiplatform for compile-time safety in navigation graphs. To ensure type safety, we adopted Jetpack Compose's type-safe approach to passing objects along a navigation route.",
+                    "source": "knowledge_database/Compose Multiplatform 1.7.0 Released - The JetBrains Blog.html",
+                    "section": "Type-safe navigation"
+                  }
+                ],
+                "verdict": "partial",
+                "note": "Quotes support type-safe navigation and compile-time safety, but don't specify version 1.7.0 or mention 'adopting Jetpack Compose's approach' as a distinct feature."
+              },
+              {
+                "claim": "Compose Multiplatform 1.10.0 brought Navigation 3, a new library that allows you to manipulate your navigation stack directly, making tasks like adding or removing destinations more straightforward.",
+                "markers": [
+                  "c3",
+                  "c4"
+                ],
+                "quotes": [
+                  {
+                    "id": "c3",
+                    "quote": "Navigation 3 is available on non-Android targets",
+                    "source": "knowledge_database/Compose Multiplatform 1.10.0_ Unified @Preview, Navigation 3, and Stable Compose Hot Reload - The JetBrains Blog.html",
+                    "section": ""
+                  },
+                  {
+                    "id": "c4",
+                    "quote": "We've introduced support for Navigation 3, a new library for managing navigation. With Navigation 3, you can manipulate your navigation stack directly, making tasks like adding or removing destinations more straightforward.",
+                    "source": "knowledge_database/Compose Multiplatform 1.10.0_ Unified @Preview, Navigation 3, and Stable Compose Hot Reload - The JetBrains Blog.html",
+                    "section": "Navigation 3"
+                  }
+                ],
+                "verdict": "partial",
+                "note": "Quote c4 supports Navigation 3 and direct stack manipulation, but c3 only mentions availability on non-Android targets, not that 1.10.0 'brought' it. Version 1.10.0 is not stated in quotes."
+              }
+            ],
+            "uncitedClaims": [],
+            "supported": 0,
+            "partial": 2,
+            "unsupported": 0,
+            "faithfulness": 0,
+            "usage": {
+              "inputTokens": 1309,
+              "outputTokens": 210,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "model": "claude-haiku-4-5-20251001"
+          },
+          "grade": {
+            "facts": [
+              {
+                "fact": "Compose Multiplatform 1.7.0 added type-safe navigation, with compile-time safety in navigation graphs",
+                "grade": "present",
+                "note": "Answer states 1.7.0 added type-safe navigation with compile-time safety for navigation graph"
+              },
+              {
+                "fact": "It follows Jetpack Compose's type-safe approach to passing objects along a navigation route",
+                "grade": "present",
+                "note": "Answer explicitly mentions adopting Jetpack Compose's approach to passing objects along a navigation route"
+              },
+              {
+                "fact": "Compose Multiplatform 1.10.0 added support for Navigation 3",
+                "grade": "present",
+                "note": "Answer states 1.10.0 brought Navigation 3"
+              },
+              {
+                "fact": "Navigation 3 lets you manipulate the navigation stack directly",
+                "grade": "present",
+                "note": "Answer states Navigation 3 allows you to manipulate your navigation stack directly"
+              }
+            ],
+            "score": 1,
+            "hallucination": false,
+            "hallucinationNote": "",
+            "declined": false,
+            "usage": {
+              "inputTokens": 1556,
+              "outputTokens": 329,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "model": "claude-haiku-4-5-20251001"
+          },
+          "checks": {
+            "sources": true,
+            "citations": true,
+            "quotes": true,
+            "faithful": false,
+            "idk": true
+          }
+        },
+        {
+          "id": "q17",
+          "type": "ambiguous",
+          "question": "How does it work?",
+          "expect_decline": true,
+          "expected_facts": [
+            "Says it cannot tell what \"it\" refers to, or that the documents do not answer this as asked",
+            "Asks a clarifying question instead of describing some feature as the answer"
+          ],
+          "generator": "qwen3.5:9b",
+          "order": 10,
+          "startedAt": "2026-10-11T20:05:25.173Z",
+          "wallMs": 47123,
+          "error": null,
+          "run": {
+            "answer": "I don't know. The documents describe the architecture of a multi-profile comparison system, a pipeline runner with ordered steps, and a task state transition mechanism, but they do not explain how the overall system works in a general sense. To answer 'How does it work?', please specify which component or process you are asking about (e.g., the profile comparison logic, the pipeline execution flow, or the task state transitions).",
+            "mode": "rag",
+            "label": "rag+rerank",
+            "rerank": true,
+            "rewrite": false,
+            "queries": [
+              "How does it work?"
+            ],
+            "declined": false,
+            "status": "dont_know",
+            "citations": [],
+            "sources": [],
+            "clarifyingQuestion": "The documents describe the architecture of a multi-profile comparison system, a pipeline runner with ordered steps, and a task state transition mechanism, but they do not explain how the overall system works in a general sense. To answer 'How does it work?', please specify which component or process you are asking about (e.g., the profile comparison logic, the pipeline execution flow, or the task state transitions).",
+            "dontKnow": {
+              "reason": "model"
+            },
+            "verification": {
+              "firstAttemptValid": true,
+              "retried": false,
+              "droppedCitations": [],
+              "droppedClaims": [],
+              "downgraded": false,
+              "firstAttemptCitations": 0,
+              "firstAttemptErrors": [],
+              "fabricatedFirstAttempt": [],
+              "finalErrors": []
+            },
+            "usage": {
+              "inputTokens": 2881,
+              "outputTokens": 108
+            },
+            "model": "qwen3.5:9b",
+            "provider": "local",
+            "localMetrics": {
+              "ttftMs": 37775.1,
+              "genTps": 11.7,
+              "totalMs": 47032.2,
+              "wallMs": 47112.6,
+              "loadMs": 37,
+              "promptTokens": 2881,
+              "cachedPromptTokens": 2,
+              "outputTokens": 108,
+              "promptTps": 76.3,
+              "promptEvalMs": 37738.1,
+              "evalMs": 9244.9,
+              "numCtx": 8192
+            },
+            "promptVariant": "v1",
+            "generation": {
+              "calls": [
+                {
+                  "attempt": 1,
+                  "provider": "local",
+                  "metrics": {
+                    "ttftMs": 37775.1,
+                    "genTps": 11.7,
+                    "totalMs": 47032.2,
+                    "wallMs": 47112.6,
+                    "loadMs": 37,
+                    "promptTokens": 2881,
+                    "cachedPromptTokens": 2,
+                    "outputTokens": 108,
+                    "promptTps": 76.3,
+                    "promptEvalMs": 37738.1,
+                    "evalMs": 9244.9,
+                    "numCtx": 8192
+                  },
+                  "structured": {
+                    "tool": "submit_answer",
+                    "attempts": 1,
+                    "invalid": 0,
+                    "errors": []
+                  }
+                }
+              ],
+              "metrics": {
+                "ttftMs": 37775.1,
+                "genTps": 11.7,
+                "totalMs": 47032.2,
+                "wallMs": 47112.6,
+                "loadMs": 37,
+                "promptTokens": 2881,
+                "cachedPromptTokens": 2,
+                "outputTokens": 108,
+                "promptTps": 76.3,
+                "promptEvalMs": 37738.1,
+                "evalMs": 9244.9,
+                "numCtx": 8192
+              },
+              "invalidJson": 0,
+              "schemaFailures": 0,
+              "possible_truncation": false
+            },
+            "retrievalShared": true,
+            "stopReason": "tool_use",
+            "timings": {
+              "rewriteMs": 0,
+              "retrieveMs": 51,
+              "rerankMs": 7195,
+              "clarifyMs": 0,
+              "llmMs": 47123
+            },
+            "chunkIds": [
+              "projects/first-agent/src/context/comparison.js:structural:1",
+              "projects/first-agent/src/pipeline/runner.js:structural:1",
+              "projects/first-agent/src/context/taskstate.js:structural:15",
+              "projects/first-agent/src/context/memory.js:structural:100",
+              "projects/first-agent/src/context/memory.js:structural:9"
+            ]
+          },
+          "faithfulness": null,
+          "grade": null,
+          "checks": {
+            "sources": null,
+            "citations": null,
+            "quotes": null,
+            "faithful": null,
+            "idk": true
+          }
+        }
+      ],
+      "extra": {
+        "loadMs": 6028.5,
+        "memory": {
+          "size": 10668179428,
+          "sizeVram": 10668179428,
+          "contextLength": 8192
+        },
+        "responses": [
+          {
+            "model": "qwen3.5:9b",
+            "numCtx": 8192,
+            "loadMs": 6028.5,
+            "promptTokens": 15,
+            "at": "2026-10-11T20:00:59.599Z",
+            "warmUp": true
+          },
+          {
+            "model": "qwen3.5:9b",
+            "numCtx": 8192,
+            "loadMs": 15.3,
+            "promptTokens": 1974,
+            "at": "2026-10-11T20:01:35.026Z"
+          },
+          {
+            "model": "qwen3.5:9b",
+            "numCtx": 8192,
+            "loadMs": 19,
+            "promptTokens": 1647,
+            "at": "2026-10-11T20:02:16.784Z"
+          },
+          {
+            "model": "qwen3.5:9b",
+            "numCtx": 8192,
+            "loadMs": 16,
+            "promptTokens": 1995,
+            "at": "2026-10-11T20:02:52.357Z"
+          },
+          {
+            "model": "qwen3.5:9b",
+            "numCtx": 8192,
+            "loadMs": 36.2,
+            "promptTokens": 2372,
+            "at": "2026-10-11T20:03:08.644Z"
+          },
+          {
+            "model": "qwen3.5:9b",
+            "numCtx": 8192,
+            "loadMs": 40.8,
+            "promptTokens": 1939,
+            "at": "2026-10-11T20:03:29.511Z"
+          },
+          {
+            "model": "qwen3.5:9b",
+            "numCtx": 8192,
+            "loadMs": 34.4,
+            "promptTokens": 1940,
+            "at": "2026-10-11T20:03:51.404Z"
+          },
+          {
+            "model": "qwen3.5:9b",
+            "numCtx": 8192,
+            "loadMs": 28.7,
+            "promptTokens": 447,
+            "at": "2026-10-11T20:03:59.512Z"
+          },
+          {
+            "model": "qwen3.5:9b",
+            "numCtx": 8192,
+            "loadMs": 16.8,
+            "promptTokens": 931,
+            "at": "2026-10-11T20:04:11.085Z"
+          },
+          {
+            "model": "qwen3.5:9b",
+            "numCtx": 8192,
+            "loadMs": 34.7,
+            "promptTokens": 1851,
+            "at": "2026-10-11T20:04:36.499Z"
+          },
+          {
+            "model": "qwen3.5:9b",
+            "numCtx": 8192,
+            "loadMs": 35.3,
+            "promptTokens": 1679,
+            "at": "2026-10-11T20:05:25.146Z"
+          },
+          {
+            "model": "qwen3.5:9b",
+            "numCtx": 8192,
+            "loadMs": 37,
+            "promptTokens": 2881,
+            "at": "2026-10-11T20:06:12.290Z"
+          }
+        ],
+        "reloads": 0,
+        "numCtxSeen": [
+          8192
+        ]
+      },
+      "summary": {
+        "count": 10,
+        "answerable": 7,
+        "toDecline": 3,
+        "answered": 5,
+        "answeredWithSources": 5,
+        "answeredWithCitations": 5,
+        "answerableWithSources": 5,
+        "firstAttemptCitations": 13,
+        "fabricatedFirstAttempt": 1,
+        "fabricated": [
+          {
+            "question": "q06",
+            "id": "c2",
+            "chunk_id": "kb/kotlin-2.2.0-game-changing-features-that-will-transform-your-development-workflow-by-praveen-sharma-medium.html:structural:18",
+            "quote": "Enable context parameters with -Xcontext-parameters\\n\\nTry context-sensitive resolution with -Xcontext-sensitive-resolution"
+          }
+        ],
+        "firstAttemptValid": 8,
+        "contractCalls": 9,
+        "retries": 1,
+        "retriesFixed": 0,
+        "droppedCitations": 1,
+        "downgrades": 0,
+        "meanFaithfulness": 0.5333333333333333,
+        "claims": 10,
+        "claimVerdicts": {
+          "supported": 6,
+          "partial": 4,
+          "unsupported": 0
+        },
+        "uncitedClaims": 0,
+        "correctIdk": 3,
+        "missedIdk": [],
+        "falseIdk": [
+          {
+            "id": "q12",
+            "type": "near_miss",
+            "reason": "model"
+          },
+          {
+            "id": "q14",
+            "type": "paraphrased",
+            "reason": "model"
+          }
+        ],
+        "dontKnowReasons": {
+          "model": 4,
+          "low_relevance": 1
+        },
+        "meanFactScore": 0.6607142857142857,
+        "checks": {
+          "sources": {
+            "passed": 5,
+            "applied": 7
+          },
+          "citations": {
+            "passed": 5,
+            "applied": 7
+          },
+          "quotes": {
+            "passed": 4,
+            "applied": 5
+          },
+          "faithful": {
+            "passed": 2,
+            "applied": 5
+          },
+          "idk": {
+            "passed": 8,
+            "applied": 10
+          }
+        },
+        "meanLatencyMs": 35867.3,
+        "meanInputTokens": 1965.6,
+        "meanOutputTokens": 225.2,
+        "errors": [],
+        "invalidJson": 0,
+        "schemaFailures": 0,
+        "structuredCalls": 11,
+        "possibleTruncations": [],
+        "meanTtftMs": 16222.180000000002,
+        "meanGenTps": 15.1,
+        "meanAnswerLatencyMs": 31268.1,
+        "maxAnswerLatencyMs": 51862,
+        "meanPromptTokens": 1965.6,
+        "meanPromptEvalMs": 16581.55,
+        "meanEvalMs": 14609.220000000001,
+        "loadMs": 6028.5,
+        "memory": {
+          "size": 10668179428,
+          "sizeVram": 10668179428,
+          "contextLength": 8192
+        },
+        "halves": [
+          {
+            "questions": [
+              "q02",
+              "q04",
+              "q06",
+              "q10",
+              "q12"
+            ],
+            "meanGenTps": 16.42,
+            "meanTtftMs": 17320.8,
+            "meanLatencyMs": 34359.2
+          },
+          {
+            "questions": [
+              "q13",
+              "q14",
+              "q15",
+              "q16",
+              "q17"
+            ],
+            "meanGenTps": 13.780000000000001,
+            "meanTtftMs": 15123.559999999998,
+            "meanLatencyMs": 28177
+          }
+        ],
+        "reloads": 0,
+        "numCtxSeen": [
+          8192
+        ]
+      }
+    }
+  ]
+}

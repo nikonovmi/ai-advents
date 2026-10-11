@@ -125,6 +125,15 @@
   .chunks pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11.5px; margin: 4px 0; color: var(--ink); max-height: 240px; overflow-y: auto; }
 
   .findings { max-width: 900px; font-size: 14px; }
+  /* The Optimization tab (Day 29). */
+  .decision { border: 1px solid var(--line); border-radius: 6px; padding: 10px 14px; margin: 0 0 14px; max-width: 1100px; }
+  .decision .verdict { font-size: 15px; font-weight: 600; margin: 0 0 6px; }
+  .ok { color: var(--good); }
+  .bad { color: var(--accent); }
+  pre.diff { font-size: 12px; line-height: 1.45; overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; padding: 8px 0; max-width: 1100px; }
+  pre.diff span { display: block; padding: 0 10px; white-space: pre; }
+  pre.diff .del { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+  pre.diff .add { background: color-mix(in srgb, var(--good) 16%, transparent); }
   .findings h1, .findings h2, .findings h3 { text-transform: none; letter-spacing: 0; font-size: 15px; margin: 18px 0 6px; }
   .findings li { margin: 3px 0; }
   .empty { padding: 48px 24px; text-align: center; color: var(--muted); }
@@ -225,6 +234,7 @@
       ["citations", "Citations (Day 24)", () => (data.citations ? renderCitations(data.citations, data.citationNotes) : empty("eval:citations"))],
       ["chat", "Chat (Day 25)", () => (data.chat ? renderChat(data.chat, data.chatNotes) : empty("eval:chat"))],
       ["local", "Local (Day 28)", () => (data.local ? renderLocal(data.local, data.localNotes) : empty("eval:local"))],
+      ["optimization", "Optimization (Day 29)", () => (data.opt ? renderOpt(data.opt, data.optNotes) : empty("opt:local"))],
     ];
     const show = (key) => {
       const [, , draw] = tabs.find(([k]) => k === key) ?? tabs[0];
@@ -572,6 +582,57 @@
       el("div", { class: "scroll" }, el("table", { class: "questions" },
         el("thead", {}, el("tr", {}, el("th", {}, "id"), el("th", {}, "type"), el("th", {}, "question"), generators.map((g) => el("th", {}, g.label)))),
         body)),
+      ...(notes?.trim() ? [el("h2", {}, "Findings"), el("div", { class: "findings", html: md(notes) })] : []),
+    ];
+  }
+
+  // ---- the Optimization tab (Day 29) ---------------------------------------------------
+
+  function renderOpt(results, notes) {
+    const { variants, decision, drift, prompts } = results;
+    const table = results.summaryTable;
+    document.getElementById("sub").textContent =
+      `qwen3.5:9b, three variants · generated ${new Date(results.generatedAt).toLocaleString()} · ${results.questions.length} questions · ${variants.map((v) => v.id).join(" → ")} · cooldown ${results.cooldownS} s`;
+    const ruleRows = (exp, checks) => checks.map((c) => el("tr", {}, el("td", {}, `${exp}: ${c.rule}`), el("td", {}, c.detail), el("td", { class: c.ok ? "ok" : "bad" }, c.ok ? "✓" : "✗")));
+    const pctSigned = (x) => (x == null ? "—" : `${x >= 0 ? "+" : ""}${Math.round(x * 100)}%`);
+    return [
+      el("div", { class: "decision" },
+        el("p", { class: "verdict" }, "Adopted: ", el("code", {}, decision.adopted)),
+        el("p", { class: "settings" },
+          `Experiment 1, ctx8k (num_ctx 8192 on every call): `, el("b", { class: decision.ctx8k.adopted ? "ok" : "bad" }, decision.ctx8k.adopted ? "adopted" : "not adopted"),
+          decision.ctx8k.failed.length ? ` — failed: ${decision.ctx8k.failed.join("; ")}` : "", ". ",
+          `Experiment 2, ctx8k+prompt (v2 prompts on top): `, el("b", { class: decision.prompt.adopted ? "ok" : "bad" }, decision.prompt.adopted ? "adopted" : "not adopted"),
+          decision.prompt.failed.length ? ` — failed: ${decision.prompt.failed.join("; ")}` : "", "."),
+        drift ? el("p", { class: "settings" },
+          `Baseline vs Day 28's qwen: fact score ${num(drift.day28.meanFactScore)} → ${num(drift.baseline.meanFactScore)}, latency ${secs(drift.day28.meanAnswerLatencyMs)} → ${secs(drift.baseline.meanAnswerLatencyMs)} (${pctSigned(drift.latencyRatio)}) — ${drift.ok ? "same setup" : "the setup changed"}.`) : null),
+      el("h2", {}, "Summary"),
+      el("p", { class: "settings" }, "eval:local: the 10 citations questions from Day 28's cached retrieval (same chunks for every variant), judged by Claude. verify:local: the Knowledge RAG conversation, fully local. Claude Haiku 4.5 is Day 28's run, a reference only."),
+      el("div", { class: "scroll" }, el("table", { class: "summary" },
+        el("thead", {}, el("tr", {}, el("th", {}, ""), (table?.head ?? []).map((h) => el("th", {}, h)))),
+        (table?.sections ?? []).map((section) => el("tbody", {},
+          el("tr", {}, el("td", { colspan: String(1 + table.head.length) }, el("b", {}, section.title))),
+          section.rows.map(([label, ...values]) => el("tr", {}, el("td", {}, label), values.map((v) => el("td", {}, v)))))))),
+      el("h2", {}, "Decision rule (decided before the runs)"),
+      el("div", { class: "scroll" }, el("table", { class: "summary" },
+        el("thead", {}, el("tr", {}, el("th", {}, "rule"), el("th", {}, "baseline → variant"), el("th", {}, ""))),
+        el("tbody", {}, ruleRows("ctx8k", decision.ctx8k.checks), ruleRows("ctx8k+prompt", decision.prompt.checks)))),
+      el("h2", {}, "Per question"),
+      el("p", { class: "settings" }, "Each cell: status · checks passed · fact score · answer latency."),
+      el("div", { class: "scroll" }, el("table", { class: "summary" },
+        el("thead", {}, el("tr", {}, el("th", {}, "id"), el("th", {}, "type"), (table?.head ?? []).map((h) => el("th", {}, h)))),
+        el("tbody", {}, (results.questionRows ?? []).map((cells) => el("tr", {}, cells.map((c) => el("td", { class: /IDK|error/.test(c) ? "muted" : "" }, c))))))),
+      ...(prompts?.list?.length
+        ? [
+            el("h2", {}, "Prompts: v1 vs v2"),
+            el("div", { class: "scroll" }, el("table", { class: "summary" },
+              el("thead", {}, el("tr", {}, el("th", {}, "prompt"), el("th", {}, "v1 tokens"), el("th", {}, "v2 tokens"), el("th", {}, "v1 chars"), el("th", {}, "v2 chars"))),
+              el("tbody", {}, prompts.list.map((p) => el("tr", {}, el("td", {}, p.label), el("td", {}, String(p.v1.tokens ?? "—")), el("td", {}, String(p.v2.tokens ?? "—")), el("td", {}, String(p.v1.chars)), el("td", {}, String(p.v2.chars))))))),
+            ...prompts.list.filter((p) => p.lines).flatMap((p) => [
+              el("h3", {}, p.label),
+              el("pre", { class: "diff" }, p.lines.map((d) => el("span", { class: d.op === "-" ? "del" : d.op === "+" ? "add" : "" }, `${d.op} ${d.line}`))),
+            ]),
+          ]
+        : []),
       ...(notes?.trim() ? [el("h2", {}, "Findings"), el("div", { class: "findings", html: md(notes) })] : []),
     ];
   }

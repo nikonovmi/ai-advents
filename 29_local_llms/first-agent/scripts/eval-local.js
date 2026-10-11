@@ -20,6 +20,14 @@
  *   npm run eval:local -- q14 q17              # some questions
  *   npm run eval:local -- --fresh              # re-retrieve instead of using the cache
  *   npm run eval:local -- --report             # re-render the report from the JSON + notes
+ *   npm run eval:local -- --variant ctx8k      # Day 29: one optimization variant, local only (see below)
+ *
+ * Day 29, `--variant baseline | ctx8k | ctx8k+prompt` (`src/llm/variants.js`):
+ * the variant's num_ctx and prompt variant override `.env`, Claude is not
+ * re-run, only `LOCAL_MODELS` (qwen3.5:9b) or `--models` answer, from the
+ * cached retrieval as always. Every local response's load time is recorded to
+ * count reloads. Writes `reports/local_opt/eval_<variant>.json` only; the Day
+ * 28 results are left alone. `npm run opt:local` runs the three in order.
  *
  * A partial run (`--models`, question ids) is merged into the existing
  * results. Writes `reports/local_rag_results.json` and
@@ -36,7 +44,8 @@ import "dotenv/config";
 
 import { AnthropicProvider } from "../src/llm/anthropic.js";
 import { createLlms } from "../src/llm/choice.js";
-import { loadOllamaModule } from "../src/llm/ollama.js";
+import { countReloads, loadOllamaModule } from "../src/llm/ollama.js";
+import { optVariant, variantEnv, variantSlug } from "../src/llm/variants.js";
 import { CITATION_SET, checksOf, verificationLabel } from "../src/rag/citationsEval.js";
 import { PROJECT_DIR, RAG_QUESTIONS_PATH, REPORTS_DIR, ragSettings } from "../src/rag/config.js";
 import { validateQuestions } from "../src/rag/eval.js";
@@ -53,7 +62,21 @@ const option = (name) => {
   return at >= 0 ? args[at + 1] : (args.find((a) => a.startsWith(`${name}=`))?.slice(name.length + 1) ?? null);
 };
 const quick = flag("--quick");
+// Day 29: an optimization variant overrides the local settings before anything reads them.
+const variantId = option("--variant");
+let variant = null;
+if (variantId) {
+  try {
+    variant = optVariant(variantId);
+  } catch (err) {
+    console.error(`✗ ${err.message}`);
+    process.exit(1);
+  }
+  Object.assign(process.env, variantEnv(variant.id, {}));
+}
+const runStartedAt = new Date().toISOString();
 const prefix = quick ? "local_rag_quick" : "local_rag";
+const variantPath = variant ? path.join(REPORTS_DIR, "local_opt", `eval_${variantSlug(variant.id)}.json`) : null;
 const resultsPath = path.join(REPORTS_DIR, `${prefix}_results.json`);
 const reportPath = path.join(REPORTS_DIR, `${prefix}_report.md`);
 const notesPath = path.join(REPORTS_DIR, "local_rag_notes.md");
@@ -72,6 +95,7 @@ function render(results) {
   fs.writeFileSync(reportPath, renderLocalReport({ ...results, retrievals: shared, notes: readNotes(), quick }));
 }
 
+if (variant && (quick || flag("--report") || flag("--fresh"))) fail(["--variant runs the full set from the cached retrieval: drop --quick, --report and --fresh"]);
 if (flag("--report")) {
   const results = readJson(resultsPath);
   if (!results) fail([`${path.relative(PROJECT_DIR, resultsPath)} does not exist: run the eval first`]);
@@ -81,7 +105,7 @@ if (flag("--report")) {
 }
 
 // ---- questions --------------------------------------------------------------------
-const valued = new Set(["--models"].map((name) => args.indexOf(name) + 1).filter((i) => i > 0));
+const valued = new Set(["--models", "--variant"].map((name) => args.indexOf(name) + 1).filter((i) => i > 0));
 const only = args.filter((a, i) => !a.startsWith("--") && !valued.has(i));
 const questions = JSON.parse(fs.readFileSync(RAG_QUESTIONS_PATH, "utf8"));
 const shapeErrors = validateQuestions(questions);
@@ -97,7 +121,9 @@ const judgeModel = process.env.RAG_JUDGE_MODEL || judgeProvider.model;
 const settings = ragSettings();
 
 // ---- local models -------------------------------------------------------------------
-const llms = createLlms({ claude: judgeProvider, claudeAvailable: true });
+// Day 29: every local response, in order, for counting reloads (the warm-up is the first).
+const responses = [];
+const llms = createLlms({ claude: judgeProvider, claudeAvailable: true, onLocalResponse: (r) => responses.push(r) });
 const { createOllama } = await loadOllamaModule(llms.settings.dir);
 const ollama = createOllama({ url: llms.settings.url, timeoutMs: llms.settings.timeoutMs });
 let ollamaVersion;
@@ -113,7 +139,7 @@ let localModels = wanted;
 if (quick && !option("--models")) localModels = wanted.slice(0, 1);
 const missing = localModels.filter((m) => !installedNames.includes(m));
 if (missing.length) fail([`not installed: ${missing.join(", ")}`, `pull with: ollama pull ${missing[0]}`]);
-const withClaude = !flag("--no-claude");
+const withClaude = !flag("--no-claude") && !variant;
 
 // ---- 1. retrieve once -----------------------------------------------------------------
 console.log(`Retrieval (local, shared): ${selected.length} question(s), rag+rerank, k_retrieve ${settings.kRetrieve}, cutoff ${settings.rerankThreshold}`);
@@ -147,16 +173,27 @@ const unloadAll = async () => {
 for (const model of localModels) {
   await unloadAll();
   const numCtx = llms.settings.ragNumCtx;
-  process.stdout.write(`\n${model}: loading (num_ctx ${numCtx})… `);
+  const firstResponse = responses.length;
+  process.stdout.write(`\n${model}: loading (num_ctx ${numCtx}${variant ? `, prompts ${llms.settings.promptVariant}` : ""})… `);
   // Same num_ctx as the RAG calls, so the load is not repeated by the first question.
   const warm = await ollama.chat({ model, messages: [{ role: "user", content: "Say OK." }], num_predict: 1, num_ctx: numCtx, think: false });
+  responses.push({ model, numCtx, loadMs: warm.metrics.load_ms, promptTokens: warm.metrics.prompt_tokens, at: new Date().toISOString(), warmUp: true });
   console.log(`load ${(warm.metrics.load_ms / 1000).toFixed(2)} s`);
   const provider = llms.localRag(model);
   const rows = await runGenerator({ generator: { id: model, provider }, questions: selected, retrievals: loaded.retrievals, settings: settingsForRun, nextOrder, onRow: printRow(model) });
   const ps = (await ollama.running()).find((m) => (m.name ?? m.model) === model);
   const memory = ps ? { size: ps.size ?? null, sizeVram: ps.size_vram ?? null, contextLength: ps.context_length ?? null } : null;
   await ollama.unload(model);
-  generators.push({ id: model, label: model, where: "local", model, rows, extra: { loadMs: warm.metrics.load_ms, memory } });
+  const mine = responses.slice(firstResponse);
+  const reloads = countReloads(mine);
+  generators.push({
+    id: model,
+    label: model,
+    where: "local",
+    model,
+    rows,
+    extra: { loadMs: warm.metrics.load_ms, memory, responses: mine, reloads: reloads.count, numCtxSeen: [...new Set(mine.map((r) => r.numCtx))] },
+  });
 }
 
 // ---- 3. judge (cloud) -------------------------------------------------------------------
@@ -171,6 +208,32 @@ for (const g of generators) {
 }
 
 // ---- 4. merge, summarise, write ------------------------------------------------------------
+if (variant) {
+  // Day 29: one variant's run, on its own file; Day 28's results and report are left as they are.
+  const g = generators[0];
+  g.summary = { ...summarizeGenerator(g.rows, g.extra), reloads: g.extra.reloads, numCtxSeen: g.extra.numCtxSeen };
+  const out = {
+    variant: variant.id,
+    description: variant.description,
+    startedAt: runStartedAt,
+    finishedAt: new Date().toISOString(),
+    settings: { ...settings, mode: "rag+rerank", judgeModel, numCtx: llms.settings.numCtx, ragNumCtx: llms.settings.ragNumCtx, ragNumPredict: llms.settings.ragNumPredict, promptVariant: llms.settings.promptVariant },
+    environment: { machine: `${os.cpus()[0]?.model ?? os.arch()}, ${Math.round(os.totalmem() / 2 ** 30)} GB RAM`, ollamaVersion, node: process.version },
+    questions: selected.map(({ id, type, question, expect_decline }) => ({ id, type, question, expect_decline })),
+    generators,
+  };
+  fs.mkdirSync(path.dirname(variantPath), { recursive: true });
+  fs.writeFileSync(variantPath, JSON.stringify(out, null, 2) + "\n");
+  const s = g.summary;
+  console.log(
+    `\n${variant.id} · ${g.label}: answered ${s.answered}/${s.count} · fabricated ${s.fabricatedFirstAttempt}/${s.firstAttemptCitations} · retries ${s.retries} · dropped ${s.droppedCitations} · downgrades ${s.downgrades}` +
+      ` · faithfulness ${s.meanFaithfulness?.toFixed(2) ?? "—"} · IDK ${s.correctIdk}/${s.toDecline}, false ${s.falseIdk.length} · facts ${s.meanFactScore?.toFixed(2) ?? "—"}` +
+      ` · TTFT ${s.meanTtftMs == null ? "—" : (s.meanTtftMs / 1000).toFixed(2) + " s"} · ${s.meanGenTps?.toFixed(1) ?? "—"} tok/s · latency ${((s.meanAnswerLatencyMs ?? 0) / 1000).toFixed(1)} s (max ${((s.maxAnswerLatencyMs ?? 0) / 1000).toFixed(1)})` +
+      ` · reloads ${s.reloads} · num_ctx ${s.numCtxSeen.join("/")} · truncations ${s.possibleTruncations.length}${s.errors.length ? ` · ERRORS ${s.errors.length}` : ""}`,
+  );
+  console.log(`→ ${path.relative(PROJECT_DIR, variantPath)}`);
+  process.exit(0);
+}
 const previous = !quick && (only.length || option("--models") || !withClaude) ? readJson(resultsPath) : null;
 const byId = new Map((previous?.generators ?? []).map((g) => [g.id, g]));
 for (const g of generators) {

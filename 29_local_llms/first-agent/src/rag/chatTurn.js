@@ -1,5 +1,5 @@
 import { answerQuestion } from "./answer.js";
-import { RAG_SYSTEM, buildRagPrompt } from "./prompt.js";
+import { RAG_SYSTEM, buildRagPrompt, ragSystemFor } from "./prompt.js";
 import { DEFAULT_HISTORY_TURNS, DEFAULT_ROUTER_MODEL, routeMessage, stripCitations } from "./router.js";
 import { addOpenQuestion, applyPatch, memoryDiff, renderMemory, taskMemoryOf } from "./taskMemory.js";
 
@@ -42,6 +42,9 @@ export const CHAT_RULES = [
 ].join("\n");
 
 export const CHAT_RAG_SYSTEM = `${RAG_SYSTEM}\n${CHAT_RULES}`;
+
+/** Day 29: the chat's answering prompt for this provider — the contract prompt's variant, then the same chat rules. */
+export const chatRagSystemFor = (provider) => `${ragSystemFor(provider)}\n${CHAT_RULES}`;
 
 /** The latest user message of a search turn: memory, documents, the message as typed, the resolved question. */
 export function chatRagPrompt({ message, standaloneQuestion, memory, chunks }) {
@@ -114,7 +117,7 @@ export async function runChatTurn({
       history: answerHistory(messages, historyTurns),
       queries: route.queries,
       rerankQuestion: route.standaloneQuestion,
-      system: CHAT_RAG_SYSTEM,
+      system: chatRagSystemFor(provider),
       buildPrompt: (chunks) => chatRagPrompt({ message, standaloneQuestion: route.standaloneQuestion, memory: after, chunks }),
       log,
     });
@@ -144,6 +147,7 @@ export async function runChatTurn({
     routerUsage: route.usage ?? null,
     // Day 28: on a local model, the router's timings and JSON record.
     ...(route.provider ? { routerProvider: route.provider } : {}),
+    ...(route.promptVariant ? { promptVariant: route.promptVariant } : {}),
     ...(route.metrics ? { routerMetrics: route.metrics } : {}),
     ...(route.structured ? { routerStructured: route.structured } : {}),
     ...(route.possible_truncation ? { possible_truncation: true } : {}),

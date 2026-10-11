@@ -34,6 +34,51 @@ export const RAG_RULES = [
 
 export const RAG_SYSTEM = `${BASE_SYSTEM}\n\n${RAG_RULES}`;
 
+/**
+ * **Day 29: the `v2` contract prompt, for local models only** (`LOCAL_PROMPT_VARIANT=v2`).
+ *
+ * Same rules as `RAG_RULES`, two additions and shorter: a worked example of
+ * two lines cited as two quotes (qwen joined them on Day 28's q06), and one
+ * sentence that a qualified answer is still an answer (its false "I don't
+ * know" on q12). Rules the example now shows, or that were said twice, are
+ * folded so that `v2` is not longer than `v1`. `v1` stays byte-for-byte as it
+ * was, and Claude always gets it.
+ */
+export const RAG_RULES_V2 = [
+  "The user's message holds documents in <documents>, each with a chunk_id, then the question.",
+  "Answer by calling submit_answer exactly once. Rules:",
+  "- Use only these documents, no outside knowledge.",
+  "- End every sentence with a factual claim with its marker, before the final period: '… about 9 MB [c2].' or '… [c1][c2].'",
+  "  Never at the start of a sentence, after a colon or around a phrase.",
+  "- Each marker has one citation: its id, the chunk_id (copied exactly) and a verbatim quote from that document, 4–60 words. Every citation is used.",
+  "- One line, one quote: never reword, shorten or join lines. The lines",
+  "  The new API works on every platform.",
+  "  Older versions are no longer supported.",
+  "  of a chunk are two quotes, c1 the first line and c2 the second: 'It works everywhere [c1]. Old ones are gone [c2].'",
+  "- A qualified answer is still an answer: if the documents say something is Beta but usable in production by early adopters, answer that and cite it; don't decline.",
+  "- If the documents cover only part of it, answer that part and say what is missing.",
+  "- If they don't contain the answer, set status dont_know with empty answer and citations and a short clarifying_question",
+  "  (it may name what they cover nearby). Do not stretch loosely related text to fit.",
+].join("\n");
+
+export const RAG_SYSTEM_V2 = `${BASE_SYSTEM}\n\n${RAG_RULES_V2}`;
+
+export const PROMPT_VARIANTS = ["v1", "v2"];
+
+/**
+ * Which prompt variant a provider gets: `v2` only for a local provider whose
+ * settings ask for it (`LOCAL_PROMPT_VARIANT`); `v1` for everything else, so
+ * Claude never sees `v2`.
+ *
+ * @param {{ provider?: string, settings?: { promptVariant?: string } } | null | undefined} provider
+ */
+export function promptVariantOf(provider) {
+  return provider?.provider === "local" && provider.settings?.promptVariant === "v2" ? "v2" : "v1";
+}
+
+/** The answering system prompt (Day 24's contract) for this provider. */
+export const ragSystemFor = (provider) => (promptVariantOf(provider) === "v2" ? RAG_SYSTEM_V2 : RAG_SYSTEM);
+
 /** `"` and `<` / `&` would break an attribute; the chunk body is left verbatim. */
 const attr = (value) => String(value ?? "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 

@@ -41,8 +41,9 @@ export const PROJECT_DIR = path.join(import.meta.dirname, "..", "..");
  * | `LOCAL_NUM_PREDICT` | 1024 | ceiling on generated tokens per call |
  * | `LOCAL_TIMEOUT_MS` | 180000 | per call, model load included |
  * | `LOCAL_LLM_DIR` | `../local_llm` | where the Day 26 client lives |
- * | `LOCAL_RAG_NUM_CTX` | 16384 | Day 28: the context window of every call in a Knowledge RAG chat |
+ * | `LOCAL_RAG_NUM_CTX` | 8192 | the context window of every call in a Knowledge RAG chat (Day 28: 16384; Day 29 measured 8192 as good and made it the default, the same as `LOCAL_NUM_CTX`) |
  * | `LOCAL_RAG_NUM_PREDICT` | 2048 | Day 28: the RAG calls' output ceiling (a `submit_answer` carries quotes: about twice a free-text answer) |
+ * | `LOCAL_PROMPT_VARIANT` | `v1` | Day 29: `v2` gives a local model the shorter contract and router prompts with examples (`prompt.js`, `router.js`); Claude always gets `v1` |
  */
 export function localSettings(env = process.env) {
   const int = (name, fallback, min, max) => {
@@ -57,10 +58,38 @@ export function localSettings(env = process.env) {
     numCtx: int("LOCAL_NUM_CTX", 8192, 512, 262144),
     numPredict: int("LOCAL_NUM_PREDICT", 1024, 1, 32768),
     timeoutMs: int("LOCAL_TIMEOUT_MS", 180000, 1000, 3600000),
-    ragNumCtx: int("LOCAL_RAG_NUM_CTX", 16384, 2048, 262144),
+    ragNumCtx: int("LOCAL_RAG_NUM_CTX", 8192, 2048, 262144),
     ragNumPredict: int("LOCAL_RAG_NUM_PREDICT", 2048, 1, 32768),
+    promptVariant: promptVariant(env.LOCAL_PROMPT_VARIANT),
     dir: path.resolve(PROJECT_DIR, env.LOCAL_LLM_DIR || path.join("..", "local_llm")),
   };
+}
+
+function promptVariant(raw) {
+  if (raw === undefined || raw === "") return "v1";
+  if (raw !== "v1" && raw !== "v2") throw new Error(`LOCAL_PROMPT_VARIANT must be "v1" or "v2", got "${raw}"`);
+  return raw;
+}
+
+/**
+ * Day 29: **a reload** is a response whose `load_duration` is over 1 s after
+ * the first request — Ollama loading the model again, e.g. because `num_ctx`
+ * changed between calls. The first request's load is the cold load, not a
+ * reload.
+ */
+export const RELOAD_THRESHOLD_MS = 1000;
+
+/**
+ * @param {Array<{ loadMs?: number | null } | number | null>} responses - in the order they were made
+ * @returns {{ count: number, at: number[] }} `at`: the 0-based indexes of the reloads
+ */
+export function countReloads(responses) {
+  const at = [];
+  responses.forEach((r, i) => {
+    const loadMs = typeof r === "number" ? r : r?.loadMs;
+    if (i > 0 && typeof loadMs === "number" && loadMs > RELOAD_THRESHOLD_MS) at.push(i);
+  });
+  return { count: at.length, at };
 }
 
 const clients = new Map();
@@ -230,6 +259,7 @@ export class OllamaProvider extends LlmProvider {
   #fetch;
   #client = null;
   #log;
+  #onResponse;
 
   /** The last few request bodies as sent, newest last, for tests to read. */
   calls = [];
@@ -239,14 +269,17 @@ export class OllamaProvider extends LlmProvider {
    * @param {string} params.model - The Ollama tag, e.g. `qwen3.5:9b`.
    * @param {Partial<ReturnType<typeof localSettings>>} [params.settings]
    * @param {typeof fetch} [params.fetch] - Tests pass a fake.
+   * @param {(r: { model: string, numCtx: number, loadMs: number | null, promptTokens: number | null, at: string }) => void} [params.onResponse] -
+   *   Day 29: told about every response, for counting reloads
    */
-  constructor({ model, settings = {}, fetch, log = console.warn } = {}) {
+  constructor({ model, settings = {}, fetch, log = console.warn, onResponse } = {}) {
     super();
     if (!model) throw new Error("OllamaProvider requires a model (an Ollama tag such as qwen3.5:9b).");
     this.#model = model;
     this.#settings = { ...localSettings({}), ...settings };
     this.#fetch = fetch;
     this.#log = log;
+    this.#onResponse = onResponse;
   }
 
   get model() {
@@ -357,11 +390,14 @@ export class OllamaProvider extends LlmProvider {
     }
     this.calls.push(request);
     if (this.calls.length > 20) this.calls.shift();
+    let res;
     try {
-      return await client.chat(request);
+      res = await client.chat(request);
     } catch (err) {
       throw fromOllamaError(err, { model: request.model, timeoutMs: this.#settings.timeoutMs });
     }
+    this.#onResponse?.({ model: res.model ?? request.model, numCtx: request.num_ctx, loadMs: res.metrics?.load_ms ?? null, promptTokens: res.metrics?.prompt_tokens ?? null, at: new Date().toISOString() });
+    return res;
   }
 
   /**

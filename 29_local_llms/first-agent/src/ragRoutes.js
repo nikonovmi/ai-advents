@@ -12,6 +12,7 @@ import { chatSummaryRows } from "./rag/chatEval.js";
 import { runChatTurn } from "./rag/chatTurn.js";
 import { citationSummaryRows } from "./rag/citationsEval.js";
 import { localSummaryRows } from "./rag/localEval.js";
+import { lineDiff, optQuestionRows, optSummaryRows } from "./rag/optEval.js";
 import { summaryRows } from "./rag/eval.js";
 import { sharedReranker } from "./rag/reranker.js";
 import { RetrievalError, sharedRetriever } from "./rag/retriever.js";
@@ -422,7 +423,7 @@ export function ragRoutes({
     "/rag-report/data",
     route(async (_req, res) => {
       const read = (name) => fs.readFile(path.join(reportsDir, name), "utf8").catch((err) => (err.code === "ENOENT" ? null : Promise.reject(err)));
-      const [results, notes, citationResults, citationNotes, chatResults, chatNotes, localResults, localNotes] = await Promise.all([
+      const [results, notes, citationResults, citationNotes, chatResults, chatNotes, localResults, localNotes, optResults, optNotes] = await Promise.all([
         read("rag_results.json"),
         read("rag_notes.md"),
         read("citations_results.json"),
@@ -431,6 +432,8 @@ export function ragRoutes({
         read("chat_notes.md"),
         read("local_rag_results.json"),
         read("local_rag_notes.md"),
+        read("local_opt_results.json"),
+        read("local_opt_notes.md"),
       ]);
       const parsed = results ? JSON.parse(results) : null;
       // The summary tables' rows, built by the same code as the Markdown reports'.
@@ -441,7 +444,14 @@ export function ragRoutes({
       for (const scenario of chatParsed?.scenarios ?? []) scenario.summaryRows = chatSummaryRows(scenario.summary);
       const local = localResults ? JSON.parse(localResults) : null;
       if (local?.generators) local.summaryTable = localSummaryRows(local.generators);
-      res.json({ results: parsed, notes, citations, citationNotes, chat: chatParsed, chatNotes, local, localNotes });
+      // Day 29: the optimization runs, with their tables and the v1 → v2 prompt diffs built here.
+      const opt = optResults ? JSON.parse(optResults) : null;
+      if (opt?.variants) {
+        opt.summaryTable = optSummaryRows(opt);
+        opt.questionRows = optQuestionRows(opt);
+        for (const p of opt.prompts?.list ?? []) if (p.diff) p.lines = lineDiff(p.v1.text, p.v2.text);
+      }
+      res.json({ results: parsed, notes, citations, citationNotes, chat: chatParsed, chatNotes, local, localNotes, opt, optNotes });
     }),
   );
 

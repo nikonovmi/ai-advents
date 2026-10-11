@@ -20,6 +20,16 @@
  *
  *   npm run verify:local
  *   npm run verify:local -- --model qwen3.5:9b
+ *   npm run verify:local -- --variant ctx8k     # Day 29: one optimization variant, the RAG chat only
+ *
+ * Day 29, `--variant baseline | ctx8k | ctx8k+prompt` (`src/llm/variants.js`):
+ * the variant's num_ctx and prompt variant override `.env`, only the Knowledge
+ * RAG conversation runs (on `--model`, else the first configured model —
+ * qwen3.5:9b), every local response's load time is recorded to count
+ * reloads, and `/api/ps` is read before the model is unloaded. The warm-up
+ * uses the plain chat's num_ctx, as opening the app does, so a RAG window
+ * that differs from it shows up as a reload. Writes
+ * `reports/local_opt/verify_<variant>.json` only.
  */
 
 import fs from "node:fs";
@@ -27,6 +37,8 @@ import os from "node:os";
 import path from "node:path";
 
 import dotenv from "dotenv";
+
+import { optVariant, variantEnv, variantSlug } from "../src/llm/variants.js";
 
 const ROOT = path.join(import.meta.dirname, "..");
 const REPORT_MD = path.join(ROOT, "reports", "day27_verify.md");
@@ -41,6 +53,21 @@ const env = Object.fromEntries(Object.entries({ ...fromFile, ...process.env }).f
 delete env.ANTHROPIC_API_KEY;
 // Only the MCP servers on this machine, too.
 env.OFFLINE = "1";
+
+// Day 29: an optimization variant's settings win over .env.
+const argv = process.argv.slice(2);
+const variantId = argv.includes("--variant") ? argv[argv.indexOf("--variant") + 1] : (argv.find((a) => a.startsWith("--variant="))?.slice(10) ?? null);
+let variant = null;
+if (variantId) {
+  try {
+    variant = optVariant(variantId);
+  } catch (err) {
+    console.error(`✗ ${err.message}`);
+    process.exit(1);
+  }
+  Object.assign(env, variantEnv(variant.id, {}));
+}
+const runStartedAt = new Date().toISOString();
 
 // ---- 2. The fetch guard, installed before anything is imported --------------
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
@@ -61,7 +88,7 @@ const { createApp } = await import("../src/app.js");
 const { MemoryStore } = await import("../src/store/memoryStore.js");
 const { MemoryProfileStore } = await import("../src/store/profileStore.js");
 const { MemoryInvariantStore } = await import("../src/store/invariantStore.js");
-const { loadOllamaModule } = await import("../src/llm/ollama.js");
+const { countReloads, loadOllamaModule } = await import("../src/llm/ollama.js");
 const { createLlms } = await import("../src/llm/choice.js");
 const { FakeProvider } = await import("../src/llm/anthropic.js");
 
@@ -123,13 +150,17 @@ const CONVERSATIONS = [
 
 const args = process.argv.slice(2);
 const onlyModel = args.includes("--model") ? args[args.indexOf("--model") + 1] : null;
+// Day 29: a variant runs only the Knowledge RAG conversation.
+const conversations = variant ? CONVERSATIONS.filter((c) => c.rag) : CONVERSATIONS;
 
 const store = new MemoryStore();
 const claudeSpy = new ClaudeSpy();
+/** Day 29: every local response, in order (the warm-up first), for counting reloads. */
+const responses = [];
 const { app, llms } = await createApp({
   env,
   store,
-  llms: createLlms({ claude: claudeSpy, claudeAvailable: false, env }),
+  llms: createLlms({ claude: claudeSpy, claudeAvailable: false, env, onLocalResponse: (r) => responses.push(r) }),
   profileStore: new MemoryProfileStore(),
   invariantStore: new MemoryInvariantStore(),
   ragDeps: { log: () => {} },
@@ -148,14 +179,15 @@ if (!status.reachable) {
   server.close();
   process.exit(1);
 }
-const models = onlyModel ? [onlyModel] : status.models.filter((m) => m.installed).map((m) => m.name);
+let models = onlyModel ? [onlyModel] : status.models.filter((m) => m.installed).map((m) => m.name);
+if (variant && !onlyModel) models = models.slice(0, 1);
 const missing = status.models.filter((m) => !m.installed).map((m) => m.name);
 if (!models.length) {
   console.error(`✗ No local model is installed. Pull one: ollama pull ${missing[0] ?? "qwen3.5:9b"}`);
   server.close();
   process.exit(1);
 }
-console.log(`Ollama ${status.version} at ${status.url} · models: ${models.join(", ")} · num_ctx ${status.numCtx} (RAG ${status.ragNumCtx}) · no ANTHROPIC_API_KEY`);
+console.log(`Ollama ${status.version} at ${status.url} · models: ${models.join(", ")} · num_ctx ${status.numCtx} (RAG ${status.ragNumCtx}) · prompts ${status.promptVariant}${variant ? ` · variant ${variant.id}` : ""} · no ANTHROPIC_API_KEY`);
 
 const { createOllama } = await loadOllamaModule(llms.settings.dir);
 const ollama = createOllama({ url: llms.settings.url, timeoutMs: llms.settings.timeoutMs });
@@ -168,11 +200,13 @@ for (const model of models) {
   // numbers are a warm model's and the load is reported on its own.
   for (const loaded of await ollama.running()) if ((loaded.name ?? loaded.model) !== model) await ollama.unload(loaded.name ?? loaded.model);
   process.stdout.write(`\n${model}: warm-up… `);
+  const firstResponse = responses.length;
   const warm = await ollama.chat({ model, messages: [{ role: "user", content: "Say OK." }], num_predict: 4, num_ctx: llms.settings.numCtx, think: false });
+  responses.push({ model, numCtx: llms.settings.numCtx, loadMs: warm.metrics.load_ms, promptTokens: warm.metrics.prompt_tokens, at: new Date().toISOString(), warmUp: true });
   console.log(`load ${(warm.metrics.load_ms / 1000).toFixed(2)} s`);
 
-  const conversations = [];
-  for (const conv of CONVERSATIONS) {
+  const done = [];
+  for (const conv of conversations) {
     const sessionId = crypto.randomUUID();
     const turns = [];
     for (const [i, message] of conv.turns.entries()) {
@@ -217,6 +251,12 @@ for (const model of models) {
         ...(conv.rag
           ? {
               intent: route?.intent ?? null,
+              routedIntent: route?.routedIntent ?? null,
+              override: route?.override ?? null,
+              // Day 29: the router's proposed memory patch, and what was applied.
+              patch: route?.patch ?? [],
+              applied: route?.applied ?? [],
+              promptVariant: route?.promptVariant ?? null,
               standaloneQuestion: route?.standaloneQuestion ?? null,
               routerMetrics: route?.routerMetrics ?? null,
               memoryAfter: route?.memoryAfter ?? null,
@@ -229,7 +269,7 @@ for (const model of models) {
     }
     // The stored record says the same thing: a local chat, local replies.
     const record = await store.load(sessionId);
-    conversations.push({
+    done.push({
       agent: conv.agent,
       label: conv.label,
       rag: Boolean(conv.rag),
@@ -239,8 +279,20 @@ for (const model of models) {
       turns,
     });
   }
+  const ps = (await ollama.running()).find((m) => (m.name ?? m.model) === model);
+  const memory = ps ? { size: ps.size ?? null, sizeVram: ps.size_vram ?? null, contextLength: ps.context_length ?? null } : null;
   await ollama.unload(model);
-  results.push({ model, loadMs: warm.metrics.load_ms, conversations, outbound: outbound.slice(outboundBefore) });
+  const mine = responses.slice(firstResponse);
+  results.push({
+    model,
+    loadMs: warm.metrics.load_ms,
+    conversations: done,
+    outbound: outbound.slice(outboundBefore),
+    memory,
+    responses: mine,
+    reloads: countReloads(mine).count,
+    numCtxSeen: [...new Set(mine.map((r) => r.numCtx))],
+  });
 }
 server.close();
 
@@ -268,6 +320,26 @@ const summary = results.map(({ model, loadMs, conversations, outbound: out }) =>
   };
 });
 const passed = summary.every((s) => s.checksPassed === s.checks) && outbound.length === 0 && claudeSpy.calls === 0 && results.every((r) => r.conversations.every((c) => c.storedLlm === `local:${r.model}` && c.storedLocalReplies === c.turns.length));
+
+if (variant) {
+  // Day 29: one variant's run, on its own file; day27_verify.md is left as it is.
+  const file = path.join(ROOT, "reports", "local_opt", `verify_${variantSlug(variant.id)}.json`);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(
+    file,
+    JSON.stringify(
+      { variant: variant.id, description: variant.description, startedAt: runStartedAt, finishedAt: new Date().toISOString(), ollama: { version: status.version, url: status.url }, settings: llms.settings, passed, outbound, localRequests, claudeCalls: claudeSpy.calls, summary, results },
+      null,
+      2,
+    ) + "\n",
+  );
+  for (const r of results) {
+    const s = summary.find((x) => x.model === r.model);
+    console.log(`\n${variant.id} · ${r.model}: ${s.checksPassed}/${s.checks} checks · turns ${r.conversations.flatMap((c) => c.turns).map((t) => (t.turnMs / 1000).toFixed(1) + " s").join(", ")} · reloads ${r.reloads} · num_ctx ${r.numCtxSeen.join("/")} · memory ${r.memory ? (r.memory.size / 2 ** 30).toFixed(1) + " GB" : "—"}`);
+  }
+  console.log(`${passed ? "✓ PASS" : "✗ FAIL"} · outbound ${outbound.length} · Claude provider calls ${claudeSpy.calls} · wrote ${path.relative(ROOT, file)}`);
+  process.exit(passed ? 0 : 1);
+}
 
 const sec = (ms) => (ms == null ? "—" : `${(ms / 1000).toFixed(2)} s`);
 const num = (x, d = 1) => (x == null ? "—" : x.toFixed(d));

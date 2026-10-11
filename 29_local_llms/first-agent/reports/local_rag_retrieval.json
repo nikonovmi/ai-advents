@@ -8,7 +8,7 @@
     "collections": [],
     "minScore": null
   },
-  "updatedAt": "2026-10-11T15:19:17.824Z",
+  "updatedAt": "2026-10-11T20:15:20.362Z",
   "questions": {
     "q14": {
       "question": "In JetBrains' cross-platform UI toolkit, can people using my app on a Windows or Mac computer grab an element with the mouse, carry it across and let go of it over another element? Which version brought that, and what do I attach to the two elements?",

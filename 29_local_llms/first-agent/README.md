@@ -49,6 +49,54 @@ Defined in `src/agents.js`; each has its own chat list.
   side. **Eval results** opens http://localhost:3000/rag-report. Works without any MCP
   server running.
 
+## Optimization (Day 29)
+
+The Knowledge RAG chat on qwen3.5:9b (gemma4:12b is gone from `LOCAL_MODELS`; its Day 28 reports
+stay). `npm run opt:local` runs three variants of the same model in order, with `--cooldown`
+seconds between them (default 180; the Air is fanless). Each runs `eval:local -- --variant <v>`
+(the 10 citation questions from Day 28's cached retrieval, judged by Claude Haiku 4.5) and then
+`verify:local -- --variant <v>` (the 3-turn RAG chat, fully local):
+
+| variant | `LOCAL_RAG_NUM_CTX` · `LOCAL_NUM_CTX` | `LOCAL_PROMPT_VARIANT` |
+| --- | --- | --- |
+| `baseline` (Day 28) | 16384 · 8192 | v1 |
+| `ctx8k` | 8192 · 8192 | v1 |
+| `ctx8k+prompt` | 8192 · 8192 | v2 |
+
+**v2** (`RAG_SYSTEM_V2` in `prompt.js`, `ROUTER_SYSTEM_V2` in `router.js`) replaces prose with
+worked examples: one quote per line with two citations, a qualified answer instead of an "I
+don't know", and two `memory_only` turns with their JSON patches. It is no longer than v1 in
+characters (`npm test` checks it). Only a local provider whose settings say `v2` gets it; Claude
+always gets v1, which a SHA-256 test pins byte for byte. Verification, the retry and the schemas
+are unchanged.
+
+**Measured:** quality (answered, fabricated, retries, faithfulness, false "I don't know", fact
+score), router and memory (turn 2's `memory_patch`, turn 3's `usesMemory`), speed (TTFT, tok/s,
+latency) and resources (`/api/ps` memory, reloads: a response with `load_duration` > 1 s after
+the run's first request, the `num_ctx` actually sent, possible truncations).
+
+**Decision rule:** `ctx8k` is adopted with 0 possible truncations and no quality row worse by more
+than one question; `ctx8k+prompt` on top of it with a fact score ≥ the baseline's, no new false
+"I don't know", no drop in faithfulness and verify:local's memory check passing.
+
+**Result: `ctx8k` adopted, v2 not.** `LOCAL_RAG_NUM_CTX` now defaults to **8192**. ctx8k gave the
+same answers on all 10 questions with 0 truncations, at the same speed (latency 31.3 s vs 29.5 s)
+and ~0.2 GB less memory. There were no reloads to save: Ollama didn't reload qwen when `num_ctx`
+changed. v2 cut the router prompt by 25% (907 → 682 tokens) and was the only variant whose router
+wrote the task memory, but its contract prompt raised retries from 1 to 6 and turned q15 into a
+false "I don't know". The baseline's fact score came out 0.52 against Day 28's 0.66: the same
+"I don't know" on q12, graded differently by the judge (see the notes). The variants ran with
+`--force`. Report: [`reports/local_opt_report.md`](reports/local_opt_report.md), notes:
+[`reports/local_opt_notes.md`](reports/local_opt_notes.md), and the **Optimization (Day 29)** tab
+of http://localhost:3000/rag-report.
+
+```bash
+npm run opt:local                          # all three, cooldown 180 s; stops if the baseline drifts from Day 28
+npm run opt:local -- --force               # go on anyway
+npm run opt:local -- --only ctx8k+prompt   # re-run one variant, keep the others' files
+npm run opt:local -- --report              # re-render from reports/local_opt/*.json + the notes
+```
+
 ## Local RAG (Day 28)
 
 A Knowledge chat **With RAG** runs fully on this machine when its Model switch is a local
@@ -90,7 +138,7 @@ reply, so it gets that JSON back as an assistant message and the error list as a
 message.
 
 **Context window.** Every RAG call on a local model sends `num_ctx = LOCAL_RAG_NUM_CTX`
-(default 16384) and `num_predict ≤ LOCAL_RAG_NUM_PREDICT` (2048, the contract's ceiling). The
+(default 8192 since [Day 29](#optimization-day-29); 16384 on Day 28) and `num_predict ≤ LOCAL_RAG_NUM_PREDICT` (2048, the contract's ceiling). The
 default comes from measurement: the eval's answer prompts are 0.7–3.1k tokens (system prompt +
 5 chunks + question). A chat turn adds task memory and up to 6 history messages, and the reply
 needs room. The window does cost memory once prompts fill it. Right after loading, `/api/ps`
@@ -173,7 +221,7 @@ memory. See [`reports/day27_verify.md`](reports/day27_verify.md).
 
 | env (Day 28) | default | |
 | --- | --- | --- |
-| `LOCAL_RAG_NUM_CTX` | 16384 | context window of every local call in a Knowledge RAG chat; a prompt within 10% of it is flagged `possible_truncation` |
+| `LOCAL_RAG_NUM_CTX` | 8192 (Day 28: 16384) | context window of every local call in a Knowledge RAG chat, the same as `LOCAL_NUM_CTX` since Day 29; a prompt within 10% of it is flagged `possible_truncation` |
 | `LOCAL_RAG_NUM_PREDICT` | 2048 | output ceiling of those calls |
 | `RAG_JUDGE_MODEL` | Haiku 4.5 | `eval:local`'s judges (cloud) |
 | `OLLAMA_URL`, `LOCAL_MODELS`, `LOCAL_TIMEOUT_MS`, … | | as on Day 27, below |
@@ -256,12 +304,13 @@ uses locally since Day 28.
 | env | default | |
 | --- | --- | --- |
 | `OLLAMA_URL` | `http://localhost:11434` | where Ollama listens |
-| `LOCAL_MODELS` | installed `gemma4:*` tags + `qwen3.5:9b` | the models the switch offers (comma list) |
+| `LOCAL_MODELS` | `qwen3.5:9b`, if installed (Day 29; gemma4 only when named here) | the models the switch offers (comma list) |
 | `LOCAL_DEFAULT_MODEL` | the first of them | the local model new chats start on; setting it makes local the default even with a key |
 | `LOCAL_NUM_CTX` | 8192 | context window, sent on every call (not Ollama's default) |
 | `LOCAL_NUM_PREDICT` | 1024 | ceiling on generated tokens per call |
 | `LOCAL_TIMEOUT_MS` | 180000 | per call, model load included |
 | `LOCAL_LLM_DIR` | `../local_llm` | where the Day 26 client lives |
+| `LOCAL_PROMPT_VARIANT` | `v1` | Day 29: `v2` gives a local model the shorter contract and router prompts with examples; Claude always gets `v1` |
 
 **`npm run verify:local`** starts the app's routes in-process (`createApp` in `src/app.js`,
 which `server.js` now just listens on) with an in-memory store, no `ANTHROPIC_API_KEY`, and

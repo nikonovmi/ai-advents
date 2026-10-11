@@ -1,3 +1,4 @@
+import { promptVariantOf } from "./prompt.js";
 import { MAX_QUERIES } from "./rewrite.js";
 import { MEMORY_OPS, renderMemory, taskMemoryOf } from "./taskMemory.js";
 
@@ -118,6 +119,53 @@ export const ROUTER_SYSTEM = [
   "- Most messages need no operations: an empty memory_patch is normal.",
 ].join("\n");
 
+/**
+ * **Day 29: the `v2` router prompt, for local models only** (`LOCAL_PROMPT_VARIANT=v2`).
+ *
+ * Day 28's qwen routed "keep answers to 3 sentences; CMP means Compose
+ * Multiplatform" to `memory_only` with an empty patch. `v2` adds two short
+ * examples of a rule-setting message with its operations filled in, and drops
+ * what they show or what `v1` said twice ("Most messages need no operations"
+ * among them), so it is not longer than `v1`. Claude always gets `v1`.
+ */
+export const ROUTER_SYSTEM_V2 = [
+  "You route messages in a chat about a document index of Kotlin, Kotlin Multiplatform and Compose Multiplatform articles (release posts, blog articles).",
+  "For each new user message, call route exactly once.",
+  "",
+  "Intent:",
+  "- search: anything that asks about content, including follow-ups (\"why?\", \"and the second one?\") and questions on any other topic: the search decides, and the user gets an honest \"I don't know\". Never answer a question yourself in reply.",
+  "- memory_only: the message only sets a constraint, a correction, a preference or defines a term, and asks nothing.",
+  "- chat: greetings, thanks and acknowledgements, with no question.",
+  "- A message that mixes kinds (e.g. a constraint plus a question) is search. When unsure, choose search.",
+  "- A reply to an open clarifying question (in the task memory) is search, and standalone_question is the original question with the clarification applied.",
+  "",
+  "For search:",
+  "- standalone_question: the full question, understandable on its own. Resolve references (\"it\", \"the other one\") from the recent messages and the task memory, and write defined terms in full.",
+  "- queries: 1–3 short standalone queries, one per information need, in the documents' terms (product names, versions, feature names).",
+  "  For a named article, describe its content in words its paragraphs would use, not its title. Never repeat the goal or constraints in a query.",
+  "- reply: empty.",
+  "",
+  "For chat and memory_only: reply is one short, friendly sentence acknowledging the rule, term or greeting.",
+  "",
+  "Task memory (memory_patch) holds only the user's goal, the details they clarified, and the constraints and terms they set. Operations:",
+  "- set_goal {text}: what the user is trying to achieve, in their terms.",
+  "- add_clarified {text}: a detail about their situation or what they mean.",
+  "- add_constraint {text}: a rule or term they set.",
+  "- remove {id}: an item that no longer applies. A correction removes the old id and adds the new text.",
+  "- resolve_question {id}: an open question the user answered, or dropped by sending any non-chat message. None stays open past a non-chat message.",
+  "- On a change of direction, set the new goal and remove clarified details and terms tied to the old focus; keep general constraints and facts about the user.",
+  "- Never store what the documents or the assistant said, or the question itself. No duplicates; only ids that exist.",
+  "",
+  "A memory_only message always has at least one operation. Examples:",
+  "User: From now on, answer in at most 2 sentences. By KMP I mean Kotlin Multiplatform.",
+  "→ {\"intent\":\"memory_only\",\"reply\":\"Got it.\",\"memory_patch\":[{\"op\":\"add_constraint\",\"text\":\"answers at most 2 sentences\"},{\"op\":\"add_constraint\",\"text\":\"'KMP' = Kotlin Multiplatform\"}]}",
+  "User (memory has [k3] the team ships to Android and iOS): Correction, we only ship to Android.",
+  "→ {\"intent\":\"memory_only\",\"reply\":\"Noted.\",\"memory_patch\":[{\"op\":\"remove\",\"id\":\"k3\"},{\"op\":\"add_clarified\",\"text\":\"the team ships to Android only\"}]}",
+].join("\n");
+
+/** The router's system prompt for this provider: `v2` only for a local provider set to it. */
+export const routerSystemFor = (provider) => (promptVariantOf(provider) === "v2" ? ROUTER_SYSTEM_V2 : ROUTER_SYSTEM);
+
 /** `[c1]`, `[c1][c2]`, `[1]` out; whitespace folded. */
 export const stripCitations = (text) =>
   String(text ?? "")
@@ -210,7 +258,7 @@ export async function routeMessage({ provider, model, message, messages, memory,
   let completion;
   try {
     completion = await provider.complete({
-      system: ROUTER_SYSTEM,
+      system: routerSystemFor(provider),
       messages: [{ role: "user", content: routerPrompt({ message, history, memory }) }],
       tools: [ROUTE_TOOL],
       toolChoice: { name: ROUTE_TOOL.name },
@@ -230,6 +278,8 @@ export async function routeMessage({ provider, model, message, messages, memory,
     model: completion?.model ?? model ?? null,
     // Day 28: who routed, and a local model's timings and JSON record.
     provider: completion?.provider ?? provider.provider ?? null,
+    // Day 29: which router prompt it got.
+    promptVariant: promptVariantOf(provider),
     ...(completion?.metrics ? { metrics: completion.metrics } : {}),
     ...(completion?.structured ? { structured: completion.structured } : {}),
     ...(completion?.possible_truncation ? { possible_truncation: true } : {}),

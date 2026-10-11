@@ -1,0 +1,421 @@
+{
+  "variant": "baseline",
+  "description": "Day 28's settings: num_ctx 16384 for RAG calls, 8192 for plain chat; v1 prompts",
+  "startedAt": "2026-10-11T19:54:52.857Z",
+  "finishedAt": "2026-10-11T19:57:52.573Z",
+  "ollama": {
+    "version": "0.40.2",
+    "url": "http://localhost:11434"
+  },
+  "settings": {
+    "url": "http://localhost:11434",
+    "numCtx": 8192,
+    "numPredict": 1024,
+    "timeoutMs": 180000,
+    "ragNumCtx": 16384,
+    "ragNumPredict": 2048,
+    "promptVariant": "v1",
+    "dir": "/Users/michael/Documents/ai-advents/29_local_llms/local_llm"
+  },
+  "passed": false,
+  "outbound": [],
+  "localRequests": 17,
+  "claudeCalls": 0,
+  "summary": [
+    {
+      "model": "qwen3.5:9b",
+      "loadMs": 6026.6,
+      "turns": 3,
+      "checksPassed": 19,
+      "checks": 21,
+      "contextOk": 0,
+      "conversations": 1,
+      "meanTtftMs": 21598.8,
+      "meanGenTps": 14.266666666666667,
+      "meanModelMs": 42865.666666666664,
+      "meanTurnMs": 57593,
+      "outbound": 0
+    }
+  ],
+  "results": [
+    {
+      "model": "qwen3.5:9b",
+      "loadMs": 6026.6,
+      "conversations": [
+        {
+          "agent": "knowledge",
+          "label": "Knowledge, With RAG (rag+rerank) — Day 28",
+          "rag": true,
+          "recall": [
+            "/\\bCMP\\b/",
+            "/compose multiplatform/i"
+          ],
+          "storedLlm": "local:qwen3.5:9b",
+          "storedLocalReplies": 3,
+          "turns": [
+            {
+              "message": "We're deciding whether to build our iOS app's UI with Compose Multiplatform instead of SwiftUI. To start: is Compose Multiplatform for iOS actually stable now?",
+              "status": 200,
+              "reply": "Yes, Compose Multiplatform for iOS is now stable and production-ready. The release of version 1.8.0 marks a major milestone where Compose for iOS reached stability status [c2].",
+              "provider": "local",
+              "model": "qwen3.5:9b",
+              "turnMs": 87966,
+              "metrics": {
+                "ttftMs": 22545.1,
+                "genTps": 18.6,
+                "totalMs": 63825.4,
+                "wallMs": 63903,
+                "loadMs": 84.2,
+                "promptTokens": 4916,
+                "cachedPromptTokens": 2206,
+                "outputTokens": 671,
+                "promptTps": 98.3,
+                "promptEvalMs": 27626.2,
+                "evalMs": 36093.5,
+                "numCtx": 16384,
+                "calls": 2
+              },
+              "overheadCalls": 0,
+              "intent": "search",
+              "routedIntent": "search",
+              "override": null,
+              "patch": [],
+              "applied": [],
+              "promptVariant": "v1",
+              "standaloneQuestion": "Is Compose Multiplatform for iOS actually stable now, given that we are deciding whether to build our iOS app's UI with it instead of SwiftUI?",
+              "routerMetrics": {
+                "ttftMs": 10418.3,
+                "genTps": 16.5,
+                "totalMs": 15565.7,
+                "wallMs": 15573,
+                "loadMs": 13.9,
+                "promptTokens": 1048,
+                "cachedPromptTokens": 0,
+                "outputTokens": 85,
+                "promptTps": 100.7,
+                "promptEvalMs": 10404.5,
+                "evalMs": 5146,
+                "numCtx": 16384
+              },
+              "memoryAfter": {
+                "goal": null,
+                "clarified": [],
+                "constraints": [],
+                "open_questions": []
+              },
+              "rag": {
+                "label": "rag+rerank",
+                "status": "answered",
+                "citations": [
+                  {
+                    "id": "c2",
+                    "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:0",
+                    "quote": "Today marks a major milestone in the Kotlin Multiplatform journey: the release of Compose Multiplatform 1.8.0, which brings Compose for iOS to Stable.",
+                    "n": 2,
+                    "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+                    "section": "",
+                    "start": 115,
+                    "end": 265
+                  }
+                ],
+                "verification": {
+                  "firstAttemptValid": false,
+                  "retried": true,
+                  "droppedCitations": [
+                    {
+                      "id": "c1",
+                      "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:5",
+                      "quote": "Compose Multiplatform for iOS now gives you the full package: stable APIs, great performance, a native feel, and modern tooling.",
+                      "reason": "unused"
+                    },
+                    {
+                      "id": "c3",
+                      "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:1",
+                      "quote": "Version 1.8.0 finalizes the core API surface and brings targeted improvements to accessibility and navigation, along with a wide range of bug fixes and performance improvements.",
+                      "reason": "fabricated quote"
+                    }
+                  ],
+                  "droppedClaims": [
+                    "Version 1.8.0 finalizes the core API surface and brings targeted improvements to accessibility and navigation, along with a wide range of bug fixes and performance improvements."
+                  ],
+                  "downgraded": false,
+                  "firstAttemptCitations": 3,
+                  "firstAttemptErrors": [
+                    "Rule 4: citation c3's quote is not in chunk \"kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:1\": \"Version 1.8.0 finalizes the core API surface and brings targeted improvements to accessibility and navigation, along with a wide range of bug fixes and performa\". Copy the sentence exactly as it appears in that document.",
+                    "Rule 2: citation c1 is never used in the answer; put [c1] after the claim it supports, or remove it."
+                  ],
+                  "fabricatedFirstAttempt": [
+                    {
+                      "id": "c3",
+                      "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:1",
+                      "quote": "Version 1.8.0 finalizes the core API surface and brings targeted improvements to accessibility and navigation, along with a wide range of bug fixes and performance improvements."
+                    }
+                  ],
+                  "finalErrors": [
+                    "Rule 4: citation c3's quote is not in chunk \"kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:1\": \"Version 1.8.0 finalizes the core API surface and brings targeted improvements to accessibility and navigation, along with a wide range of bug fixes and performa\". Copy the sentence exactly as it appears in that document.",
+                    "Rule 2: citation c1 is never used in the answer; put [c1] after the claim it supports, or remove it."
+                  ]
+                },
+                "timings": {
+                  "rewriteMs": 0,
+                  "retrieveMs": 3526,
+                  "rerankMs": 4862,
+                  "clarifyMs": 0,
+                  "llmMs": 63933
+                },
+                "chunks": [
+                  "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:5",
+                  "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:0",
+                  "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:1",
+                  "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:0",
+                  "kb/kotlin-2.4.20-release-what-s-new-why-it-matters-2026-medium.html:structural:2"
+                ]
+              },
+              "checks": {
+                "ok": true,
+                "local": true,
+                "nonEmpty": true,
+                "routerLocal": true,
+                "noClaude": true,
+                "noTruncation": true,
+                "verifiedCitations": false
+              }
+            },
+            {
+              "message": "From now on, keep every answer to at most 3 sentences. And when I write CMP, I mean Compose Multiplatform.",
+              "status": 200,
+              "reply": "Got it. I'll keep answers to at most 3 sentences and treat 'CMP' as Compose Multiplatform.",
+              "provider": "local",
+              "model": "qwen3.5:9b",
+              "turnMs": 20211,
+              "metrics": {
+                "ttftMs": 11180,
+                "genTps": 13.3,
+                "totalMs": 20161.1,
+                "wallMs": 20181.4,
+                "loadMs": 23,
+                "promptTokens": 1114,
+                "cachedPromptTokens": 3,
+                "outputTokens": 119,
+                "promptTps": 99.6,
+                "promptEvalMs": 11156.9,
+                "evalMs": 8978.8,
+                "numCtx": 16384
+              },
+              "overheadCalls": 0,
+              "intent": "memory_only",
+              "routedIntent": "memory_only",
+              "override": null,
+              "patch": [
+                {
+                  "op": "add_constraint",
+                  "id": "1001-ans-max-3-sentences"
+                },
+                {
+                  "op": "add_clarified",
+                  "id": "1002-cmp-compose-multiplatform"
+                }
+              ],
+              "applied": [],
+              "promptVariant": "v1",
+              "standaloneQuestion": "",
+              "routerMetrics": {
+                "ttftMs": 11180,
+                "genTps": 13.3,
+                "totalMs": 20161.1,
+                "wallMs": 20181.4,
+                "loadMs": 23,
+                "promptTokens": 1114,
+                "cachedPromptTokens": 3,
+                "outputTokens": 119,
+                "promptTps": 99.6,
+                "promptEvalMs": 11156.9,
+                "evalMs": 8978.8,
+                "numCtx": 16384
+              },
+              "memoryAfter": {
+                "goal": null,
+                "clarified": [],
+                "constraints": [],
+                "open_questions": []
+              },
+              "rag": null,
+              "checks": {
+                "ok": true,
+                "local": true,
+                "nonEmpty": true,
+                "routerLocal": true,
+                "noClaude": true,
+                "noTruncation": true
+              }
+            },
+            {
+              "message": "How much does CMP add to the app size compared with a pure SwiftUI app?",
+              "status": 200,
+              "reply": "Compose Multiplatform adds about ~9 MB to the size of an iOS app compared to a fully native SwiftUI app [c1].",
+              "provider": "local",
+              "model": "qwen3.5:9b",
+              "turnMs": 64602,
+              "metrics": {
+                "ttftMs": 31071.3,
+                "genTps": 10.9,
+                "totalMs": 44610.5,
+                "wallMs": 44654.5,
+                "loadMs": 38,
+                "promptTokens": 2658,
+                "cachedPromptTokens": 3,
+                "outputTokens": 148,
+                "promptTps": 85.6,
+                "promptEvalMs": 31033.3,
+                "evalMs": 13524.2,
+                "numCtx": 16384
+              },
+              "overheadCalls": 0,
+              "intent": "search",
+              "routedIntent": "search",
+              "override": null,
+              "patch": [],
+              "applied": [],
+              "promptVariant": "v1",
+              "standaloneQuestion": "How much does Compose Multiplatform add to the app size compared with a pure SwiftUI app?",
+              "routerMetrics": {
+                "ttftMs": 2154.6,
+                "genTps": 14.7,
+                "totalMs": 8828.8,
+                "wallMs": 8835.9,
+                "loadMs": 21.6,
+                "promptTokens": 1160,
+                "cachedPromptTokens": 990,
+                "outputTokens": 98,
+                "promptTps": 79.7,
+                "promptEvalMs": 2133,
+                "evalMs": 6669.6,
+                "numCtx": 16384
+              },
+              "memoryAfter": {
+                "goal": null,
+                "clarified": [],
+                "constraints": [],
+                "open_questions": []
+              },
+              "rag": {
+                "label": "rag+rerank",
+                "status": "answered",
+                "citations": [
+                  {
+                    "id": "c1",
+                    "chunk_id": "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:3",
+                    "quote": "Compose Multiplatform adds only ~9 MB to the size of an iOS app compared to a fully native SwiftUI app with the same UI logic and assets.",
+                    "n": 1,
+                    "source": "knowledge_database/Compose Multiplatform 1.8.0 Released_ Compose Multiplatform for iOS Is Stable and Production-Ready - The JetBrains Blog.html",
+                    "section": "Performance that’s ready for production",
+                    "start": 463,
+                    "end": 600
+                  }
+                ],
+                "verification": {
+                  "firstAttemptValid": true,
+                  "retried": false,
+                  "droppedCitations": [],
+                  "droppedClaims": [],
+                  "downgraded": false,
+                  "firstAttemptCitations": 1,
+                  "firstAttemptErrors": [],
+                  "fabricatedFirstAttempt": [],
+                  "finalErrors": []
+                },
+                "timings": {
+                  "rewriteMs": 0,
+                  "retrieveMs": 5294,
+                  "rerankMs": 5773,
+                  "clarifyMs": 0,
+                  "llmMs": 44670
+                },
+                "chunks": [
+                  "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:3",
+                  "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:2",
+                  "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:3",
+                  "kb/compose-multiplatform-1.7.0-released-the-jetbrains-blog.html:structural:0",
+                  "kb/compose-multiplatform-1.8.0-released-compose-multiplatform-for-ios-is-stable-and-production-ready-the-jetbrains-blog.html:structural:1"
+                ]
+              },
+              "checks": {
+                "ok": true,
+                "local": true,
+                "nonEmpty": true,
+                "routerLocal": true,
+                "noClaude": true,
+                "noTruncation": true,
+                "verifiedCitations": true,
+                "usesMemory": false
+              }
+            }
+          ]
+        }
+      ],
+      "outbound": [],
+      "memory": {
+        "size": 9725530728,
+        "sizeVram": 9725530728,
+        "contextLength": 8192
+      },
+      "responses": [
+        {
+          "model": "qwen3.5:9b",
+          "numCtx": 8192,
+          "loadMs": 6026.6,
+          "promptTokens": 15,
+          "at": "2026-10-11T19:54:59.713Z",
+          "warmUp": true
+        },
+        {
+          "model": "qwen3.5:9b",
+          "numCtx": 16384,
+          "loadMs": 13.9,
+          "promptTokens": 1048,
+          "at": "2026-10-11T19:55:15.308Z"
+        },
+        {
+          "model": "qwen3.5:9b",
+          "numCtx": 16384,
+          "loadMs": 54.5,
+          "promptTokens": 2211,
+          "at": "2026-10-11T19:56:05.033Z"
+        },
+        {
+          "model": "qwen3.5:9b",
+          "numCtx": 16384,
+          "loadMs": 29.7,
+          "promptTokens": 2705,
+          "at": "2026-10-11T19:56:27.656Z"
+        },
+        {
+          "model": "qwen3.5:9b",
+          "numCtx": 16384,
+          "loadMs": 23,
+          "promptTokens": 1114,
+          "at": "2026-10-11T19:56:47.878Z"
+        },
+        {
+          "model": "qwen3.5:9b",
+          "numCtx": 16384,
+          "loadMs": 21.6,
+          "promptTokens": 1160,
+          "at": "2026-10-11T19:56:56.734Z"
+        },
+        {
+          "model": "qwen3.5:9b",
+          "numCtx": 16384,
+          "loadMs": 38,
+          "promptTokens": 2658,
+          "at": "2026-10-11T19:57:52.465Z"
+        }
+      ],
+      "reloads": 0,
+      "numCtxSeen": [
+        8192,
+        16384
+      ]
+    }
+  ]
+}
