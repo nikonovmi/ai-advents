@@ -1,0 +1,405 @@
+{
+  "id": "95a3df6c-544c-4ccb-b6af-93a80f907a3f",
+  "title": "I live in Italy, I'm a professional piz…",
+  "createdAt": "2026-09-20T00:52:03.771Z",
+  "updatedAt": "2026-09-20T00:56:56.025Z",
+  "usage": {
+    "totalInputTokens": 3459,
+    "totalOutputTokens": 1449,
+    "totalCostUsd": 0.010704,
+    "turnCount": 5,
+    "overheadInputTokens": 11905,
+    "overheadOutputTokens": 345,
+    "overheadCostUsd": 0.01363,
+    "overheadCalls": 6
+  },
+  "branches": {
+    "main": {
+      "id": "main",
+      "name": "main",
+      "headId": "m10",
+      "forkedFromMessageId": null,
+      "parentBranchId": null,
+      "strategy": "memory",
+      "strategyState": {
+        "memory": {
+          "working": {
+            "goal": {
+              "value": "Find new viral pizza recipe ideas",
+              "updatedAt": "2026-09-20T00:55:32.787Z",
+              "turn": 2,
+              "previous": [
+                "Find new ideas that can go viral"
+              ]
+            },
+            "decision.style": {
+              "value": "Experimental fusion — completely crazier approach",
+              "updatedAt": "2026-09-20T00:56:21.670Z",
+              "turn": 4,
+              "previous": []
+            }
+          },
+          "digest": "## Facts about the user\n- Lives in Italy\n- Professional pizza chef\n- Looking for viral content ideas and new recipes\n\n## Decisions made\n- none\n\n## Preferences and constraints\n- Interested in content that can go viral\n- Open to both traditional and experimental approaches\n\n## Open questions\n- Primary platform: TikTok/Reels, YouTube, or other?\n- Target audience: foodies, general audience, or trend-setters?\n- Preferred style: traditional-with-twist or completely experimental?\n\n## Discarded / superseded\n- none",
+          "digestThrough": 4,
+          "digestUpdatedAt": "2026-09-20T00:56:23.256Z",
+          "pastTasks": [],
+          "proposals": [
+            {
+              "id": "c5-1-gub8o",
+              "key": "preference.format",
+              "value": "English, bullets or prose",
+              "was": "Always replies in Russian.",
+              "kind": "correction",
+              "reason": "declared",
+              "status": "pending",
+              "turn": 5,
+              "createdAt": "2026-09-20T00:56:54.188Z"
+            },
+            {
+              "id": "c5-2-od9cl",
+              "key": "preference.style",
+              "value": "Clear and direct",
+              "was": "Sort replies.",
+              "kind": "correction",
+              "reason": "declared",
+              "status": "pending",
+              "turn": 5,
+              "createdAt": "2026-09-20T00:56:54.189Z"
+            }
+          ],
+          "discarded": [
+            {
+              "key": "rule.if-the-answer-can-be",
+              "op": "delete",
+              "reason": "long-term deletes are yours to make",
+              "at": "2026-09-20T00:56:54.188Z",
+              "turn": 5
+            }
+          ],
+          "promotedAt": {
+            "e3": 1,
+            "e4": 3,
+            "e5": 1
+          },
+          "profileSeen": {
+            "profile.location": {
+              "id": "e1",
+              "key": "profile.location",
+              "value": "Italy",
+              "updatedAt": "2026-09-20T00:51:59.295Z",
+              "source": "learned"
+            },
+            "profile.role": {
+              "id": "e2",
+              "key": "profile.role",
+              "value": "Professional pizza chef",
+              "updatedAt": "2026-09-20T00:51:59.295Z",
+              "source": "learned"
+            },
+            "preference.style": {
+              "id": "e3",
+              "key": "preference.style",
+              "value": "Sort replies.",
+              "updatedAt": "2026-09-20T00:54:20.213Z",
+              "source": "declared"
+            },
+            "preference.format": {
+              "id": "e4",
+              "key": "preference.format",
+              "value": "Always replies in Russian.",
+              "updatedAt": "2026-09-20T00:56:12.826Z",
+              "source": "declared"
+            },
+            "rule.if-the-answer-can-be": {
+              "id": "e5",
+              "key": "rule.if-the-answer-can-be",
+              "value": "If the answer can be phrased as a python code block - do id.",
+              "updatedAt": "2026-09-20T00:54:20.213Z",
+              "source": "declared"
+            }
+          },
+          "profileUser": "pizza-maker",
+          "attribution": [
+            {
+              "turn": 1,
+              "profile": 186,
+              "working": 171,
+              "digest": 0
+            },
+            {
+              "turn": 2,
+              "profile": 551,
+              "working": 172,
+              "digest": 0
+            },
+            {
+              "turn": 3,
+              "profile": 551,
+              "working": 172,
+              "digest": 0
+            },
+            {
+              "turn": 4,
+              "profile": 551,
+              "working": 238,
+              "digest": 642
+            },
+            {
+              "turn": 5,
+              "profile": 551,
+              "working": 238,
+              "digest": 642
+            }
+          ],
+          "usage": {
+            "overheadWorking": {
+              "calls": 5,
+              "inputTokens": 10789,
+              "outputTokens": 218,
+              "costUsd": 0.011879
+            },
+            "overheadSummary": {
+              "calls": 1,
+              "inputTokens": 1116,
+              "outputTokens": 127,
+              "costUsd": 0.001751
+            },
+            "overheadProfile": {
+              "calls": 0,
+              "turns": 5,
+              "inputTokens": 598,
+              "outputTokens": 0,
+              "costUsd": 0.000598,
+              "estimated": true
+            }
+          }
+        }
+      }
+    }
+  },
+  "activeBranchId": "main",
+  "messages": [
+    {
+      "role": "user",
+      "content": "I live in Italy, I'm a professional pizza chef. I'm looking for new ideas that can go viral",
+      "id": "m1",
+      "tokens": {
+        "request": 29
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Great! Here are some viral-friendly angles for a pizza chef in Italy:\n\n**Content ideas:**\n- **Technique videos** — slow-mo dough tossing, wood-fired oven shots, traditional vs. modern methods\n- **Regional deep-dives** — showcase lesser-known Italian pizza styles beyond Neapolitan\n- **Ingredient stories** — where your flour/tomatoes/mozzarella come from, why they matter\n- **Challenges** — \"can I make pizza in X unusual way?\" (blindfolded, one hand, extreme heat, etc.)\n- **Collaborations** — partner with local producers, other chefs, or food creators\n\n**What tends to work:**\n- Satisfying visuals (stretching, cutting, the pull of melted cheese)\n- Personality + expertise (people follow *you*, not just the pizza)\n- Trends (but with your authentic twist — don't force it)\n- Quick, snappy edits for shorts; longer storytelling for deeper platforms\n\n**Quick question:** Are you thinking social media (TikTok/Reels), YouTube, or something else? And do you want to stay traditional or experiment with fusion/unconventional pizzas?\n\nThat'll help me suggest more specific angles.",
+      "id": "m2",
+      "parentId": "m1",
+      "tokens": {
+        "request": 29,
+        "sent": 159,
+        "input": 159,
+        "output": 282,
+        "total": 441
+      },
+      "cost": {
+        "input": 0.000159,
+        "output": 0.0014100000000000002,
+        "total": 0.0015690000000000003
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 5729,
+      "stopReason": "end_turn",
+      "strategy": {
+        "id": "memory",
+        "label": "Layered memory",
+        "overheadTokens": 1901,
+        "overheadCost": 0.002125,
+        "overheadMs": 1250,
+        "overheadCalls": 1,
+        "blockTokens": 91,
+        "note": "3 keys set",
+        "droppedMessages": 0,
+        "changedKeys": [
+          "profile.location",
+          "profile.role",
+          "goal"
+        ],
+        "degraded": false
+      }
+    },
+    {
+      "role": "user",
+      "content": "I'm looking for a new recipe. Propose something crazy.",
+      "id": "m3",
+      "parentId": "m2",
+      "tokens": {
+        "request": 20
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Eccoti alcune idee pazze per una pizza virale:\n\n**Pizza al Nero di Seppia con Burrata e Limone**\n— Base nera (seppia), burrata fresca, zest di limone, peperoncino, olio di oliva. Visivamente pazzesca, sapore sofisticato.\n\n**Pizza Affumicata con Miele e Peperoncino**\n— Impasto affumicato, scamorza affumicata, speck, miele crudo versato dopo la cottura, peperoncino fresco. Il contrasto dolce-piccante è virale.\n\n**Pizza al Carbone Vegetale con Stracciatella e Tartufo**\n— Base nera (carbone), stracciatella cremosa, tartufo nero, nocciole tostate. Lusso + colore = engagement.\n\n**Pizza \"Invertita\" — Crosta Ripiena di Burrata**\n— Impasto con burrata *dentro* i bordi, poi fritta leggermente. Quando la tagli, fuoriesce. Soddisfacente da filmare.\n\n**Pizza al Miso e Alici**\n— Fusion audace: miso bianco, alici, aglio nero, sesamo. Umami esplosivo, insolito per il pubblico.\n\n---\n\n**Qual è il tuo stile?** Preferisci tradizionale-con-twist, o completamente sperimentale? E qual è il tuo pubblico — foodies, massa generale, o creatori di tendenze?",
+      "id": "m4",
+      "parentId": "m3",
+      "tokens": {
+        "request": 20,
+        "sent": 548,
+        "input": 548,
+        "output": 379,
+        "total": 927
+      },
+      "cost": {
+        "input": 0.000548,
+        "output": 0.001895,
+        "total": 0.002443
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 6133,
+      "stopReason": "end_turn",
+      "strategy": {
+        "id": "memory",
+        "label": "Layered memory",
+        "overheadTokens": 2214,
+        "overheadCost": 0.002326,
+        "overheadMs": 1024,
+        "overheadCalls": 1,
+        "blockTokens": 182,
+        "note": "1 key set",
+        "droppedMessages": 0,
+        "changedKeys": [
+          "goal"
+        ],
+        "degraded": false
+      }
+    },
+    {
+      "role": "user",
+      "content": "So what's the algorithm for Qual è il tuo stile?",
+      "id": "m5",
+      "parentId": "m4",
+      "tokens": {
+        "request": 22
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Ah, capisco la domanda — ma non è un algoritmo, è semplicemente una **domanda strategica** per aiutarmi a darti suggerimenti migliori.\n\nLa logica dietro:\n\n```python\nif stile_chef == \"tradizionale_con_twist\":\n    consiglia = \"innovazione rispettosa, ingredienti premium, tecnica classica\"\nelif stile_chef == \"sperimentale_fusion\":\n    consiglia = \"combinazioni insolite, visual shock, rottura delle regole\"\nelse:\n    consiglia = \"chiedi chiarimento\"\n\nif pubblico == \"foodies\":\n    tono = \"sofisticato, ingredienti rari\"\nelif pubblico == \"massa\":\n    tono = \"soddisfacente visivamente, facile da capire\"\n```\n\nPraticamente: prima di proporti ricette, voglio sapere **come pensi** e **chi vuoi raggiungere**, così non ti suggerisco cose che non ti rappresentano.\n\nNon è algoritmo social (tipo TikTok/Instagram), è solo logica conversazionale.\n\n**Quindi — come rispondi?** Tradizionale-innovativo o completamente pazzo?",
+      "id": "m6",
+      "parentId": "m5",
+      "tokens": {
+        "request": 22,
+        "sent": 945,
+        "input": 945,
+        "output": 292,
+        "total": 1237
+      },
+      "cost": {
+        "input": 0.000945,
+        "output": 0.00146,
+        "total": 0.002405
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 4882,
+      "stopReason": "end_turn",
+      "strategy": {
+        "id": "memory",
+        "label": "Layered memory",
+        "overheadTokens": 2313,
+        "overheadCost": 0.002429,
+        "overheadMs": 968,
+        "overheadCalls": 1,
+        "blockTokens": 182,
+        "note": "1 malformed op discarded",
+        "droppedMessages": 0,
+        "changedKeys": [],
+        "degraded": false
+      }
+    },
+    {
+      "role": "user",
+      "content": "something crazier",
+      "id": "m7",
+      "parentId": "m6",
+      "tokens": {
+        "request": 11
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Perfetto. Allora via con il **caos creativo**.\n\n```python\nviral_ideas = [\n    {\n        \"nome\": \"Pizza Carbonara Bruciata Intenzionale\",\n        \"twist\": \"Bordi anneriti volutamente, guanciale croccante come vetro, \n                  tuorlo liquido che scorre — contrasto totale\",\n        \"viral\": \"ASMR + soddisfazione visiva + disgusto iniziale\"\n    },\n    {\n        \"nome\": \"Pizza Nera (Carbone Attivo)\",\n        \"twist\": \"Base nera, mozzarella bianca, contrasto estremo.\n                 Ingredienti: carbone attivo, nero di seppia, fumo\",\n        \"viral\": \"Aesthetic dark academia, effetto 'veleno'\"\n    },\n    {\n        \"nome\": \"Pizza Liquida (Ristrutturata)\",\n        \"twist\": \"Crosta croccante normale, ma dentro: \n                 impasto cremoso tipo zabaione, formaggi fusi, uova\",\n        \"viral\": \"Texture shock — aspettative tradite\"\n    },\n    {\n        \"nome\": \"Pizza Fermentata 72h (Acidità Estrema)\",\n        \"twist\": \"Gusto aspro quasi kombucha, crosta alveolata folle\",\n        \"viral\": \"Trend 'functional food' + soddisfazione lievitazione\"\n    }\n]\n```\n\nQuale ti chiama? O vuoi che mescoliamo due insieme?",
+      "id": "m8",
+      "parentId": "m7",
+      "tokens": {
+        "request": 11,
+        "sent": 710,
+        "input": 710,
+        "output": 382,
+        "total": 1092
+      },
+      "cost": {
+        "input": 0.00071,
+        "output": 0.00191,
+        "total": 0.00262
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 7987,
+      "stopReason": "end_turn",
+      "strategy": {
+        "id": "memory",
+        "label": "Layered memory",
+        "overheadTokens": 3462,
+        "overheadCost": 0.004102,
+        "overheadMs": 2638,
+        "overheadCalls": 2,
+        "blockTokens": 350,
+        "note": "1 key set · folded 2 exchanges into the digest",
+        "droppedMessages": 4,
+        "changedKeys": [
+          "decision.style"
+        ],
+        "degraded": false
+      }
+    },
+    {
+      "role": "user",
+      "content": "what?",
+      "id": "m9",
+      "parentId": "m8",
+      "tokens": {
+        "request": 9
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Scusa, troppo caos.\n\n**Semplicemente:** quali di queste 4 idee pazze ti piacciono?\n\n1. **Pizza bruciata di proposito** — bordi neri, contrasto\n2. **Pizza nera** — carbone attivo, aspetto \"veleno\"\n3. **Pizza liquida dentro** — sorpresa cremosa\n4. **Pizza acida** — fermentata 72 ore\n\nO niente di tutto questo?",
+      "id": "m10",
+      "parentId": "m9",
+      "tokens": {
+        "request": 9,
+        "sent": 1097,
+        "input": 1097,
+        "output": 114,
+        "total": 1211
+      },
+      "cost": {
+        "input": 0.001097,
+        "output": 0.00057,
+        "total": 0.001667
+      },
+      "model": "claude-haiku-4-5-20251001",
+      "ms": 2935,
+      "stopReason": "end_turn",
+      "strategy": {
+        "id": "memory",
+        "label": "Layered memory",
+        "overheadTokens": 2360,
+        "overheadCost": 0.002648,
+        "overheadMs": 1098,
+        "overheadCalls": 1,
+        "blockTokens": 350,
+        "note": "2 held back by what you declared, 1 malformed op discarded",
+        "droppedMessages": 4,
+        "changedKeys": [],
+        "degraded": false
+      }
+    }
+  ]
+}

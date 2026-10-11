@@ -1,0 +1,33 @@
+{
+  "knowledge": {
+    "comment": "Read in place (never copied). KNOWLEDGE_DIR overrides the path, which is relative to doc_index/.",
+    "dir": "../knowledge_database",
+    "extensions": [".html", ".htm"]
+  },
+  "projects": {
+    "comment": "Copied into corpus/raw/projects/, keeping each path relative to root.",
+    "root": "..",
+    "files": [
+      "README.md",
+      "PROMPT.md",
+      "first-agent/README.md",
+      "imdb_mcp_server/README.md",
+      "scheduler_mcp_server/README.md"
+    ],
+    "dirs": [
+      { "dir": "first-agent/src", "extensions": [".js"] },
+      { "dir": "imdb_mcp_server/src", "extensions": [".js"] },
+      { "dir": "scheduler_mcp_server/src", "extensions": [".js"] }
+    ],
+    "skip": ["node_modules", "data", "test", "tests", "testing", "__tests__", "*.test.js", "fixtures.js"]
+  },
+  "downloads": [
+    {
+      "id": "attention-is-all-you-need",
+      "title": "Attention Is All You Need",
+      "url": "https://arxiv.org/pdf/1706.03762",
+      "file": "attention-is-all-you-need.pdf",
+      "format": "pdf"
+    }
+  ]
+}

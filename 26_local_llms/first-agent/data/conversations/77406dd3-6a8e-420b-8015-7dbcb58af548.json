@@ -1,0 +1,117 @@
+{
+  "id": "77406dd3-6a8e-420b-8015-7dbcb58af548",
+  "title": "Find all star wars movies in OMDB, pick…",
+  "createdAt": "2026-09-27T23:31:16.366Z",
+  "updatedAt": "2026-09-27T23:34:01.565Z",
+  "usage": {
+    "totalInputTokens": 4144,
+    "totalOutputTokens": 1476,
+    "totalCostUsd": 0.023048,
+    "turnCount": 1,
+    "overheadInputTokens": 0,
+    "overheadOutputTokens": 0,
+    "overheadCostUsd": 0,
+    "overheadCalls": 0
+  },
+  "project": "default",
+  "agentId": "pipeline",
+  "forkedFrom": null,
+  "memory": {},
+  "messages": [
+    {
+      "role": "assistant",
+      "content": "```json\n{\n  \"pages\": [\n    {\n      \"id\": \"3e88aeb6-ccf7-81b8-a588-e2c1def7062c\",\n      \"url\": \"https://app.notion.com/p/3e88aeb6ccf781b8a588e2c1def7062c?pvs=204\",\n      \"properties\": {\n        \"title\": \"Top 3 Most Controversial Star Wars Movies\"\n      }\n    }\n  ]\n}\n```",
+      "id": "m1",
+      "tokens": {
+        "input": 4144,
+        "output": 1476,
+        "total": 5620
+      },
+      "cost": {
+        "input": 0.008288,
+        "output": 0.01476,
+        "total": 0.023048
+      },
+      "model": "claude-sonnet-5",
+      "ms": 16934,
+      "run": {
+        "runId": 45,
+        "durationMs": 16934,
+        "tokens": 5620,
+        "ok": true
+      },
+      "steps": [
+        {
+          "index": 1,
+          "kind": "tool",
+          "label": "search_movies",
+          "status": "ok",
+          "ms": 225
+        },
+        {
+          "index": 2,
+          "kind": "prompt",
+          "label": "prompt",
+          "status": "ok",
+          "ms": 3649
+        },
+        {
+          "index": 3,
+          "kind": "tool",
+          "label": "get_movie",
+          "status": "ok",
+          "ms": 164
+        },
+        {
+          "index": 4,
+          "kind": "tool",
+          "label": "get_movie",
+          "status": "ok",
+          "ms": 169
+        },
+        {
+          "index": 5,
+          "kind": "tool",
+          "label": "get_movie",
+          "status": "ok",
+          "ms": 163
+        },
+        {
+          "index": 6,
+          "kind": "tool",
+          "label": "get_movie",
+          "status": "ok",
+          "ms": 165
+        },
+        {
+          "index": 7,
+          "kind": "tool",
+          "label": "get_movie",
+          "status": "ok",
+          "ms": 162
+        },
+        {
+          "index": 8,
+          "kind": "tool",
+          "label": "get_movie",
+          "status": "ok",
+          "ms": 167
+        },
+        {
+          "index": 9,
+          "kind": "prompt",
+          "label": "prompt",
+          "status": "ok",
+          "ms": 11296
+        },
+        {
+          "index": 10,
+          "kind": "tool",
+          "label": "notion-create-pages",
+          "status": "ok",
+          "ms": 774
+        }
+      ]
+    }
+  ]
+}
