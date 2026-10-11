@@ -70,19 +70,9 @@ if (variantId) {
 const runStartedAt = new Date().toISOString();
 
 // ---- 2. The fetch guard, installed before anything is imported --------------
-const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
-const outbound = [];
-let localRequests = 0;
-const realFetch = globalThis.fetch;
-globalThis.fetch = async (input, init) => {
-  const url = new URL(typeof input === "string" || input instanceof URL ? input : input.url);
-  if (!LOCAL_HOSTS.has(url.hostname)) {
-    outbound.push({ url: `${url.protocol}//${url.host}${url.pathname}`, at: new Date().toISOString() });
-    throw new Error(`verify:local blocked a request to ${url.host}: only localhost is allowed`);
-  }
-  localRequests += 1;
-  return realFetch(input, init);
-};
+const { installFetchGuard } = await import("../src/llm/fetchGuard.js");
+const guard = installFetchGuard({ name: "verify:local" });
+const { outbound } = guard;
 
 const { createApp } = await import("../src/app.js");
 const { MemoryStore } = await import("../src/store/memoryStore.js");
@@ -328,7 +318,7 @@ if (variant) {
   fs.writeFileSync(
     file,
     JSON.stringify(
-      { variant: variant.id, description: variant.description, startedAt: runStartedAt, finishedAt: new Date().toISOString(), ollama: { version: status.version, url: status.url }, settings: llms.settings, passed, outbound, localRequests, claudeCalls: claudeSpy.calls, summary, results },
+      { variant: variant.id, description: variant.description, startedAt: runStartedAt, finishedAt: new Date().toISOString(), ollama: { version: status.version, url: status.url }, settings: llms.settings, passed, outbound, localRequests: guard.stats.localRequests, claudeCalls: claudeSpy.calls, summary, results },
       null,
       2,
     ) + "\n",
@@ -351,7 +341,7 @@ const lines = [
   `Run ${when.toISOString().slice(0, 16).replace("T", " ")} UTC on ${os.cpus()[0]?.model ?? os.arch()}, ${Math.round(os.totalmem() / 2 ** 30)} GB RAM; Ollama ${status.version} at ${status.url}.`,
   `The app's routes ran in-process (\`createApp\`) with an in-memory store, **no ANTHROPIC_API_KEY**, and a fetch guard on every non-localhost host. num_ctx ${llms.settings.numCtx}, num_predict ≤ ${llms.settings.numPredict}, think false. Each model was warmed up (not counted) and unloaded after.`,
   "",
-  `**Result: ${passed ? "PASS" : "FAIL"}** · outbound non-localhost requests: **${outbound.length}** · calls to the Claude provider: **${claudeSpy.calls}** · localhost requests: ${localRequests}`,
+  `**Result: ${passed ? "PASS" : "FAIL"}** · outbound non-localhost requests: **${outbound.length}** · calls to the Claude provider: **${claudeSpy.calls}** · localhost requests: ${guard.stats.localRequests}`,
   "",
   `Day 28: the Knowledge **With RAG** chat runs rag+rerank — EmbeddingGemma search and bge-reranker on this machine, then the router, \`submit_answer\` and any clarification on the local model as JSON-schema calls with num_ctx ${llms.settings.ragNumCtx} (LOCAL_RAG_NUM_CTX). Its third message says only "CMP", defined in the second: the router has to read it back from the task memory.`,
   "",
@@ -398,7 +388,7 @@ for (const r of results) {
 }
 fs.mkdirSync(path.dirname(REPORT_MD), { recursive: true });
 fs.writeFileSync(REPORT_MD, lines.join("\n"));
-fs.writeFileSync(REPORT_JSON, JSON.stringify({ ranAt: when.toISOString(), ollama: { version: status.version, url: status.url }, settings: llms.settings, passed, outbound, localRequests, claudeCalls: claudeSpy.calls, summary, results }, null, 2) + "\n");
+fs.writeFileSync(REPORT_JSON, JSON.stringify({ ranAt: when.toISOString(), ollama: { version: status.version, url: status.url }, settings: llms.settings, passed, outbound, localRequests: guard.stats.localRequests, claudeCalls: claudeSpy.calls, summary, results }, null, 2) + "\n");
 
 console.log("");
 for (const s of summary) {

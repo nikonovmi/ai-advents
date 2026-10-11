@@ -1,3 +1,31 @@
+# Day 30 — Local LLM as a private service
+
+**Day 30:** [`first-agent`](first-agent)'s Knowledge chat runs as a private service on the
+MacBook Air. qwen3.5:9b under Ollama answers with Day 29's settings, and the service is reachable
+only over Tailscale. `npm run serve:local` starts a **separate server** (`src/hosted.js`, under
+`caffeinate`) bound to 127.0.0.1. It mounts only the chat page, each tailnet user's own
+conversations (scoped by the `Tailscale-User-Login` header), `POST /api/ask` and `GET /health`.
+Everything else is a 404, there is no MCP and no Claude, and a fetch guard refuses any
+non-localhost request. One queue and a per-user rate limit cover every message. `npm run
+load:local` checked stability, the limits and isolation against it
+([report](first-agent/reports/hosted_load_report.md),
+[docs](first-agent/README.md#hosted-service-day-30)):
+
+| | |
+| --- | --- |
+| result | **PASS, 12/12 checks** · 529 s |
+| stability: 5 users × 2–3 questions, all at once | 12/12 → 200 (7 answered with citations, 5 "I don't know") · 10× 429 "busy" then retried · 0 timeouts · 0 errors |
+| queue wait p50 · p95 · max | 119.9 s · 225.3 s · 225.3 s |
+| answer latency p50 · p95 · max | 37.7 s · 58.7 s · 58.7 s |
+| limits | 413 over 2000 chars · 409 for a 2nd message in a busy chat · 429 + `Retry-After` for a full queue (1 + 5) · leaving the queue frees the place · 429 + `Retry-After` on the 11th message in 10 min · a 4 s deadline → 504, then the next request → 200 |
+| isolation | 20/20 excluded routes → 404 · another user's chat reads as empty · 0 outbound non-localhost requests |
+| Ollama memory before → after | 8.4 GB → 13.3 GB (one qwen, no reload: the MLX runner grows over many prompts) |
+
+One model on one laptop serves one answer at a time (~40 s each here), so a sixth person in line
+waits minutes. The queue makes that visible ("waiting, position 2") instead of timing out.
+Network access from the phone and from off the tailnet is checked by hand; the commands are in
+the report.
+
 # Day 29 — Optimizing a local LLM
 
 **Day 29:** [`first-agent`](first-agent)'s Knowledge RAG chat drops gemma4:12b and tunes

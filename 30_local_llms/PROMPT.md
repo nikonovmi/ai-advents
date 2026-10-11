@@ -1,155 +1,161 @@
-# Day 29 — Optimizing a local LLM
+# Day 30 — Local LLM as a private service
 
-Day 29 of my AI challenge: optimize the local model for my specific task, then compare
-quality, speed and resource usage before and after.
+Day 30 of my AI challenge: deploy the local LLM as a private service, with an HTTP API and
+chat. Then check:
+- that the model is reachable over the network,
+- that it stays stable under multiple requests,
+- that basic limits work: rate limits and max context.
 
-**The task:** the Knowledge agent's RAG chat in `first-agent`, running fully locally on
-`qwen3.5:9b` (Ollama) on a MacBook Air M2 with 16 GB RAM. gemma4:12b is out of scope: Day 28
-showed it doesn't fit this machine.
+**Setup decisions (already made):**
+- **Server:** my MacBook Air M2 (16 GB) is the home server, running `qwen3.5:9b` via Ollama
+  with the Day 29 settings.
+- **Network and sign-in:** Tailscale. Only devices on my tailnet can reach the service, and
+  Tailscale is the sign-in. No login code in the app.
+- **What's exposed:** only the Knowledge agent (local RAG chat), on its own page. There are no
+  other agents, no eval results or stats, no Notion and no MCP servers, and no Claude.
 
-**Drop gemma from the app first.**
-- Set `LOCAL_MODELS=qwen3.5:9b` and `LOCAL_DEFAULT_MODEL=qwen3.5:9b` in `.env` and
-  `.env.example`, so the Model switch, `eval:local` and `verify:local` only use qwen unless a
-  model is named explicitly.
-- Fix any place that still assumes or defaults to gemma.
-- Don't delete gemma's Day 28 results: the reports and the Local tab keep them as history.
+Before writing code, read how first-agent builds its Express app, the Knowledge chat routes
+(`POST /chat`, conversations, task memory), the frontend for the Knowledge agent, and the
+Day 27–29 local provider settings.
 
-Before writing code, read `reports/local_rag_report.md` and `reports/local_rag_notes.md`
-(Day 28), plus `eval:local`, `verify:local`, the router prompt, and the `submit_answer`
-contract prompt.
+## 1. A separate hosted server, not a hidden page
 
-Day 28 found two problems to fix:
-- **Resources and speed.** RAG calls ran at `num_ctx` 16384. The prompts use about 2k tokens
-  (~4k with a retry), yet qwen grew to 9.6 GB. Plain chat ran at 8192, so moving between plain
-  chat and RAG reloaded the model.
-- **Quality**, in three places:
-  - q06: the model joined two separate lines of a chunk into one quote, and the retry didn't
-    fix it.
-  - q12: a false "I don't know". The documents say Web is Beta and early adopters can ship to
-    production, and qwen read that as not an answer.
-  - verify:local turn 2: the router routed a rule-setting message correctly but returned an
-    empty memory patch.
+Hiding the other agents in the UI is not enough. If the full app is reachable, anyone on the
+tailnet can call `/rag-report`, the pipeline routes or the Notion OAuth routes directly. So
+the hosted service is **its own entry point**:
 
-## Two experiments, nothing else
+- `npm run serve:local` starts `src/hosted.js` on `HOSTED_PORT` (default 3100), bound to
+  **127.0.0.1 only**. Tailscale Serve is the only way in from the network. The full app
+  (`npm start`, port 3000) is unchanged and is never exposed.
+- It mounts **only**:
+  - the hosted page;
+  - the Knowledge chat routes (the user's own conversations: create, list, delete, send a
+    message, reset task memory);
+  - `GET /health`;
+  - the API routes below.
 
-### Experiment 1 — context window (parameter)
+  Everything else returns 404. That includes `/rag-report`, Compare, `/rag/*` settings,
+  pipelines, runs, MCP and Notion OAuth, and the other agents.
+- **No MCP clients are created** (no Notion, OMDb or scheduler), and Notion tokens are never
+  read.
+- **No Claude.** The hosted server ignores `ANTHROPIC_API_KEY` and only uses the Ollama
+  provider. Reuse Day 27's fetch guard in hosted mode: any outbound request to a host other
+  than localhost is refused and logged.
+- **Fixed configuration:** RAG on, rerank on, qwen3.5:9b, Day 29's adopted `num_ctx` and
+  prompt variant. There are no model, RAG or rerank switches.
 
-Run every local call at `num_ctx` 8192: plain chat, router, answer and clarification. Use
-the same value everywhere, so the model loads once and stays loaded.
+## 2. The hosted page
 
-This is an env change (`LOCAL_NUM_CTX`, `LOCAL_RAG_NUM_CTX`). The code changes are only what's
-needed to make sure every local call uses the value and to count model reloads. A reload is a
-response whose `load_duration` is more than 1 s after the first request. Keep the
-`possible_truncation` flag active, because it tells us whether 8192 is too small.
+Reuse the existing Knowledge chat frontend with a hosted flag. Don't fork it.
 
-### Experiment 2 — prompt template (on top of Experiment 1)
+- **Keep:** the chat list, the messages, citation chips with their quotes, sources,
+  "I don't know" with its clarifying question, the task memory panel and its Reset button.
+- **Remove:** the agent picker, the model, RAG and rerank switches, Compare, the "Eval
+  results" link, and metric hovers or debug details (route badges, rerank scores, dropped
+  candidates).
+- **Add:** a queue status while a message waits ("waiting, position 2") and then
+  "generating…" with elapsed time, plus readable messages when a limit is hit.
+- Show the signed-in user's name in the header.
 
-Add a second prompt variant for local models, selected with `LOCAL_PROMPT_VARIANT=v2`.
-Keep the default `v1` exactly as it is today, so the baseline stays reproducible. Claude
-always uses its current prompts. `v2` changes only two prompts:
+## 3. Identity
 
-- **Contract prompt** (`submit_answer`):
-  - one short worked example showing two lines of a chunk cited as two citations, each a
-    verbatim quote from one line (one line, one quote);
-  - one sentence saying a qualified answer is still an answer: if the documents say
-    something is Beta but usable in production by early adopters, answer that and cite it,
-    don't decline.
-- **Router prompt:** one or two short examples of a message that sets a rule or defines a
-  term, routed to `memory_only` with the matching `memory_patch` operations filled in.
+Tailscale Serve adds the tailnet user's identity to proxied requests. Check the exact header
+names with the installed Tailscale version; it's `Tailscale-User-Login` and related headers.
 
-Remove rules that are repeated, or that the examples now show, so that `v2` is **not longer
-than `v1`**. Prompt length is the main speed cost on this machine. Report the token count
-of each prompt in `v1` and `v2`.
+- These headers are trusted only because the server listens on 127.0.0.1, so only Tailscale
+  Serve can reach it. Say this in a code comment.
+- Conversations are scoped to the user's login. A user only sees and changes their own chats.
+- If the header is missing (a local request, or a device shared with a tagged identity), use
+  `local` as the user. This is not an error.
 
-Don't change the verification, its thresholds, the retry, or the JSON schemas. The bar
-stays where it was on Days 24 and 28.
+## 4. HTTP API
 
-## Runs
+The page's chat routes are the conversation API. In addition:
 
-Add `--variant` to `eval:local` and `verify:local`. Run qwen3.5:9b only, in this order:
+- `POST /api/ask { question }`: a stateless one-shot question through the full local RAG
+  pipeline. It returns `{ status, answer, citations, sources, clarifying_question, timings }`.
+- `GET /health`: whether Ollama is reachable, the model and whether it's loaded, whether the
+  index is OK, whether the reranker is loaded, the queue depth and running count, and uptime.
 
-| variant | num_ctx (all calls) | prompts |
+Everything goes through the same queue and limits.
+
+## 5. Limits
+
+All are set by env, in `.env.example`, with these defaults:
+
+| limit | default | when exceeded |
 | --- | --- | --- |
-| `baseline` | 16384 RAG / 8192 plain (Day 28 settings) | v1 |
-| `ctx8k` | 8192 | v1 |
-| `ctx8k+prompt` | 8192 | v2 |
+| `HOSTED_CONCURRENCY` | 1 | requests at the model at once; the rest wait in the queue |
+| `HOSTED_QUEUE_MAX` | 5 | 429 "server busy" with `Retry-After` |
+| `HOSTED_RATE_LIMIT` | 10 messages / 10 min per user | 429 with `Retry-After` |
+| `HOSTED_MAX_MESSAGE_CHARS` | 2000 | 413 with a readable message |
+| history | `RAG_HISTORY_TURNS` (6) | older messages aren't sent |
+| context | Day 29's `num_ctx` | `possible_truncation` is logged |
+| `HOSTED_MAX_OUTPUT_TOKENS` | 1024 | — |
+| `HOSTED_REQUEST_TIMEOUT_MS` | 180000 | the request fails with a readable error; the queue moves on |
 
-For each variant, run the 10 citations questions with `eval:local`. Reuse Day 28's cached
-retrieval (`local_rag_retrieval.json`) so every variant gets the same chunks. Then run
-`verify:local` with only the Knowledge RAG conversation on qwen.
+Other rules:
+- A request that leaves the queue (the client disconnects) is removed and doesn't block
+  others.
+- One user can't hold more than one running or queued message per conversation.
 
-Re-run the baseline instead of reusing Day 28's numbers, so all three are measured under the
-same conditions. Wait `--cooldown` seconds between variants (default 180, the Air is
-fanless), and record each run's start time.
+## 6. Running it as a service
 
-Don't re-run Claude or gemma. Show Day 28's Claude column as a reference only.
+- **Warm-up on start:** load qwen, the embedding model and the reranker before saying
+  "ready", so the first user doesn't pay for loading.
+- **Keep the Mac awake:** `serve:local` runs under `caffeinate` (system and idle sleep off
+  while it runs). The README says to keep the lid open and the charger connected.
+- **Tailscale:** README steps to expose port 3100 with `tailscale serve` over HTTPS (check
+  the current CLI syntax with `tailscale serve --help`), the resulting MagicDNS URL, how to
+  stop serving, and how to share the machine with another tailnet user if I want to.
+- Graceful shutdown: finish the running request, reject queued ones with 503, unload nothing.
 
-## What to measure, per variant
+## 7. Verification
 
-- **Quality** (the Day 28 rows for qwen): answered with a source and a valid citation;
-  fabricated quotes on the first attempt; retries, dropped citations and downgrades;
-  faithfulness with claim counts; correct and false "I don't know"; mean fact score; and
-  q06, q12 shown on their own.
-- **Router / memory:** every verify:local check, and for turn 2 the intent and memory patch
-  side by side.
-- **Speed:** time to first token, generation tokens/s, answer latency (mean and max), prompt
-  tokens and output tokens per question, and the chat-turn times from verify:local.
-- **Resources:** memory from `/api/ps` (total and on GPU) after the run, model reloads, and
-  possible truncations.
+**`npm run load:local [-- --url https://<machine>.<tailnet>.ts.net]`** runs against the
+hosted server (default http://127.0.0.1:3100) and writes `reports/hosted_load_report.md`
+and `hosted_load_results.json`:
 
-## Decision rule (decided before the runs)
+- **Stability:** 5 simulated users with different fake identities in the header. Each sends
+  2–3 questions from the citations set, all at once. Report successes, 429s, timeouts and
+  errors; queue wait and answer latency (p50, p95, max); memory from `/api/ps` before and
+  after; and that `/health` is still OK at the end.
+- **Limits, one check each:** a message over the size limit returns 413; a user over the
+  rate limit gets 429 with `Retry-After`; a full queue gives 429; a timeout fails cleanly and
+  the next request still works; one user can't read another user's conversation.
+- **Isolation:** the excluded routes return 404 (`/rag-report`, pipeline, MCP and Notion
+  routes, other agents), and the run made 0 outbound non-localhost requests.
+- **Network access:** a section I fill in by hand. Open the page from my phone over
+  Tailscale, run a `curl` of `/api/ask` from another tailnet device, and confirm a device
+  that isn't on the tailnet can't connect. The report prints the commands to run.
 
-`ctx8k` is adopted if it has 0 possible truncations and no quality row gets worse by more
-than one question.
-
-`ctx8k+prompt` is adopted on top of it if all of these hold:
-- the fact score is ≥ the baseline's;
-- there are no new false "I don't know"s;
-- faithfulness doesn't drop;
-- verify:local's memory check passes.
-
-Targets to report against: answer latency well under 30 s mean, and memory well under 9.6 GB.
-
-Adopted settings become the defaults in `.env.example` and the README. If something isn't
-adopted, say which rule it failed.
-
-## Output
-
-- `reports/local_opt_results.json` and `reports/local_opt_report.md`. The report has a summary
-  with the three variants as columns (and Day 28's Claude column as a reference), then the
-  question-by-question table, then the `v1` vs `v2` prompts as a diff.
-- `reports/local_opt_notes.md`: findings from the actual numbers. What each experiment
-  changed, what it cost, and the decision under the rule above.
-- An **Optimization** tab on `/rag-report`.
-- A short **Not tried** section in the notes:
-  - **Quantization:** the quantization qwen3.5:9b already runs at (from `/api/show`), and an
-    estimate of why q8 doesn't fit in 16 GB next to the reranker and the embedding model.
-  - **Fewer chunks:** a retrieval change, not a model one, with a recall risk.
-  - **Temperature:** stays at 0 for a strict citation contract.
+Keep the load test light. It's 1 model on 1 laptop, so it shows that the queue and limits
+work, not throughput. It should finish in about 10–15 minutes.
 
 ## Tests
 
-`npm test` stays offline. Test that:
-- the variant selects the right `num_ctx` and prompts;
-- every local call uses the one configured `num_ctx`;
-- reloads are counted from `load_duration`;
-- `v1` prompts are byte-for-byte unchanged;
-- Claude never gets `v2`;
-- `v2` is not longer than `v1` (in characters as an offline proxy).
+`npm test` stays offline, with a fake Ollama. Test that:
+- the hosted app mounts only the allowed routes, and everything else is 404;
+- no MCP client is created, and Anthropic is never called;
+- conversations are scoped by the identity header, with `local` as the fallback;
+- queue order, the queue max and removal on disconnect work;
+- the rate limit and `Retry-After` work;
+- the message size limit and the timeout work;
+- `/health` has the expected shape.
 
 ## Docs
 
-- first-agent README: an **Optimization (Day 29)** section with the variants, the decision,
-  and the new defaults.
-- Repo root README: a "Day 29 — Optimizing a local LLM" section at the top, like the previous
-  days. Two or three sentences, the summary table with real numbers, and links to the report
-  and notes.
+- first-agent README: a **Hosted service (Day 30)** section covering `serve:local`, what is
+  and isn't exposed and why it's a separate server, Tailscale setup, the API with curl
+  examples, the limits table, and `load:local`.
+- Repo root README: a "Day 30 — Local LLM as a private service" section at the top, like the
+  previous days. Two or three sentences, the load-test summary with real numbers, and links.
 
 ## Finish
 
 1. Run `npm test`.
-2. Run the three variants. Stop and tell me if the baseline differs a lot from Day 28's qwen
-   column (fact score off by more than 0.1, or latency off by more than 30%), because
-   something in the setup changed.
-3. Show me the summary table and the decision.
-4. Start the server with the adopted settings so I can try it at http://localhost:3000.
+2. Start `npm run serve:local`, then run `npm run load:local` against 127.0.0.1, and fix
+   anything that fails.
+3. Show me the load-test summary.
+4. Give me the exact Tailscale commands to expose it, and leave the hosted server running so
+   I can open it from my phone.

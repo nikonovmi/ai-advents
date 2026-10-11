@@ -1,0 +1,571 @@
+{
+  "ranAt": "2026-10-11T20:59:53.240Z",
+  "finishedAt": "2026-10-11T21:08:42.177Z",
+  "durationMs": 528937,
+  "url": "http://127.0.0.1:3100",
+  "machine": "Apple M2, 16 GB RAM",
+  "fakeIdentities": true,
+  "limits": {
+    "concurrency": 1,
+    "queueMax": 5,
+    "rateLimit": 10,
+    "rateWindowS": 600,
+    "maxMessageChars": 2000,
+    "maxOutputTokens": 1024,
+    "requestTimeoutMs": 180000,
+    "historyTurns": 6,
+    "numCtx": 8192
+  },
+  "passed": true,
+  "checks": [
+    {
+      "name": "excluded routes are 404",
+      "pass": true,
+      "detail": "20/20 routes → 404"
+    },
+    {
+      "name": "stability: every question answered",
+      "pass": true,
+      "detail": "12/12 → 200 (7 answered, 5 \"I don't know\") · 10× 429 busy (retried) · 0 timeouts · 0 errors · 459.3 s"
+    },
+    {
+      "name": "a message over the size limit → 413",
+      "pass": true,
+      "detail": "413: Your question is 2001 characters long; this server takes at most 2000. Shorten it and send it again."
+    },
+    {
+      "name": "a second message in a chat that has one waiting → 409",
+      "pass": true,
+      "detail": "409: A message in this chat is still waiting for its answer. Send the next one once it's in."
+    },
+    {
+      "name": "a full queue → 429 with Retry-After",
+      "pass": true,
+      "detail": "positions 2, 3, 2, 4, 5 · depth 5 → 429, Retry-After 214 s: The server is busy: 1 request running and 5 waiting, the most it holds. Try again in about 4 min."
+    },
+    {
+      "name": "clients that leave the queue are removed",
+      "pass": true,
+      "detail": "5 clients disconnected → queue depth 0"
+    },
+    {
+      "name": "the 11th message in 10 min → 429 with Retry-After",
+      "pass": true,
+      "detail": "10 admitted (left the queue), then 429, Retry-After 599 s: You've sent 10 messages in the last 10 min, the most this server takes from one person. Try again in 10 min."
+    },
+    {
+      "name": "a timeout fails cleanly → 504",
+      "pass": true,
+      "detail": "deadline 4.0 s → 504 after 4.0 s: The model didn't finish within 4 s, so this request was stopped and the next one started. Try again, or ask a shorter question."
+    },
+    {
+      "name": "…and the next request works",
+      "pass": true,
+      "detail": "200 dont_know · waited 0.0 s · answered in 25.7 s"
+    },
+    {
+      "name": "one user can't read another's conversation",
+      "pass": true,
+      "detail": "load-user-1 sees 2 messages; load-user-2 gets 0 and doesn't see it in the list"
+    },
+    {
+      "name": "/health is ok at the end",
+      "pass": true,
+      "detail": "status ok · queue 0 waiting, 0 running · up 655 s"
+    },
+    {
+      "name": "0 outbound non-localhost requests",
+      "pass": true,
+      "detail": "the server's fetch guard refused 0 during the run (0 since it started)"
+    }
+  ],
+  "isolation": [
+    {
+      "method": "GET",
+      "url": "/rag-report",
+      "status": 404
+    },
+    {
+      "method": "GET",
+      "url": "/rag-report/data",
+      "status": 404
+    },
+    {
+      "method": "GET",
+      "url": "/rag/status",
+      "status": 404
+    },
+    {
+      "method": "POST",
+      "url": "/rag/compare",
+      "status": 404
+    },
+    {
+      "method": "PUT",
+      "url": "/conversations/33333333-3333-4333-8333-333333333333/rag",
+      "status": 404
+    },
+    {
+      "method": "PUT",
+      "url": "/conversations/33333333-3333-4333-8333-333333333333/llm",
+      "status": 404
+    },
+    {
+      "method": "POST",
+      "url": "/conversations/33333333-3333-4333-8333-333333333333/fork",
+      "status": 404
+    },
+    {
+      "method": "GET",
+      "url": "/conversations/33333333-3333-4333-8333-333333333333/usage",
+      "status": 404
+    },
+    {
+      "method": "GET",
+      "url": "/conversations/33333333-3333-4333-8333-333333333333/pipeline",
+      "status": 404
+    },
+    {
+      "method": "POST",
+      "url": "/conversations/33333333-3333-4333-8333-333333333333/pipeline/run",
+      "status": 404
+    },
+    {
+      "method": "GET",
+      "url": "/conversations/33333333-3333-4333-8333-333333333333/runs",
+      "status": 404
+    },
+    {
+      "method": "POST",
+      "url": "/conversations/33333333-3333-4333-8333-333333333333/memory/finish-task",
+      "status": 404
+    },
+    {
+      "method": "GET",
+      "url": "/mcp/servers",
+      "status": 404
+    },
+    {
+      "method": "POST",
+      "url": "/mcp/notion/connect",
+      "status": 404
+    },
+    {
+      "method": "GET",
+      "url": "/mcp/oauth/callback",
+      "status": 404
+    },
+    {
+      "method": "GET",
+      "url": "/local/status",
+      "status": 404
+    },
+    {
+      "method": "GET",
+      "url": "/agents",
+      "status": 404
+    },
+    {
+      "method": "GET",
+      "url": "/profiles",
+      "status": 404
+    },
+    {
+      "method": "GET",
+      "url": "/projects",
+      "status": 404
+    },
+    {
+      "method": "POST",
+      "url": "/reset",
+      "status": 404
+    }
+  ],
+  "stability": {
+    "summary": {
+      "requests": 12,
+      "succeeded": 12,
+      "answered": 7,
+      "dontKnow": 5,
+      "busy429": 10,
+      "rate429": 0,
+      "timeouts": 0,
+      "errors": 0,
+      "queueMs": {
+        "p50": 119865,
+        "p95": 225327,
+        "max": 225327
+      },
+      "answerMs": {
+        "p50": 37725,
+        "p95": 58710,
+        "max": 58710
+      },
+      "possibleTruncations": 0,
+      "wallMs": 459316
+    },
+    "requests": [
+      {
+        "user": "load-user-1@loadtest",
+        "kind": "chat",
+        "id": "q02",
+        "status": 200,
+        "busy429": 0,
+        "answerStatus": "answered",
+        "citations": 2,
+        "position": 0,
+        "queueMs": 5,
+        "answerMs": 58710,
+        "totalMs": 58715,
+        "error": null,
+        "sessionId": "2e65a82c-4102-48bf-815b-f30f7061e97e",
+        "possibleTruncation": false
+      },
+      {
+        "user": "load-user-1@loadtest",
+        "kind": "ask",
+        "id": "q04",
+        "status": 200,
+        "busy429": 0,
+        "answerStatus": "answered",
+        "citations": 4,
+        "position": 1,
+        "queueMs": 58724,
+        "answerMs": 44312,
+        "totalMs": 103036,
+        "error": null,
+        "sessionId": null,
+        "possibleTruncation": false
+      },
+      {
+        "user": "load-user-1@loadtest",
+        "kind": "ask",
+        "id": "q06",
+        "status": 200,
+        "busy429": 0,
+        "answerStatus": "answered",
+        "citations": 1,
+        "position": 2,
+        "queueMs": 103135,
+        "answerMs": 53386,
+        "totalMs": 156521,
+        "error": null,
+        "sessionId": null,
+        "possibleTruncation": false
+      },
+      {
+        "user": "load-user-2@loadtest",
+        "kind": "chat",
+        "id": "q10",
+        "status": 200,
+        "busy429": 0,
+        "answerStatus": "dont_know",
+        "citations": 0,
+        "position": 3,
+        "queueMs": 156522,
+        "answerMs": 42669,
+        "totalMs": 199191,
+        "error": null,
+        "sessionId": "01018566-01c0-466e-b2a8-525d7f21f393",
+        "possibleTruncation": false
+      },
+      {
+        "user": "load-user-2@loadtest",
+        "kind": "ask",
+        "id": "q12",
+        "status": 200,
+        "busy429": 0,
+        "answerStatus": "dont_know",
+        "citations": 0,
+        "position": 4,
+        "queueMs": 199285,
+        "answerMs": 25902,
+        "totalMs": 225187,
+        "error": null,
+        "sessionId": null,
+        "possibleTruncation": false
+      },
+      {
+        "user": "load-user-2@loadtest",
+        "kind": "ask",
+        "id": "q13",
+        "status": 200,
+        "busy429": 0,
+        "answerStatus": "dont_know",
+        "citations": 0,
+        "position": 5,
+        "queueMs": 225327,
+        "answerMs": 14552,
+        "totalMs": 239879,
+        "error": null,
+        "sessionId": null,
+        "possibleTruncation": false
+      },
+      {
+        "user": "load-user-3@loadtest",
+        "kind": "chat",
+        "id": "q14",
+        "status": 200,
+        "busy429": 1,
+        "answerStatus": "dont_know",
+        "citations": 0,
+        "position": 4,
+        "queueMs": 119865,
+        "answerMs": 28631,
+        "totalMs": 148496,
+        "error": null,
+        "sessionId": "53bf51a1-8dbf-4251-9dd1-aaa1093c05e5",
+        "possibleTruncation": false
+      },
+      {
+        "user": "load-user-3@loadtest",
+        "kind": "ask",
+        "id": "q15",
+        "status": 200,
+        "busy429": 1,
+        "answerStatus": "answered",
+        "citations": 1,
+        "position": 5,
+        "queueMs": 148628,
+        "answerMs": 30056,
+        "totalMs": 178684,
+        "error": null,
+        "sessionId": null,
+        "possibleTruncation": false
+      },
+      {
+        "user": "load-user-4@loadtest",
+        "kind": "chat",
+        "id": "q16",
+        "status": 200,
+        "busy429": 2,
+        "answerStatus": "answered",
+        "citations": 4,
+        "position": 2,
+        "queueMs": 58644,
+        "answerMs": 46749,
+        "totalMs": 105393,
+        "error": null,
+        "sessionId": "759f65ba-fc3a-47d1-8c92-be3368c47196",
+        "possibleTruncation": false
+      },
+      {
+        "user": "load-user-4@loadtest",
+        "kind": "ask",
+        "id": "q17",
+        "status": 200,
+        "busy429": 2,
+        "answerStatus": "dont_know",
+        "citations": 0,
+        "position": 3,
+        "queueMs": 105386,
+        "answerMs": 44555,
+        "totalMs": 149941,
+        "error": null,
+        "sessionId": null,
+        "possibleTruncation": false
+      },
+      {
+        "user": "load-user-5@loadtest",
+        "kind": "chat",
+        "id": "q02",
+        "status": 200,
+        "busy429": 2,
+        "answerStatus": "answered",
+        "citations": 2,
+        "position": 4,
+        "queueMs": 149943,
+        "answerMs": 31524,
+        "totalMs": 181467,
+        "error": null,
+        "sessionId": "5ab9eeb3-b596-4ea3-99e2-a8ab8c7528bd",
+        "possibleTruncation": false
+      },
+      {
+        "user": "load-user-5@loadtest",
+        "kind": "ask",
+        "id": "q04",
+        "status": 200,
+        "busy429": 2,
+        "answerStatus": "answered",
+        "citations": 4,
+        "position": 5,
+        "queueMs": 181474,
+        "answerMs": 37725,
+        "totalMs": 219199,
+        "error": null,
+        "sessionId": null,
+        "possibleTruncation": false
+      }
+    ]
+  },
+  "limitChecks": {
+    "size": {
+      "status": 413,
+      "error": "Your question is 2001 characters long; this server takes at most 2000. Shorten it and send it again."
+    },
+    "sameChat": {
+      "status": 409,
+      "error": "A message in this chat is still waiting for its answer. Send the next one once it's in."
+    },
+    "fullQueue": {
+      "positions": [
+        2,
+        3,
+        2,
+        4,
+        5
+      ],
+      "depth": 5,
+      "status": 429,
+      "retryAfter": "214",
+      "error": "The server is busy: 1 request running and 5 waiting, the most it holds. Try again in about 4 min."
+    },
+    "leave": {
+      "depthAfter": 0
+    },
+    "rate": {
+      "admitted": 10,
+      "status": 429,
+      "retryAfter": "599",
+      "error": "You've sent 10 messages in the last 10 min, the most this server takes from one person. Try again in 10 min."
+    },
+    "anchor": {
+      "status": 200,
+      "answerMs": 39603
+    },
+    "timeout": {
+      "deadlineMs": 4000,
+      "status": 504,
+      "error": "The model didn't finish within 4 s, so this request was stopped and the next one started. Try again, or ask a shorter question.",
+      "totalMs": 4018,
+      "runningAfter": 0,
+      "next": {
+        "status": 200,
+        "answerStatus": "dont_know",
+        "queueMs": 4,
+        "answerMs": 25707
+      }
+    },
+    "crossUser": {
+      "owner": "load-user-1@loadtest",
+      "other": "load-user-2@loadtest",
+      "ownerMessages": 2,
+      "otherMessages": 0,
+      "listedForOther": false,
+      "fakeIdentities": true
+    }
+  },
+  "memory": {
+    "before": {
+      "model": "qwen3.5:9b",
+      "loaded": true,
+      "sizeBytes": 8375892712,
+      "vramBytes": 8375892712,
+      "ollamaModels": [
+        {
+          "name": "qwen3.5:9b",
+          "sizeBytes": 8375892712,
+          "vramBytes": 8375892712
+        }
+      ],
+      "serverRssBytes": 44138496
+    },
+    "afterStability": {
+      "model": "qwen3.5:9b",
+      "loaded": true,
+      "sizeBytes": 12995916264,
+      "vramBytes": 12995916264,
+      "ollamaModels": [
+        {
+          "name": "qwen3.5:9b",
+          "sizeBytes": 12995916264,
+          "vramBytes": 12995916264
+        }
+      ],
+      "serverRssBytes": 232472576
+    },
+    "after": {
+      "model": "qwen3.5:9b",
+      "loaded": true,
+      "sizeBytes": 13258324456,
+      "vramBytes": 13258324456,
+      "ollamaModels": [
+        {
+          "name": "qwen3.5:9b",
+          "sizeBytes": 13258324456,
+          "vramBytes": 13258324456
+        }
+      ],
+      "serverRssBytes": 427327488
+    }
+  },
+  "outbound": {
+    "duringRun": 0,
+    "sinceStart": 0
+  },
+  "healthAfter": {
+    "ok": true,
+    "status": "ok",
+    "uptimeS": 655,
+    "startedAt": "2026-10-11T20:57:47.413Z",
+    "ollama": {
+      "reachable": true,
+      "version": "0.40.2",
+      "url": "http://localhost:11434"
+    },
+    "model": {
+      "name": "qwen3.5:9b",
+      "loaded": true,
+      "sizeBytes": 13258324456,
+      "vramBytes": 13258324456,
+      "expiresAt": "2026-10-12T00:08:42.095723+02:00",
+      "numCtx": 8192,
+      "promptVariant": "v1",
+      "keepAlive": "60m"
+    },
+    "loadedModels": [
+      {
+        "name": "qwen3.5:9b",
+        "sizeBytes": 13258324456,
+        "vramBytes": 13258324456
+      }
+    ],
+    "index": {
+      "ok": true
+    },
+    "embeddings": {
+      "loaded": true
+    },
+    "reranker": {
+      "loaded": true
+    },
+    "queue": {
+      "depth": 0,
+      "running": 0,
+      "concurrency": 1,
+      "max": 5
+    },
+    "process": {
+      "rssBytes": 427327488
+    },
+    "limits": {
+      "concurrency": 1,
+      "queueMax": 5,
+      "rateLimit": 10,
+      "rateWindowS": 600,
+      "maxMessageChars": 2000,
+      "maxOutputTokens": 1024,
+      "requestTimeoutMs": 180000,
+      "historyTurns": 6,
+      "numCtx": 8192
+    },
+    "warmup": {
+      "done": true,
+      "ms": 13826,
+      "error": null
+    },
+    "outboundBlocked": 0
+  },
+  "magicDns": "michaels-macbook-air.tail10a1c4.ts.net"
+}

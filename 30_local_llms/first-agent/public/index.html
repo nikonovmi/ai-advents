@@ -1679,6 +1679,50 @@
   dialog.compare .arm .rag-answer { font-size: 13px; line-height: 1.55; }
   dialog.compare .arm .rag-answer.error { color: var(--accent); }
 
+  /* Day 30: the hosted page (`npm run serve:local`) — this page with
+     `<html data-hosted>`: the Knowledge chat alone. No agent picker, no
+     model, RAG or rerank switches, no Compare or eval link, no cost chart,
+     MCP or Ollama rows, no forks, and none of the debug detail (route badges,
+     rerank scores, dropped candidates, metric hovers). The server mounts none
+     of what those would call. The `html:root[data-hosted] body` prefix (0,3,2)
+     outranks the app's own `!important` show rules, such as
+     `body[data-local="1"]:not(…) .local-only` (0,3,1). */
+  html:root[data-hosted] body .topbar .brand h1 select,
+  html:root[data-hosted] body .chat-only,
+  html:root[data-hosted] body .local-only,
+  html:root[data-hosted] body .rag-controls,
+  html:root[data-hosted] body #chart-panel,
+  html:root[data-hosted] body #window-text,
+  html:root[data-hosted] body #usage,
+  html:root[data-hosted] body .mcp-servers,
+  html:root[data-hosted] body .fork { display: none !important; }
+  .hosted-only { display: none; }
+  html:root[data-hosted] body .hosted-only { display: revert; }
+  html:root[data-hosted] body .topbar .brand h1 .hosted-only { display: inline; }
+  html:root[data-hosted] body .hosted-user {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .hosted-user img { width: 22px; height: 22px; border-radius: 50%; }
+  .hosted-user b { color: var(--ink); font-weight: 600; }
+  /* The queue, while a message waits: where it is in line, then how long it has been generating. */
+  .row.agent .bubble .queue-state { color: var(--muted); }
+  .row.agent .bubble .queue-state b { color: var(--ink); font-weight: 600; }
+  @media (hover: none) {
+    html:root[data-hosted] body .conversation .remove { opacity: 1; }
+  }
+  /* Under the chat, the panel spans the width. (The app's own narrow-screen
+     `width: auto` comes before the base `width: 340px` and loses to it.) */
+  @media (max-width: 1080px) {
+    html:root[data-hosted] body .summary-panel { width: auto; }
+  }
+  @media (max-width: 720px) {
+    html:root[data-hosted] body .summary-panel { max-height: 32vh; }
+    html:root[data-hosted] body .hosted-user .login { display: none; }
+  }
 </style>
 </head>
 <body>
@@ -1695,6 +1739,7 @@
       <h1>
         <label class="visually-hidden" for="agent">Agent</label>
         <select id="agent" title="Which agent answers. Each one has its own persona and its own list of chats."></select>
+        <span class="hosted-only" id="hosted-title">Knowledge</span>
       </h1>
       <span class="sub" id="agent-tagline"></span>
     </div>
@@ -1746,6 +1791,8 @@
       <button type="button" id="rag-compare" title="Ask one question side by side: With RAG vs without, or Claude vs the local model. Nothing is saved.">Compare</button>
       <a href="/rag-report" target="_blank" rel="noopener">Eval results ↗</a>
     </div>
+    <!-- Day 30, the hosted page: who Tailscale says is signed in. -->
+    <div class="hosted-user hosted-only" id="hosted-user"></div>
     <button id="new-conversation" type="button" title="Start a new conversation with this agent"><span class="full">New conversation</span><span class="short">New</span></button>
   </div>
 
@@ -1916,12 +1963,16 @@ import { createMarkdown } from "/markdown.js";
 // person can read in one screen.
 const renderMarkdown = createMarkdown({ marked, DOMPurify });
 
-  const SESSION_KEY = "first-agent.sessionId";
+  // Day 30: the hosted page. `src/hosted.js` serves this same file with
+  // `<html data-hosted>`: the Knowledge chat alone, nothing else mounted.
+  const HOSTED = document.documentElement.dataset.hosted === "1";
+  const SESSION_KEY = HOSTED ? "hosted.sessionId" : "first-agent.sessionId";
   // Which agent the page is on. Remembered like the profile and for the same
   // reason: it is not a property of any one conversation — each conversation
   // records its own — it is where the next new chat will go.
   const AGENT_KEY = "first-agent.agent";
-  const PANEL_OPEN_KEY = "first-agent.panelOpen";
+  // The hosted page starts with the Knowledge panel collapsed (it is a phone page first).
+  const PANEL_OPEN_KEY = HOSTED ? "hosted.panelOpen" : "first-agent.panelOpen";
   // The merged strategy-and-cost row remembers whether you closed it, for the
   // same reason the right-hand panel does: a thing you collapsed once and have
   // to collapse again on every reload is a thing you stop collapsing.
@@ -1994,7 +2045,9 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
   let forkedFrom = null;
   /** Every agent, from the registry, and which one the page is on. */
   let agents = [];
-  let agentId = readAgentId();
+  let agentId = HOSTED ? "knowledge" : readAgentId();
+  /** Day 30: `/api/me` on the hosted page — who is signed in, the agent, the limits. */
+  let hostedMe = null;
   /**
    * Whatever the strategy says about its own state: `{ kind, … }`. The page
    * never reads a field belonging to the strategy without first looking at
@@ -2123,6 +2176,8 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
     messages.innerHTML =
       chatKind === "scheduled"
         ? '<p class="empty">No runs yet. Add steps, save, and press Run — every run posts one message here.</p>'
+        : chatKind === "knowledge" && HOSTED
+          ? '<p class="empty">Ask about Kotlin, Kotlin Multiplatform or Compose Multiplatform. Every answer comes from the document index with a quote for each claim, or is "I don\'t know".</p>'
         : chatKind === "knowledge"
           ? '<p class="empty">Ask about Kotlin, Kotlin Multiplatform or Compose Multiplatform. Switch With RAG / Without RAG above to compare.</p>'
           : '<p class="empty">No messages yet — say hello.</p>';
@@ -2277,16 +2332,26 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
     if (who !== "user" && meta?.toolsUnavailable?.length) row.appendChild(toolsUnavailableNote(meta.toolsUnavailable));
     if (who !== "user" && meta?.steps?.length && meta.run?.runId) row.appendChild(stepStrip(meta.steps, meta.run.runId));
     // A RAG reply lists what it was given; a plain one was given nothing.
-    if (who !== "user" && meta?.rag?.mode === "rag") row.appendChild(sourcesList(meta.rag));
+    // (Not on the hosted page: the chunks with their scores and the dropped candidates are debug detail there.)
+    if (who !== "user" && meta?.rag?.mode === "rag" && !HOSTED) row.appendChild(sourcesList(meta.rag));
     if (contract?.status === "dont_know" && contract.verification) row.appendChild(verifyBadge(contract.verification));
 
     const line = document.createElement("div");
     line.className = "meta";
     line.textContent = meta
-      ? who === "user"
-        ? userMetaLine(meta)
-        : agentMetaLine(meta, turn)
+      ? HOSTED
+        ? who !== "user" && meta.ms != null ? (meta.ms / 1000).toFixed(1) + " s" : ""
+        : who === "user"
+          ? userMetaLine(meta)
+          : agentMetaLine(meta, turn)
       : "";
+    // The hosted page has no badges: routes, modes and model metrics are debug detail there.
+    if (HOSTED) {
+      if (!error) row.appendChild(line);
+      messages.appendChild(row);
+      messages.scrollTop = messages.scrollHeight;
+      return row;
+    }
     if (who !== "user" && !error && meta?.rag && meta?.provider !== "local") line.prepend(modeBadge(meta.rag.label ?? meta.rag.mode));
     if (who !== "user" && !error && meta?.provider === "local") line.prepend(localBadge(meta));
     if (who !== "user" && !error && meta?.possible_truncation) line.prepend(truncationChip());
@@ -2454,7 +2519,9 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
     why.className = "idk-why";
     const reason = rag.dontKnow?.reason;
     const best = rag.rejected?.[0]?.rerankScore;
-    why.textContent = `Reason: ${reason ?? "?"} — ${DONT_KNOW_WHY[reason] ?? ""}` + (reason === "low_relevance" && typeof best === "number" ? ` Best rerank score ${best.toFixed(3)}.` : "");
+    why.textContent = HOSTED
+      ? DONT_KNOW_WHY[reason] ?? ""
+      : `Reason: ${reason ?? "?"} — ${DONT_KNOW_WHY[reason] ?? ""}` + (reason === "low_relevance" && typeof best === "number" ? ` Best rerank score ${best.toFixed(3)}.` : "");
     bubble.append(title, question, why);
   }
 
@@ -2875,7 +2942,8 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
 
   /** The switch, the "local model down" chip, and the sidebar's Ollama row. */
   function renderLlmSwitch() {
-    document.body.dataset.local = agentIsLocal() ? "1" : "0";
+    // The hosted page has no Model switch at all: nothing may unhide it.
+    document.body.dataset.local = !HOSTED && agentIsLocal() ? "1" : "0";
     const choice = currentLlm();
     const models = [...(localStatus?.models ?? [])];
     if (isLocalLlm(choice) && !models.some((m) => "local:" + m.name === choice)) models.push({ name: choice.slice(6), installed: false });
@@ -5102,6 +5170,7 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
   }
 
   async function renderKnowledgePanel() {
+    if (HOSTED) return renderHostedPanel();
     // Day 27: a local chat is Without RAG whatever the stored switch says.
     const mode = chatIsLocal() ? "plain" : ragMode;
     panelStats.innerHTML = mode === "rag" ? "<b>Knowledge</b> chat · task memory" : "<b>Knowledge</b> Q&amp;A, short-term history only";
@@ -5169,6 +5238,25 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
       // The panel says "…" for what it could not read.
     }
     draw();
+  }
+
+  /** Day 30: the hosted page's column — the task memory, and what answers and within which limits. */
+  function renderHostedPanel() {
+    panelStats.innerHTML = "<b>Knowledge</b> chat · task memory";
+    panelBody.innerHTML = "";
+    const box = document.createElement("div");
+    box.className = "knowledge-panel";
+    box.appendChild(taskMemoryBlock());
+    const l = hostedMe?.limits;
+    const h = document.createElement("h3");
+    h.textContent = "How it answers";
+    const p = document.createElement("p");
+    p.textContent =
+      `${hostedMe?.model ?? "A local model"} on a MacBook Air, over Tailscale; nothing goes to the cloud. Each message is read by a router that keeps the task memory, ` +
+      `then searched in the document index and answered with a quote for every claim, checked in code — or "I don't know" with a clarifying question.` +
+      (l ? ` One message is answered at a time (up to ${l.queueMax} wait in line); ${l.rateLimit} messages per ${Math.round(l.rateWindowS / 60)} minutes each; ${l.maxMessageChars} characters per message; the last ${l.historyTurns} messages are remembered.` : "");
+    box.append(h, p);
+    panelBody.appendChild(box);
   }
 
   /** The switches, drawn from `ragMode` and `ragStages`. The stages show only while RAG is on. */
@@ -5757,6 +5845,8 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
 
   /** One request feeds the totals strip, the chart and the stored-count. */
   async function refreshUsage(id = sessionId) {
+    // The hosted page has no cost chart, and no usage route.
+    if (HOSTED) return;
     let data = null;
     try {
       const res = await fetch(`/conversations/${id}/usage` + pickerQuery());
@@ -5796,6 +5886,7 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
     if (!fromStrip) input.value = "";
     autoGrow();
     setPending(true);
+    if (HOSTED) return sendHosted(text);
     const thinking = addThinking();
 
     try {
@@ -5826,12 +5917,7 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
         if (data.meta.route) userRow.querySelector(".meta").prepend(intentBadge(data.meta.route));
         addMessage("agent", data.reply, { meta: data.meta, id: data.meta.turn.replyMessageId });
         lastModel = data.meta.model ?? lastModel;
-        if (data.meta.taskMemory) {
-          taskMemory = data.meta.taskMemory;
-          memoryChange = data.meta.route?.diff ?? null;
-          renderPanel();
-          if (memoryChange && (memoryChange.added.length || memoryChange.removed.length || memoryChange.goalChanged)) flashPanel();
-        }
+        adoptTaskMemory(data.meta);
         if (data.meta.rag?.mode === "rag" && ragStatus && (!ragStatus.ready || (data.meta.rag.rerank && !ragStatus.rerankerReady))) renderPanel();
       } else {
         // The user's own message only gets its count once the server has
@@ -5868,6 +5954,109 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
       refreshConversations();
       refreshUsage();
     }
+  }
+
+  /** A Knowledge reply's task memory becomes the panel's, lit if the turn changed it. */
+  function adoptTaskMemory(meta) {
+    if (!meta.taskMemory) return;
+    taskMemory = meta.taskMemory;
+    memoryChange = meta.route?.diff ?? null;
+    renderPanel();
+    if (memoryChange && (memoryChange.added.length || memoryChange.removed.length || memoryChange.goalChanged)) flashPanel();
+  }
+
+  /**
+   * Day 30: a message on the hosted page. One model on one laptop, so the
+   * server queues it and streams where it stands (NDJSON): "waiting, position
+   * 2", then "generating…" with the time, then the reply — or a sentence
+   * saying which limit it hit (too long, too many messages, server busy,
+   * timed out).
+   */
+  async function sendHosted(text) {
+    const status = addQueueState();
+    try {
+      const res = await fetch("/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json", accept: "application/x-ndjson" },
+        body: JSON.stringify({ message: text, sessionId }),
+      });
+      let result;
+      if (res.ok && (res.headers.get("content-type") ?? "").includes("ndjson")) {
+        result = await readQueueStream(res, status);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        result = res.ok ? { status: 200, body: data } : { status: res.status, error: data.error || `Request failed (${res.status}).` };
+      }
+      status.remove();
+      if (result?.status === 200) {
+        addMessage("agent", result.body.reply, { meta: result.body.meta, id: result.body.meta.turn.replyMessageId });
+        adoptTaskMemory(result.body.meta);
+      } else {
+        addMessage("agent", result?.error || "The connection closed before the answer arrived. If it was already generating, the answer will be in this chat when you reopen it.", { error: true });
+      }
+    } catch (err) {
+      status.remove();
+      addMessage("agent", "Could not reach the server.", { error: true });
+    } finally {
+      setPending(false);
+      input.focus();
+      refreshConversations();
+    }
+  }
+
+  /** The queue's events, one JSON object per line, until `done` or `error`. */
+  async function readQueueStream(res, status) {
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (value) buffer += decoder.decode(value, { stream: true });
+      let newline;
+      while ((newline = buffer.indexOf("\n")) >= 0) {
+        const line = buffer.slice(0, newline).trim();
+        buffer = buffer.slice(newline + 1);
+        if (!line) continue;
+        const event = JSON.parse(line);
+        if (event.type === "queued") status.queued(event.position);
+        else if (event.type === "started") status.started();
+        else if (event.type === "done") return { status: 200, body: event.body };
+        else if (event.type === "error") return { status: event.status, error: event.error };
+      }
+      if (done) return null;
+    }
+  }
+
+  /** The placeholder on the hosted page: "waiting, position 2", then "generating… 12 s". */
+  function addQueueState() {
+    clearEmptyState();
+    const row = document.createElement("div");
+    row.className = "row agent";
+    row.innerHTML = '<div class="bubble"><span class="queue-state"></span><span class="dots"><span>.</span><span>.</span><span>.</span></span><span class="elapsed"></span></div>';
+    const what = row.querySelector(".queue-state");
+    const elapsed = row.querySelector(".elapsed");
+    let since = Date.now();
+    const tick = () => { elapsed.textContent = Math.floor((Date.now() - since) / 1000) + " s"; };
+    what.textContent = "sending";
+    tick();
+    const timer = setInterval(tick, 1000);
+    row.queued = (position) => {
+      what.replaceChildren("waiting, position ", Object.assign(document.createElement("b"), { textContent: String(position) }));
+      what.title = position === 1 ? "Next in line: one message is being answered now." : `${position - 1} messages are waiting ahead of this one, behind the one being answered.`;
+    };
+    row.started = () => {
+      since = Date.now();
+      what.textContent = "generating";
+      what.title = "";
+      tick();
+    };
+    row.remove = () => {
+      clearInterval(timer);
+      Element.prototype.remove.call(row);
+    };
+    messages.appendChild(row);
+    messages.scrollTop = messages.scrollHeight;
+    return row;
   }
 
   form.addEventListener("submit", (event) => {
@@ -5979,7 +6168,7 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
       const res = await fetch("/conversations/" + id + pickerQuery());
       if (!res.ok) {
         llmChoice = null;
-        applyKind("chat");
+        applyKind(HOSTED ? "knowledge" : "chat");
         resetPanel();
         renderPanel();
         return showEmptyState();
@@ -6040,7 +6229,7 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
       markTransitions(panelState.lifecycle);
       resumeBanner(panelState.lifecycle);
     } catch (err) {
-      applyKind("chat");
+      applyKind(HOSTED ? "knowledge" : "chat");
       resetPanel();
       renderPanel();
       showEmptyState();
@@ -6127,9 +6316,9 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
     }
   }
 
-  let openByDefault = true;
+  let openByDefault = !HOSTED;
   try {
-    openByDefault = localStorage.getItem(PANEL_OPEN_KEY) !== "0";
+    openByDefault = HOSTED ? localStorage.getItem(PANEL_OPEN_KEY) === "1" : localStorage.getItem(PANEL_OPEN_KEY) !== "0";
   } catch (err) {
     // No stored preference is the same as not having expressed one.
   }
@@ -6966,22 +7155,51 @@ const renderMarkdown = createMarkdown({ marked, DOMPurify });
     mcpSections.get(event.data.server)?.onAuthMessage(event.data.ok);
   });
 
-  mcpJson("/mcp/servers")
-    .then(({ servers = [] }) => {
-      for (const server of servers) {
-        const section = mcpSection(server);
-        mcpSections.set(server.id, section);
-        section.refresh({ quietConnect: true });
-      }
-    })
-    .catch((err) => console.warn("Could not list MCP servers:", err));
+  /** Day 30: the hosted page's one agent and the signed-in user, from `/api/me`. */
+  async function loadHosted() {
+    try {
+      const res = await fetch("/api/me");
+      if (res.ok) hostedMe = await res.json();
+    } catch (err) {
+      // The page still works as `local`; the header just has no name.
+    }
+    agents = [hostedMe?.agent ?? { id: "knowledge", name: "Knowledge", kind: "knowledge", local: true }];
+    agentId = "knowledge";
+    renderAgentSelect();
+    document.title = "Knowledge";
+    // The long hint (Enter / Shift+Enter) is a keyboard thing, and is cut off on a phone.
+    input.placeholder = "Ask a question…";
+    const who = document.getElementById("hosted-user");
+    who.replaceChildren();
+    const user = hostedMe?.user;
+    if (!user) return;
+    if (user.pic) who.appendChild(Object.assign(document.createElement("img"), { src: user.pic, alt: "", referrerPolicy: "no-referrer" }));
+    const name = Object.assign(document.createElement("b"), { textContent: user.name });
+    who.append(name);
+    if (user.login !== user.name) who.append(Object.assign(document.createElement("span"), { className: "login", textContent: user.login }));
+    who.title = user.tailnet ? `Signed in through Tailscale as ${user.login}` : "No Tailscale identity on this request (a local request, or a shared device): you are 'local'.";
+  }
 
-  await loadAgents();
-  await refreshLocalStatus();
-  // Ollama can come and go while the page is open; the switch and the sidebar follow.
-  setInterval(refreshLocalStatus, 20000);
-  await loadProfiles();
-  await loadProjects();
+  if (HOSTED) {
+    await loadHosted();
+  } else {
+    mcpJson("/mcp/servers")
+      .then(({ servers = [] }) => {
+        for (const server of servers) {
+          const section = mcpSection(server);
+          mcpSections.set(server.id, section);
+          section.refresh({ quietConnect: true });
+        }
+      })
+      .catch((err) => console.warn("Could not list MCP servers:", err));
+
+    await loadAgents();
+    await refreshLocalStatus();
+    // Ollama can come and go while the page is open; the switch and the sidebar follow.
+    setInterval(refreshLocalStatus, 20000);
+    await loadProfiles();
+    await loadProjects();
+  }
   renderPanel();
   renderWindowBanner();
   const startingAgent = agentId;

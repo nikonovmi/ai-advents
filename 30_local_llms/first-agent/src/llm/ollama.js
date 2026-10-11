@@ -44,6 +44,7 @@ export const PROJECT_DIR = path.join(import.meta.dirname, "..", "..");
  * | `LOCAL_RAG_NUM_CTX` | 8192 | the context window of every call in a Knowledge RAG chat (Day 28: 16384; Day 29 measured 8192 as good and made it the default, the same as `LOCAL_NUM_CTX`) |
  * | `LOCAL_RAG_NUM_PREDICT` | 2048 | Day 28: the RAG calls' output ceiling (a `submit_answer` carries quotes: about twice a free-text answer) |
  * | `LOCAL_PROMPT_VARIANT` | `v1` | Day 29: `v2` gives a local model the shorter contract and router prompts with examples (`prompt.js`, `router.js`); Claude always gets `v1` |
+ * | `LOCAL_KEEP_ALIVE` | Ollama's (5m) | Day 30: how long Ollama keeps the model loaded after a call (`60m`, or seconds); the hosted server sets it from `HOSTED_KEEP_ALIVE` |
  */
 export function localSettings(env = process.env) {
   const int = (name, fallback, min, max) => {
@@ -61,8 +62,17 @@ export function localSettings(env = process.env) {
     ragNumCtx: int("LOCAL_RAG_NUM_CTX", 8192, 2048, 262144),
     ragNumPredict: int("LOCAL_RAG_NUM_PREDICT", 2048, 1, 32768),
     promptVariant: promptVariant(env.LOCAL_PROMPT_VARIANT),
+    keepAlive: keepAlive(env.LOCAL_KEEP_ALIVE),
     dir: path.resolve(PROJECT_DIR, env.LOCAL_LLM_DIR || path.join("..", "local_llm")),
   };
+}
+
+/** Unset: Ollama's default. A number of seconds, or a duration (`60m`, `2h`; `-1` keeps it loaded). */
+function keepAlive(raw) {
+  if (raw === undefined || raw === "") return null;
+  if (/^-?\d+$/.test(raw)) return Number(raw);
+  if (/^-?\d+(\.\d+)?(ms|s|m|h)$/.test(raw)) return raw;
+  throw new Error(`LOCAL_KEEP_ALIVE must be seconds or a duration like 60m, got "${raw}"`);
 }
 
 function promptVariant(raw) {
@@ -322,7 +332,7 @@ export class OllamaProvider extends LlmProvider {
       );
     }
     const numPredict = Math.min(maxTokens ?? this.#settings.numPredict, this.#settings.numPredict);
-    const base = { model: id, temperature, num_predict: numPredict, num_ctx: this.#settings.numCtx, think: false };
+    const base = { model: id, temperature, num_predict: numPredict, num_ctx: this.#settings.numCtx, think: false, ...(this.#settings.keepAlive != null ? { keep_alive: this.#settings.keepAlive } : {}) };
     const wire = toOllamaMessages(forced ? structuredSystem(system, forced) : system, messages);
 
     if (!forced) {

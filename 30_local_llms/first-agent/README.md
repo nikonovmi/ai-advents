@@ -17,6 +17,8 @@ The Knowledge agent also needs a built index: `cd ../doc_index && npm install &&
 | `npm test` | offline tests: no key, no network (Ollama is a fake `fetch`) |
 | `npm run start:offline` | Day 27: `OFFLINE=1 HOST=127.0.0.1`: loopback only, Claude off, no remote MCP servers |
 | `npm run verify:local [-- --model qwen3.5:9b]` | Day 27: the real routes in-process, no key, a fetch guard on every non-localhost host; a 3-message conversation per agent and local model → [`reports/day27_verify.md`](reports/day27_verify.md), `reports/day27_verify.json`; needs Ollama running |
+| `npm run serve:local` | Day 30: [the hosted service](#hosted-service-day-30) — the Knowledge chat alone on 127.0.0.1:3100, for Tailscale Serve; runs under `caffeinate` |
+| `npm run load:local [-- --url https://<machine>.<tailnet>.ts.net]` | Day 30: stability, limits and isolation checks against the running hosted server → [`reports/hosted_load_report.md`](reports/hosted_load_report.md), `reports/hosted_load_results.json` |
 | `npm run eval:planner [-- <goal id>]` | plans 8 goals with the real model; exit 1 on a wrong tool sequence |
 | `npm run eval:rag [-- q03] [-- --modes rag,rag+rerank]` | 17 questions × 4 modes (`plain`, `rag`, `rag+rerank`, `rag+rewrite+rerank`), judged blind → [`reports/rag_comparison.md`](reports/rag_comparison.md), `reports/rag_results.json`; needs the key and a built `../doc_index` |
 | `npm run eval:citations [-- --mode rag] [-- q17]` | the 10 `citations` questions in one mode (default `rag+rerank`): sources, citations, fabricated quotes, faithfulness judge, "I don't know" → [`reports/citations_report.md`](reports/citations_report.md), `reports/citations_results.json`; `--report` re-renders with `reports/citations_notes.md` |
@@ -48,6 +50,160 @@ Defined in `src/agents.js`; each has its own chat list.
   (greyed, collapsed). A reply declined by the cutoff shows the best rejected chunks. **Compare** asks one question both ways side by
   side. **Eval results** opens http://localhost:3000/rag-report. Works without any MCP
   server running.
+
+## Hosted service (Day 30)
+
+The Knowledge chat as a private service on this MacBook Air: qwen3.5:9b under Ollama, the local
+RAG pipeline, reached from my phone and other devices over Tailscale. Tailscale is the network
+and the sign-in; there is no login code in the app.
+
+```bash
+npm run serve:local        # http://127.0.0.1:3100, then: tailscale serve --bg 3100
+```
+
+**A separate server, not a hidden page.** Hiding the other agents in the UI would leave
+`/rag-report`, the pipeline routes and the Notion OAuth routes one `curl` away for anyone on the
+tailnet. So `serve:local` starts its own entry point, [`src/hosted.js`](src/hosted.js)
+([`src/hosted/app.js`](src/hosted/app.js)), which mounts only:
+
+- `GET /` — the same `public/index.html`, served with `<html data-hosted="1">`, plus the scripts it imports;
+- the user's own Knowledge chats — `GET /conversations`, `POST /conversations`, `GET` / `DELETE /conversations/:id`,
+  `DELETE /conversations/:id/task-memory` (Reset), `POST /chat`;
+- `POST /api/ask`, `GET /api/me`, `GET /health`.
+
+Everything else is a 404: `/rag-report`, Compare, `/rag/*`, pipelines and runs, MCP and Notion
+OAuth, the other agents, profiles, projects, `/local/status`. It binds to **127.0.0.1 only**, so
+Tailscale Serve is the only way in from the network; the full app (`npm start`, port 3000) is
+unchanged and never exposed. No MCP client is created (the hosted module graph never imports
+`src/mcp/`, which a test checks) and Notion tokens are never read. `ANTHROPIC_API_KEY` is
+dropped at startup; the only provider is Ollama, and Day 27's fetch guard
+([`src/llm/fetchGuard.js`](src/llm/fetchGuard.js), shared with `verify:local`) refuses and logs
+any request to a host other than localhost (`/health` counts them). The configuration is fixed:
+RAG and rerank on, qwen3.5:9b, num_ctx 8192 on every call and the v1 prompts (Day 29's adopted
+settings), `keep_alive` 60 m. There are no switches to change it.
+
+**The page** is the Knowledge chat frontend with the hosted flag, not a fork: the chat list,
+messages, citation chips with their quotes, sources, "I don't know" with its clarifying
+question, and the task memory panel with Reset stay; the agent picker, the Model / RAG / Rerank
+switches, Compare, the Eval results link, the cost chart and the debug detail (route badges,
+rerank scores, dropped candidates, metric hovers) go. While a message waits it shows "waiting,
+position 2", then "generating… 12 s"; a limit shows as a sentence. The header shows the signed-in
+user.
+
+**Identity.** Tailscale Serve (1.104 here) adds `Tailscale-User-Login`, `Tailscale-User-Name`
+(RFC 2047-encoded when not ASCII) and `Tailscale-User-Profile-Pic` to every proxied request from a
+user's device. They are trusted **only because the server listens on 127.0.0.1**
+([`src/hosted/identity.js`](src/hosted/identity.js) says so). Each login gets its own conversation
+directory (`data/hosted/<login>-<hash>/`, git-ignored), so a user only ever lists, reads, changes
+or deletes their own chats; another user's id reads as an empty chat. No header (a request from
+this Mac, or a tagged device) is the user `local`.
+
+### Limits
+
+Every message, a chat turn or an `/api/ask`, goes through one queue and one per-user rate limit
+([`src/hosted/queue.js`](src/hosted/queue.js), [`rateLimit.js`](src/hosted/rateLimit.js)). All
+are env settings, in `.env.example`:
+
+| limit | default | when exceeded |
+| --- | --- | --- |
+| `HOSTED_CONCURRENCY` | 1 | requests at the model at once; the rest wait in the queue (FIFO) |
+| `HOSTED_QUEUE_MAX` | 5 | 429 "server busy" with `Retry-After` (the work ahead at the recent pace) |
+| `HOSTED_RATE_LIMIT` | `10/10m` (10 messages per 10 min per user) | 429 with `Retry-After` |
+| `HOSTED_MAX_MESSAGE_CHARS` | 2000 | 413 with a readable message |
+| history | `RAG_HISTORY_TURNS` (6) | older messages aren't sent |
+| context | num_ctx 8192 (Day 29) | `possible_truncation` is logged |
+| `HOSTED_MAX_OUTPUT_TOKENS` | 1024 | every model call's output ceiling |
+| `HOSTED_REQUEST_TIMEOUT_MS` | 180000 | from when it starts running: 504 with a readable error; its model call is aborted and the queue moves on |
+
+- A client that disconnects while waiting is removed from the queue and never runs. An
+  `/api/ask` whose client leaves is cancelled even while running; a chat turn finishes and is
+  saved, so the answer is there when the chat is reopened.
+- One user can't hold more than one running or queued message per conversation (409).
+- A message counts towards the rate limit once the queue admits it; one refused for size or a
+  full queue costs nothing.
+- `X-Request-Timeout-Ms` sets a request's own deadline. It can only shorten
+  `HOSTED_REQUEST_TIMEOUT_MS`; `load:local` uses it to check the timeout path.
+- `HOSTED_KEEP_ALIVE` (`60m`) keeps qwen loaded between visitors, `HOSTED_DATA_DIR` moves the chats.
+
+### Running it
+
+- **Warm-up:** before "ready", one search (embedding model and index), one rerank (the
+  cross-encoder) and a one-token qwen call at num_ctx 8192, so the first user doesn't pay for
+  loading (~14 s here).
+- **Keep the Mac awake:** `serve:local` runs under `caffeinate -is` (no idle or system sleep
+  while it runs; system sleep is only held off on power). Keep the lid open and the charger
+  connected: closing the lid sleeps the Air whatever `caffeinate` says.
+- **Stopping:** Ctrl-C (or SIGTERM) stops taking requests, rejects the waiting ones with 503,
+  lets the running one finish, and exits. Nothing is unloaded.
+
+### Tailscale
+
+The CLI ships inside the Mac app: `alias tailscale=/Applications/Tailscale.app/Contents/MacOS/Tailscale`
+(or install it from the menu bar app: Settings → CLI). MagicDNS and HTTPS certificates must be on
+for the tailnet (admin console → DNS); the first `serve` offers a link to turn HTTPS on if not.
+
+```bash
+tailscale serve --bg 3100     # https://<machine>.<tailnet>.ts.net → http://127.0.0.1:3100, persists across restarts
+tailscale serve status        # what is being served
+tailscale serve reset         # stop serving (clears the serve config)
+```
+
+Here the URL is **https://michaels-macbook-air.tail10a1c4.ts.net** (`tailscale status --json` →
+`Self.DNSName`). Only devices on the tailnet can resolve and reach it. To let someone else use it,
+share the machine from the admin console (Machines → this Mac → Share…) or invite them to the
+tailnet; their own login arrives in the headers, so they get their own chats and their own
+rate limit. Don't use `tailscale funnel`: that would put it on the public internet.
+
+### API
+
+```bash
+H=https://michaels-macbook-air.tail10a1c4.ts.net    # or http://127.0.0.1:3100 on this Mac
+
+# one stateless question through the whole local RAG pipeline (no router, no memory)
+curl -s $H/api/ask -H 'content-type: application/json' \
+  -d '{"question":"Is Compose Multiplatform for iOS stable?"}'
+# → { "status": "answered" | "dont_know", "answer", "citations": [{ id, chunk_id, quote, source, section }],
+#     "sources", "clarifying_question", "timings": { queueMs, retrieveMs, rerankMs, answerMs, totalMs, runMs }, "model" }
+
+# a conversation: create, send, read, reset its task memory, list, delete
+ID=$(curl -s -X POST $H/conversations | jq -r .id)
+curl -s $H/chat -H 'content-type: application/json' -d "{\"sessionId\":\"$ID\",\"message\":\"Is CMP for iOS stable?\"}" | jq .reply
+curl -s $H/conversations/$ID | jq '.messages | length'
+curl -s -X DELETE $H/conversations/$ID/task-memory
+curl -s $H/conversations
+curl -s -X DELETE $H/conversations/$ID
+
+# the queue's progress as NDJSON: {"type":"queued","position":2} … {"type":"started"} … {"type":"done","body":…}
+curl -sN $H/api/ask -H 'accept: application/x-ndjson' -H 'content-type: application/json' -d '{"question":"…"}'
+
+curl -s $H/health   # ok, status, uptimeS, ollama, model (loaded, size), index, embeddings, reranker, queue, limits, outboundBlocked
+curl -s $H/api/me   # who Tailscale says you are, and the limits
+```
+
+Errors are `{ "error": "<a sentence>" }` with 400, 409, 413, 429 (+ `Retry-After`), 503 or 504;
+on an NDJSON stream they arrive as `{"type":"error","status":…,"error":…}`.
+
+### `npm run load:local`
+
+Runs against the hosted server (default `http://127.0.0.1:3100`, or `--url`) by HTTP only and
+writes [`reports/hosted_load_report.md`](reports/hosted_load_report.md) and
+`reports/hosted_load_results.json`:
+
+- **Isolation:** 20 excluded routes must be 404.
+- **Stability:** 5 simulated users (fake `Tailscale-User-Login` headers, which only work on
+  127.0.0.1) send 2–3 `citations` questions each, all at once: the first in a new chat, the rest
+  via `/api/ask`; a busy 429 is retried after `Retry-After`. Successes, 429s, timeouts, errors,
+  queue wait and answer latency (p50, p95, max), Ollama's memory before and after, `/health` at the end.
+- **Limits, one check each:** 413, 409 (same chat), 429 full queue, leaving the queue, 429 rate
+  limit, 504 then the next request works, and another user's conversation reads as empty. The
+  queue and rate checks fill the queue behind one running request and leave it again, so they
+  cost one answer, not a dozen.
+- **Outbound:** the server's fetch-guard count must not move.
+- **Network access:** a section filled in by hand, with the commands to run (phone over
+  Tailscale, `curl` from another tailnet device, a device off the tailnet).
+
+Through `--url https://…ts.net`, Serve replaces the fake identities with your own, so the five
+users become one; the report says so and skips the cross-user check.
 
 ## Optimization (Day 29)
 

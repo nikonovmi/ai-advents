@@ -22,7 +22,9 @@
     "eval:chat": "node scripts/eval-chat.js",
     "eval:local": "node scripts/eval-local.js",
     "verify:local": "node scripts/verify-local.js",
-    "opt:local": "node scripts/opt-local.js"
+    "opt:local": "node scripts/opt-local.js",
+    "serve:local": "caffeinate -is node src/hosted.js",
+    "load:local": "node scripts/load-local.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.1",

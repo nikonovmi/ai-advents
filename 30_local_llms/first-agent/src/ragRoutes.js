@@ -3,22 +3,22 @@ import path from "node:path";
 
 import express from "express";
 
-import { agentOf, isKnowledgeAgent } from "./agents.js";
+import { isKnowledgeAgent } from "./agents.js";
 import { CLAUDE, isLlmChoice, isLocalChoice } from "./llm/choice.js";
 import { estimateCost } from "./llm/pricing.js";
 import { answerQuestion, modeLabel as modeLabelOf, retrieveForQuestion } from "./rag/answer.js";
 import { RAG_MAX_TOKENS, REPORTS_DIR, chatSettings, ragSettings } from "./rag/config.js";
 import { chatSummaryRows } from "./rag/chatEval.js";
-import { runChatTurn } from "./rag/chatTurn.js";
 import { citationSummaryRows } from "./rag/citationsEval.js";
+import { answerKnowledgeMessage, knowledgeView } from "./rag/knowledgeTurn.js";
 import { localSummaryRows } from "./rag/localEval.js";
 import { lineDiff, optQuestionRows, optSummaryRows } from "./rag/optEval.js";
 import { summaryRows } from "./rag/eval.js";
 import { sharedReranker } from "./rag/reranker.js";
 import { RetrievalError, sharedRetriever } from "./rag/retriever.js";
 import { routeMessage } from "./rag/router.js";
-import { emptyMemory, taskMemoryOf } from "./rag/taskMemory.js";
-import { RAG_MODES, isValidSessionId, nextMessageId, normaliseUsage } from "./store/conversationStore.js";
+import { emptyMemory } from "./rag/taskMemory.js";
+import { RAG_MODES, isValidSessionId } from "./store/conversationStore.js";
 
 /**
  * **The Knowledge agent's chats, and the RAG eval page.**
@@ -159,124 +159,30 @@ export function ragRoutes({
       const mode = ragMode ?? record?.ragMode ?? "rag";
       const ragOptions = { rerank: rerank ?? record?.ragOptions?.rerank ?? DEFAULT_RAG_OPTIONS.rerank, rewrite: rewrite ?? record?.ragOptions?.rewrite ?? DEFAULT_RAG_OPTIONS.rewrite };
 
-      const messages = record?.messages ?? [];
-      const history = messages.slice(-HISTORY_MESSAGES).map(({ role, content }) => ({ role, content }));
-      const startedAt = Date.now();
-      const memoryBefore = taskMemoryOf(record?.taskMemory);
-      let result;
-      let turn = null;
       try {
-        if (mode === "rag") {
-          turn = await runChatTurn({
+        res.json(
+          await answerKnowledgeMessage({
+            store,
+            sessionId,
+            record,
             message: message.trim(),
-            messages,
-            memory: memoryBefore,
-            turn: messages.filter((m) => m.role === "user").length + 1,
-            // Day 28: the chat's provider for every call of the turn; a local one is sized for RAG.
-            provider: llms.ragProviderFor(llm),
-            routerModel: chat.routerModel,
-            historyTurns: chat.historyTurns,
-            ragOptions: { ...settings, ...fakes, rerank: ragOptions.rerank },
-            router: routeTurn,
+            mode,
+            ragOptions,
+            llm,
+            agent: req.body.agent,
+            llms,
+            settings,
+            fakes,
+            chat,
+            historyMessages: HISTORY_MESSAGES,
+            routeTurn,
             answer,
             log,
-          });
-          result = turn.result;
-        } else {
-          result = await ask(message.trim(), { mode, ...ragOptions }, history, llms.providerFor(llm));
-        }
+          }),
+        );
       } catch (err) {
         return failure(res, err);
       }
-
-      // A chat or memory_only turn made one call, the router's; a search turn the router's and the answer's.
-      const routerUsage = turn?.route.routerUsage ?? null;
-      const answerUsage = result?.usage ?? null;
-      const inputTokens = (routerUsage?.inputTokens ?? 0) + (answerUsage?.inputTokens ?? 0);
-      const outputTokens = (routerUsage?.outputTokens ?? 0) + (answerUsage?.outputTokens ?? 0);
-      const routerCost = routerUsage ? estimateCost({ model: turn.route.routerModel, inputTokens: routerUsage.inputTokens, outputTokens: routerUsage.outputTokens }) : null;
-      const answerCost = answerUsage ? estimateCost({ model: result.model, inputTokens: answerUsage.inputTokens, outputTokens: answerUsage.outputTokens }) : null;
-      const plus = (key) => (routerCost?.[key] == null && answerCost?.[key] == null ? null : (routerCost?.[key] ?? 0) + (answerCost?.[key] ?? 0));
-      const cost = { inputCost: plus("inputCost"), outputCost: plus("outputCost"), totalCost: plus("totalCost") };
-      const tokens = { input: inputTokens, output: outputTokens, total: inputTokens + outputTokens };
-      const userMessage = { role: "user", content: message.trim(), id: nextMessageId(messages), ...(turn ? { route: turn.route } : {}) };
-      if (!result) {
-        // chat / memory_only: the router's reply, no documents.
-        const reply = {
-          role: "assistant",
-          content: turn.reply,
-          id: nextMessageId([...messages, userMessage]),
-          tokens,
-          cost: { input: cost.inputCost, output: cost.outputCost, total: cost.totalCost },
-          model: turn.route.routerModel,
-          ...(turn.route.routerProvider ? { provider: turn.route.routerProvider } : {}),
-          ...(turn.route.routerProvider === "local" && turn.route.routerMetrics ? { localMetrics: turn.route.routerMetrics } : {}),
-          ...(turn.route.possible_truncation ? { possible_truncation: true } : {}),
-          ms: Date.now() - startedAt,
-          stopReason: "routed",
-        };
-        const usage = normaliseUsage(record?.usage);
-        usage.totalInputTokens += inputTokens;
-        usage.totalOutputTokens += outputTokens;
-        usage.totalCostUsd += cost.totalCost ?? 0;
-        usage.turnCount += 1;
-        await store.save(sessionId, [...messages, userMessage, reply], usage, { agentId: agentOf(record?.agentId ?? req.body.agent), ragMode: mode, ragOptions, taskMemory: turn.memory, llm });
-        return res.json({ reply: reply.content, meta: { ...reply, route: turn.route, taskMemory: turn.memory, turn: { userMessageId: userMessage.id, replyMessageId: reply.id } } });
-      }
-      const reply = {
-        role: "assistant",
-        content: result.answer,
-        id: nextMessageId([...messages, userMessage]),
-        tokens,
-        cost: { input: cost.inputCost, output: cost.outputCost, total: cost.totalCost },
-        model: result.model,
-        ...(result.provider ? { provider: result.provider } : {}),
-        ...(result.localMetrics ? { localMetrics: result.localMetrics } : {}),
-        ...(result.possible_truncation || turn?.route.possible_truncation ? { possible_truncation: true } : {}),
-        ms: Date.now() - startedAt,
-        stopReason: result.stopReason,
-        ...(result.stopReason === "max_tokens" ? { truncated: true } : {}),
-        rag: {
-          mode,
-          label: result.label,
-          rerank: result.rerank,
-          rewrite: result.rewrite,
-          queries: result.queries,
-          candidates: result.candidates,
-          chunks: result.chunks,
-          declined: result.declined,
-          rejected: result.rejected,
-          ...(mode === "rag"
-            ? {
-                status: result.status,
-                citations: result.citations,
-                sources: result.sources,
-                clarifyingQuestion: result.clarifyingQuestion,
-                dontKnow: result.dontKnow,
-                verification: result.verification,
-              }
-            : {}),
-          timings: result.timings,
-          ...(result.generation ? { generation: { invalidJson: result.generation.invalidJson, schemaFailures: result.generation.schemaFailures, calls: result.generation.calls.length } } : {}),
-        },
-      };
-      const usage = normaliseUsage(record?.usage);
-      usage.totalInputTokens += inputTokens ?? 0;
-      usage.totalOutputTokens += outputTokens ?? 0;
-      usage.totalCostUsd += cost.totalCost ?? 0;
-      usage.turnCount += 1;
-      await store.save(sessionId, [...messages, userMessage, reply], usage, {
-        agentId: agentOf(record?.agentId ?? req.body.agent),
-        ragMode: mode,
-        ragOptions,
-        llm,
-        ...(turn ? { taskMemory: turn.memory } : {}),
-      });
-
-      res.json({
-        reply: result.answer,
-        meta: { ...reply, ...(turn ? { route: turn.route, taskMemory: turn.memory } : {}), turn: { userMessageId: userMessage.id, replyMessageId: reply.id } },
-      });
     }),
   );
 
@@ -285,18 +191,7 @@ export function ragRoutes({
     route(async (req, res, next) => {
       const record = await knowledgeChat(req.params.id, req.query?.agent);
       if (record === undefined) return next();
-      res.json({
-        messages: record?.messages ?? [],
-        agentId: "knowledge",
-        kind: "knowledge",
-        ragMode: record?.ragMode ?? "rag",
-        rerank: record?.ragOptions?.rerank ?? DEFAULT_RAG_OPTIONS.rerank,
-        rewrite: record?.ragOptions?.rewrite ?? DEFAULT_RAG_OPTIONS.rewrite,
-        taskMemory: taskMemoryOf(record?.taskMemory),
-        llm: record?.llm ?? null,
-        forkedFrom: record?.forkedFrom ?? null,
-        panel: { kind: "knowledge" },
-      });
+      res.json(knowledgeView(record, DEFAULT_RAG_OPTIONS));
     }),
   );
 
