@@ -1,5 +1,7 @@
 # Day 28 — Local LLM + RAG
 
+https://github.com/user-attachments/assets/de73e0a3-d583-4f25-8e40-530e56cb7077
+
 **Day 28:** a [`first-agent`](first-agent) Knowledge chat **With RAG** now runs fully on this
 machine when a local model is selected. Retrieval and rerank were already local. The router, the
 `submit_answer` contract and the low-relevance clarification now run on the chat's Ollama model as
