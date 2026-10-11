@@ -1,5 +1,7 @@
 # Day 27 — Integrating a local LLM into an application
 
+https://github.com/user-attachments/assets/c1f9abac-66d9-4727-aaa9-e98772c2b8e2
+
 **Day 27:** [`first-agent`](first-agent) can now answer with a model running under Ollama on
 this machine. A new `OllamaProvider` uses Day 26's [`local_llm`](local_llm) client, and a
 per-chat **Model** switch picks `Claude` or a local model. A local badge on each reply shows
