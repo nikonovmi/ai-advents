@@ -1,4 +1,33 @@
-# Day 25 — Mini-chat with RAG and task memory
+# Day 26 — Launching a local LLM
+
+**Day 26:** two models run locally under Ollama 0.40.2 on a MacBook Air M2 (16 GB):
+`gemma4:12b` and `qwen3.5:9b`, both 4-bit (nvfp4, MLX runner). The new
+[`local_llm`](local_llm) project talks to Ollama's native HTTP API with plain `fetch`.
+`npm run check` confirms the server, the CLI and the installed models. `npm run bench` runs
+five auto-checked requests per model, one model at a time with a warm-up and an unload:
+simple, multi-step reasoning, JSON schema extraction, and grounded on a real doc_index chunk,
+answerable and not ([report](local_llm/reports/day26_report.md)):
+
+| | gemma4:12b | qwen3.5:9b |
+| --- | ---: | ---: |
+| checks passed | 5/5 | 5/5 |
+| cold load (warm-up) | 6.7 s | 5.9 s |
+| mean TTFT (load + prompt eval) | 1.72 s | 1.63 s |
+| mean generation | 12.5 tok/s | 13.8 tok/s |
+| generation, token-weighted | 14.8 tok/s | 17.2 tok/s |
+| prompt processing, token-weighted | 61 tok/s | 95 tok/s |
+| mean total latency | 8.70 s | 8.32 s |
+
+Both models passed everything with `think: false`. Both got the word problem right with
+written-out steps (7 boxes), produced schema-valid JSON with all 8 values correct, quoted
+"~9 MB" from the passage, and said "I don't know" when the passage didn't cover the question.
+qwen3.5:9b is 10–16% faster at generation (mean vs token-weighted) and about 1.5× faster at reading the prompt. On
+this M2, prompt processing is the slow part: a 280-token passage takes 2.9 s (qwen) to 4.4 s
+(gemma) before the first token. The 400-token reasoning answer takes 26–28 s. gemma reused
+its prompt cache when the same passage came twice (254 of 281 tokens, TTFT 4.4 → 0.6 s).
+qwen didn't reuse it.
+
+## Day 25 — Mini-chat with RAG and task memory
 
 **Day 25:** the Knowledge agent is now a multi-turn chat. Each message goes first to a **router**
 (one forced `route` call, Haiku 4.5, temperature 0). The router labels it `search`, `memory_only`
@@ -136,6 +165,7 @@ in [`first-agent/eval/rag/questions.md`](first-agent/eval/rag/questions.md).
 | project | port | role |
 | --- | --- | --- |
 | [`first-agent`](first-agent) | 3000 | chat app: the **Knowledge** agent (RAG / no RAG), the eval page at `/rag-report`, and the earlier agents (memory chat, Movie buff, Pipeline) |
+| [`local_llm`](local_llm) | — | Day 26: checks and benchmarks local models under Ollama (HTTP API, no SDK); [report](local_llm/reports/day26_report.md) |
 | [`doc_index`](doc_index) | — | local vector index (EmbeddingGemma-300M + SQLite) that the Knowledge agent searches; Day 21's fixed vs structural [comparison](doc_index/reports/comparison.md) |
 | [`imdb_mcp_server`](imdb_mcp_server) | 3001 | OMDb tools (Movie buff, Pipeline) |
 | [`scheduler_mcp_server`](scheduler_mcp_server) | 3002 | pipelines, runs and records in SQLite (Pipeline) |
@@ -170,7 +200,15 @@ Retrieval settings (all optional, in `first-agent/.env`): `RAG_K_FINAL` (5), `RA
 `RAG_COLLECTIONS` (all; e.g. `knowledge`), `RAG_MIN_SCORE` (off). The reranker (~570 MB)
 downloads on the first reranked question.
 
-Tests (offline, no key, no model): `npm test` in `first-agent` and `doc_index`.
+Local models (Day 26; Ollama running, `ollama pull gemma4:12b qwen3.5:9b`):
+
+```bash
+cd local_llm
+npm run check                    # server, CLI, models, one "say OK" each
+npm run bench                    # 5 checked requests per model → reports/day26_*
+```
+
+Tests (offline, no key, no model): `npm test` in `first-agent`, `doc_index` and `local_llm`.
 Spec: [`PROMPT.md`](PROMPT.md).
 
 ## Earlier days
