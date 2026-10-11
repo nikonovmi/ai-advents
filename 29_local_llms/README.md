@@ -1,5 +1,7 @@
 # Day 29 — Optimizing a local LLM
 
+https://github.com/user-attachments/assets/16e28f92-b919-45eb-854e-0081a5d4a98e
+
 **Day 29:** [`first-agent`](first-agent)'s Knowledge RAG chat drops gemma4:12b and tunes
 qwen3.5:9b. `npm run opt:local` runs three variants in order with a 180 s cooldown, each on the
 10 citation questions (Day 28's cached retrieval, judged by Claude Haiku 4.5) and on the 3-turn
