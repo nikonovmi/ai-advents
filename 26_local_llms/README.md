@@ -1,5 +1,7 @@
 # Day 26 — Launching a local LLM
 
+https://github.com/user-attachments/assets/205d1c0d-c705-4a26-9fdc-7a40b0fc9d54
+
 **Day 26:** two models run locally under Ollama 0.40.2 on a MacBook Air M2 (16 GB):
 `gemma4:12b` and `qwen3.5:9b`, both 4-bit (nvfp4, MLX runner). The new
 [`local_llm`](local_llm) project talks to Ollama's native HTTP API with plain `fetch`.
